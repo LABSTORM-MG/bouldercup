@@ -30,6 +30,11 @@ class AgeGroup(models.Model):
         gender_ok = self.gender == "mixed" or self.gender == gender
         return in_range and gender_ok
 
+    @property
+    def boulders(self):
+        # Expose reverse relation when defined on Boulder.
+        return self.boulder_set.all()
+
 
 class Participant(models.Model):
     """Stores a competitor account and links to the matching age group."""
@@ -86,3 +91,36 @@ class Participant(models.Model):
         return today.year - self.date_of_birth.year - (
             (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
         )
+
+
+class Boulder(models.Model):
+    """Represents a single boulder in the competition."""
+
+    label = models.CharField(
+        max_length=30,
+        unique=True,
+        help_text="Kürzel oder Nummer, z.B. B12 oder A3.",
+    )
+    color = models.CharField(
+        max_length=50,
+        help_text="Griff-/Tape-Farbe zur einfachen Zuordnung.",
+    )
+    age_groups = models.ManyToManyField(
+        AgeGroup,
+        related_name="boulders",
+        blank=True,
+        help_text="Wähle alle Altersgruppen, für die dieser Boulder gedacht ist.",
+    )
+    note = models.TextField(blank=True)
+    location = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Sektor/Zone (kann später als eigenes Modell ausgegliedert werden).",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["label"]
+
+    def __str__(self) -> str:
+        return f"{self.label} ({self.color})"

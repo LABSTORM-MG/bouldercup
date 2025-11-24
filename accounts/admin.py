@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Participant
+from .models import AgeGroup, Boulder, Participant
 
 
 class ParticipantInline(admin.TabularInline):
@@ -11,12 +11,20 @@ class ParticipantInline(admin.TabularInline):
     form = ParticipantAdminForm
 
 
+class BoulderInline(admin.TabularInline):
+    model = Boulder.age_groups.through
+    extra = 1
+    verbose_name = "Boulder"
+    verbose_name_plural = "Boulder"
+    fields = ("boulder",)
+
+
 @admin.register(AgeGroup)
 class AgeGroupAdmin(admin.ModelAdmin):
     list_display = ("name", "min_age", "max_age", "gender")
     list_filter = ("gender",)
     search_fields = ("name",)
-    inlines = [ParticipantInline]
+    inlines = [BoulderInline, ParticipantInline]
 
 
 @admin.register(Participant)
@@ -48,3 +56,13 @@ class ParticipantAdmin(admin.ModelAdmin):
 
 admin.site.site_title = "BoulderCup Verwaltung"
 admin.site.site_header = "BoulderCup Verwaltung"
+
+
+@admin.register(Boulder)
+class BoulderAdmin(admin.ModelAdmin):
+    list_display = ("label", "color", "location", "created_at")
+    search_fields = ("label", "color", "location", "note")
+    ordering = ("label",)
+    list_filter = ("color",)
+    filter_horizontal = ()
+    exclude = ("age_groups",)

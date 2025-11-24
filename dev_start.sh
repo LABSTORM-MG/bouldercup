@@ -4,9 +4,15 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
-if [[ -f ".venv/bin/activate" ]]; then
-    # Use local virtualenv when available.
-    source .venv/bin/activate
+# Ensure virtualenv exists and is activated.
+if [[ ! -d ".venv" ]]; then
+    python3 -m venv .venv
+fi
+source .venv/bin/activate
+
+# Make sure Django is present so migrations/admin work out of the box.
+if ! python -m django --version >/dev/null 2>&1; then
+    pip install "django>=5.2,<5.3"
 fi
 
 KEEP_DB=false
