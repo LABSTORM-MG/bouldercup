@@ -60,9 +60,13 @@ admin.site.site_header = "BoulderCup Verwaltung"
 
 @admin.register(Boulder)
 class BoulderAdmin(admin.ModelAdmin):
-    list_display = ("label", "color", "location", "created_at")
+    list_display = ("label", "color", "display_zone_count", "location", "created_at")
     search_fields = ("label", "color", "location", "note")
     ordering = ("label",)
-    list_filter = ("color",)
+    list_filter = ("zone_count", "color")
     filter_horizontal = ()
     exclude = ("age_groups",)
+
+    @admin.display(description="Zonen")
+    def display_zone_count(self, obj):
+        return obj.get_zone_count_display()

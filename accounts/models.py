@@ -1,6 +1,8 @@
+import re
 from datetime import date
 
 from django.db import models
+from django.utils.text import slugify
 
 
 class AgeGroup(models.Model):
@@ -96,10 +98,47 @@ class Participant(models.Model):
 class Boulder(models.Model):
     """Represents a single boulder in the competition."""
 
+    COLOR_ALIASES = {
+        "rot": "#ef4444",
+        "hellrot": "#f87171",
+        "dunkelrot": "#b91c1c",
+        "blau": "#3b82f6",
+        "hellblau": "#38bdf8",
+        "dunkelblau": "#1d4ed8",
+        "grun": "#22c55e",
+        "gruen": "#22c55e",
+        "hellgrun": "#86efac",
+        "dunkelgrun": "#15803d",
+        "gelb": "#facc15",
+        "orange": "#fb923c",
+        "lila": "#a855f7",
+        "violett": "#8b5cf6",
+        "pink": "#ec4899",
+        "tuerkis": "#06b6d4",
+        "türkis": "#06b6d4",
+        "mint": "#a7f3d0",
+        "schwarz": "#0f172a",
+        "grau": "#9ca3af",
+        "silber": "#cbd5e1",
+        "weiss": "#e5e7eb",
+        "weiß": "#e5e7eb",
+        "braun": "#92400e",
+    }
+    HEX_PATTERN = re.compile(r"^#?(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
     label = models.CharField(
         max_length=30,
         unique=True,
         help_text="Kürzel oder Nummer, z.B. B12 oder A3.",
+    )
+    zone_count = models.PositiveSmallIntegerField(
+        default=0,
+        choices=[
+            (0, "Keine Zone"),
+            (1, "Eine Zone"),
+            (2, "Zwei Zonen"),
+        ],
+        help_text="Anzahl der Zonen, die getickt werden können.",
     )
     color = models.CharField(
         max_length=50,
@@ -124,3 +163,35 @@ class Boulder(models.Model):
 
     def __str__(self) -> str:
         return f"{self.label} ({self.color})"
+
+    @classmethod
+    def normalize_color(cls, value: str) -> str:
+        """
+        Map free-text color input to a CSS-friendly value.
+
+        Accepts hex values (with/without #) and German color names with
+        common variants such as "grün", "gruen", "hellblau".
+        """
+        if not value:
+            return value
+
+        raw = value.strip()
+        if cls.HEX_PATTERN.match(raw):
+            normalized = raw.lower()
+            if not normalized.startswith("#"):
+                normalized = f"#{normalized}"
+            # Expand shorthand hex (e.g. #f00 -> #ff0000) to keep it predictable.
+            if len(normalized) == 4:
+                normalized = "#" + "".join(char * 2 for char in normalized[1:])
+            return normalized
+
+        # slugify handles umlauts, spaces and punctuation (e.g. "Grün" -> "grun")
+        alias_key = slugify(raw).replace("-", "")
+        if alias_key in cls.COLOR_ALIASES:
+            return cls.COLOR_ALIASES[alias_key]
+
+        return raw.lower()
+
+    def save(self, *args, **kwargs):
+        self.color = self.normalize_color(self.color)
+        super().save(*args, **kwargs)

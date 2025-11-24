@@ -1,1 +1,377 @@
-{% include "participant_section_base.html" with section_title=title content="Hier kannst du deine Boulder-Ergebnisse dokumentieren. Diese Seite ist als Platzhalter gedacht." %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }} – BoulderCup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        header {
+            background: #1f7a8c;
+            color: #fff;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        header a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        main {
+            max-width: 900px;
+            margin: 2rem auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
+        }
+        .boulder-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .boulder-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem;
+            background: #f8fafc;
+            color: #0f172a;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+        }
+        .boulder-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .note {
+            margin-top: 0.4rem;
+            color: #475569;
+            font-size: 0.9rem;
+        }
+        .toggle {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .toggle input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .toggle span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.4rem 1rem;
+            border-radius: 999px;
+            border: 1px solid #cbd5e1;
+            background: #e2e8f0;
+            color: #0f172a;
+            font-weight: 600;
+            transition: all 0.15s ease;
+            min-width: 92px;
+        }
+        .toggle input:checked + span {
+            background: #1f7a8c;
+            color: #fff;
+            border-color: #1f7a8c;
+            box-shadow: 0 8px 16px rgba(31, 122, 140, 0.25);
+        }
+        .zones {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+            font-size: 0.95rem;
+            align-items: center;
+        }
+        .zones label {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .attempts {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .attempts button {
+            width: 28px;
+            height: 28px;
+            border: 1px solid #cbd5e1;
+            background: #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .attempts input {
+            width: 60px;
+            text-align: center;
+            padding: 0.2rem 0.4rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            -moz-appearance: textfield;
+        }
+        .attempts input::-webkit-outer-spin-button,
+        .attempts input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .submit-row {
+            margin-top: 1.5rem;
+            text-align: right;
+        }
+        .empty {
+            margin-top: 1rem;
+            color: #475569;
+        }
+        .toast {
+            position: fixed;
+            top: 14px;
+            left: 50%;
+            transform: translate(-50%, -10px);
+            background: #16a34a;
+            color: #fff;
+            padding: 0.6rem 1.1rem;
+            border-radius: 999px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease, background 0.15s ease;
+            z-index: 1000;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+        .toast.error {
+            background: #b91c1c;
+        }
+        .toast.pending {
+            background: #0ea5e9;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
+        <h1>{{ title }}</h1>
+    </header>
+    <div id="autosave-toast" class="toast" aria-live="polite"></div>
+    <main>
+        {% if boulders %}
+            <form method="post">
+                {% csrf_token %}
+                <div class="boulder-list">
+                    {% for boulder in boulders %}
+                        <div class="boulder-card" data-boulder="{{ boulder.id }}">
+                            <div class="boulder-card-body" style="background: {{ boulder.color }}; padding: 0.6rem 0.8rem; border-radius: 8px;">
+                                <div class="boulder-header">
+                                    <div>
+                                        <strong>{{ boulder.label }}</strong>
+                                    </div>
+                                </div>
+                                {% if boulder.note %}
+                                    <div class="note">{{ boulder.note }}</div>
+                                {% endif %}
+                                <div class="zones">
+                                    {% if boulder.zone_count %}
+                                        <label class="toggle">
+                                            <input type="checkbox" name="zone1_{{ boulder.id }}">
+                                            <span>Zone 1</span>
+                                        </label>
+                                        {% if boulder.zone_count == 2 %}
+                                            <label class="toggle">
+                                                <input type="checkbox" name="zone2_{{ boulder.id }}">
+                                                <span>Zone 2</span>
+                                            </label>
+                                        {% endif %}
+                                    {% endif %}
+                                    <label class="toggle">
+                                        <input type="checkbox" name="sent_{{ boulder.id }}">
+                                        <span>Geschafft</span>
+                                    </label>
+                                </div>
+                                <div class="attempts">
+                                    <span>Versuche:</span>
+                                    <button type="button" class="dec" aria-label="minus">-</button>
+                                    <input type="number" min="0" name="attempts_{{ boulder.id }}" value="0">
+                                    <button type="button" class="inc" aria-label="plus">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </form>
+        {% else %}
+            <p class="empty">Für deine Altersgruppe sind aktuell keine Boulder hinterlegt.</p>
+        {% endif %}
+    </main>
+    <script>
+        const form = document.querySelector("form");
+        const toast = document.getElementById("autosave-toast");
+        let submitTimer;
+        let hideToastTimer;
+        let pending = false;
+        let dirty = false;
+        const csrfToken = () => document.querySelector("input[name='csrfmiddlewaretoken']").value;
+
+        const showStatus = (text, state = "ok") => {
+            if (!toast) return;
+            toast.textContent = text;
+            toast.classList.remove("error", "pending", "show");
+            if (state === "error") toast.classList.add("error");
+            if (state === "pending") toast.classList.add("pending");
+            requestAnimationFrame(() => toast.classList.add("show"));
+            clearTimeout(hideToastTimer);
+            const timeout = state === "error" ? 3000 : 1500;
+            hideToastTimer = setTimeout(() => {
+                toast.classList.remove("show");
+            }, timeout);
+        };
+
+        const submitAjax = () => {
+            if (!form || pending) {
+                return;
+            }
+            const data = new FormData(form);
+            dirty = false;
+            pending = true;
+            showStatus("Speichere ...", "pending");
+            fetch(window.location.href, {
+                method: "POST",
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRFToken": csrfToken(),
+                },
+                body: data,
+            })
+                .then((res) => {
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    showStatus("Gespeichert", "ok");
+                })
+                .catch(() => {
+                    showStatus("Fehler beim Speichern", "error");
+                    dirty = true; // retry next change if we hit an error
+                })
+                .finally(() => {
+                    pending = false;
+                    if (dirty) {
+                        queueSubmit();
+                    }
+                });
+        };
+
+        const queueSubmit = () => {
+            clearTimeout(submitTimer);
+            dirty = true;
+            submitTimer = setTimeout(submitAjax, 2000);
+        };
+
+        if (form) {
+            form.addEventListener("submit", (e) => {
+                e.preventDefault();
+                queueSubmit();
+            });
+        }
+
+        document.querySelectorAll(".boulder-card").forEach((card) => {
+            const input = card.querySelector("input[type='number']");
+            const zone1 = card.querySelector("input[name^='zone1_']");
+            const zone2 = card.querySelector("input[name^='zone2_']");
+            const sent = card.querySelector("input[name^='sent_']");
+            card.querySelector(".dec").addEventListener("click", () => {
+                const next = Math.max(0, Number(input.value || 0) - 1);
+                input.value = next;
+                queueSubmit();
+            });
+            card.querySelector(".inc").addEventListener("click", () => {
+                const next = Number(input.value || 0) + 1;
+                input.value = next;
+                queueSubmit();
+            });
+            input.addEventListener("input", queueSubmit);
+            const cascade = (changed) => {
+                let z1 = zone1 ? zone1.checked : false;
+                let z2 = zone2 ? zone2.checked : false;
+                let s = sent ? sent.checked : false;
+                const isChecked = changed ? changed.checked : false;
+
+                if (isChecked) {
+                    if (changed === sent) {
+                        s = true;
+                        if (zone2) z2 = true;
+                        z1 = true;
+                    } else if (changed === zone2) {
+                        z2 = true;
+                        z1 = true;
+                    } else if (changed === zone1) {
+                        z1 = true;
+                    }
+                } else if (changed) {
+                    if (changed === zone1) {
+                        z1 = false;
+                        z2 = false;
+                        s = false;
+                    } else if (changed === zone2) {
+                        z2 = false;
+                        s = false;
+                    } else if (changed === sent) {
+                        s = false;
+                    }
+                }
+
+                // Maintain invariants after applying intent.
+                if (s) {
+                    if (zone2) z2 = true;
+                    z1 = true;
+                }
+                if (z2) {
+                    z1 = true;
+                }
+                if (!z1) {
+                    z2 = false;
+                    s = false;
+                }
+                if (zone2 && !z2) {
+                    s = false;
+                }
+
+                if (zone1) zone1.checked = z1;
+                if (zone2) zone2.checked = z2;
+                if (sent) sent.checked = s;
+            };
+            const checkboxes = card.querySelectorAll("input[type='checkbox']");
+            checkboxes.forEach((cb) => {
+                cb.addEventListener("change", () => {
+                    cascade(cb);
+                    queueSubmit();
+                });
+            });
+        });
+
+        // Improve text contrast based on background color of the boulder card body.
+        const computeTextColor = (rgbString) => {
+            const match = rgbString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+            if (!match) return "#0f172a";
+            const [r, g, b] = match.slice(1).map(Number);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.6 ? "#0f172a" : "#ffffff";
+        };
+
+        document.querySelectorAll(".boulder-card-body").forEach((body) => {
+            const bg = window.getComputedStyle(body).backgroundColor;
+            body.style.color = computeTextColor(bg);
+        });
+    </script>
+</body>
+</html>

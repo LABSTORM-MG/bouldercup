@@ -2,12 +2,13 @@ import csv
 from datetime import datetime
 
 from django.contrib.admin.views.decorators import staff_member_required
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.text import slugify
 
 from .forms import CSVUploadForm, LoginForm
-from .models import Participant
+from .models import Boulder, Participant
 
 
 def login_view(request):
@@ -154,10 +155,22 @@ def participant_settings(request):
 def participant_results(request):
     participant = _require_participant(request)
     if isinstance(participant, Participant):
+        boulders = (
+            Boulder.objects.filter(age_groups=participant.age_group).order_by("label")
+            if participant.age_group_id
+            else Boulder.objects.none()
+        )
+        if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+            # TODO: Persist results once model is defined; for now acknowledge autosave.
+            return JsonResponse({"ok": True})
         return render(
             request,
             "participant_results.html",
-            {"participant": participant, "title": "Ergebnisse eintragen"},
+            {
+                "participant": participant,
+                "title": "Ergebnisse eintragen",
+                "boulders": boulders,
+            },
         )
     return participant
 
