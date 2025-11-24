@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -24,6 +25,7 @@ SECRET_KEY = 'django-insecure-#el+7-+lr&hjy0wj&9acgo*6#507o@i@w+bgb-bt_gtpf-8pn3
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+RESET_DB_ON_START = os.environ.get("RESET_DB_ON_START") == "1"
 
 ALLOWED_HOSTS = []
 
@@ -37,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -54,7 +57,7 @@ ROOT_URLCONF = 'web_project.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -78,6 +81,11 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+if RESET_DB_ON_START:
+    db_path = Path(DATABASES['default']['NAME'])
+    if db_path.exists():
+        db_path.unlink()
 
 
 # Password validation
