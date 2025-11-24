@@ -9,10 +9,27 @@ if [[ -f ".venv/bin/activate" ]]; then
     source .venv/bin/activate
 fi
 
-export RESET_DB_ON_START=1
+KEEP_DB=false
+RUNSERVER_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --keepDB)
+            KEEP_DB=true
+            shift
+            ;;
+        *)
+            RUNSERVER_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ "$KEEP_DB" == false ]]; then
+    rm -f db.sqlite3
+fi
+
 python3 manage.py migrate
 
-unset RESET_DB_ON_START
-
 echo "Starting Django development server on http://127.0.0.1:8000/ ..."
-exec python3 manage.py runserver
+exec python3 manage.py runserver "${RUNSERVER_ARGS[@]}"
