@@ -1,0 +1,25 @@
+{% extends "admin/base.html" %}
+
+{% block branding %}
+    {{ block.super }}
+    <a href="{% url 'upload_participants' %}" class="import-link">CSV-Import</a>
+{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        .import-link {
+            margin-left: 1rem;
+            padding: 0.2rem 0.6rem;
+            background: #1f7a8c;
+            color: #fff;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .import-link:hover {
+            background: #155866;
+        }
+    </style>
+{% endblock %}

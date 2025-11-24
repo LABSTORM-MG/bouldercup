@@ -66,7 +66,7 @@ class Migration(migrations.Migration):
                 ("username", models.CharField(max_length=150, unique=True)),
                 ("password", models.CharField(max_length=128)),
                 ("name", models.CharField(max_length=150)),
-                ("age", models.PositiveIntegerField()),
+                ("date_of_birth", models.DateField()),
                 (
                     "gender",
                     models.CharField(
@@ -90,5 +90,15 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
+            options={
+                "ordering": ["name"],
+            },
+        ),
+        migrations.AddConstraint(
+            model_name="participant",
+            constraint=models.UniqueConstraint(
+                fields=("name", "date_of_birth"),
+                name="unique_participant_name_dob",
+            ),
         ),
     ]

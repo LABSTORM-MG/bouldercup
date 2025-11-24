@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 
 
@@ -37,7 +39,7 @@ class Participant(models.Model):
     username = models.CharField(max_length=150, unique=True)
     password = models.CharField(max_length=128)
     name = models.CharField(max_length=150)
-    age = models.PositiveIntegerField()
+    date_of_birth = models.DateField()
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     age_group = models.ForeignKey(
         AgeGroup,
@@ -50,6 +52,12 @@ class Participant(models.Model):
 
     class Meta:
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name", "date_of_birth"],
+                name="unique_participant_name_dob",
+            )
+        ]
 
     def __str__(self) -> str:
         return self.name
@@ -69,4 +77,13 @@ class Participant(models.Model):
     def save(self, *args, **kwargs):
         # Automatically link to the appropriate age group if none is set.
         self.assign_age_group()
+        if not self.password and self.date_of_birth:
+            self.password = self.date_of_birth.strftime("%d%m%Y")
         super().save(*args, **kwargs)
+
+    @property
+    def age(self) -> int:
+        today = date.today()
+        return today.year - self.date_of_birth.year - (
+            (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
+        )
