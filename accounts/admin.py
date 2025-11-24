@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from .forms import ParticipantAdminForm
 from .models import AgeGroup, Participant
 
 
@@ -7,6 +8,7 @@ class ParticipantInline(admin.TabularInline):
     model = Participant
     extra = 1
     fields = ("name", "date_of_birth", "gender", "username", "password", "age_group")
+    form = ParticipantAdminForm
 
 
 @admin.register(AgeGroup)
@@ -37,6 +39,7 @@ class ParticipantAdmin(admin.ModelAdmin):
         "password",
         "age_group",
     )
+    form = ParticipantAdminForm
 
     @admin.display(description="Alter")
     def display_age(self, obj):

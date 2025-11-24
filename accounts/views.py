@@ -89,7 +89,7 @@ def upload_participants(request):
                 continue
 
             username = _unique_username(f"{first}.{last}".lower())
-            password = dob.strftime("%d%m%Y")  # simple reproducible password
+            password = dob.strftime("%d-%m-%Y")  # simple reproducible password
 
             full_name = f"{first} {last}"
 
@@ -122,7 +122,7 @@ def upload_participants(request):
 
 
 def _parse_date(value: str):
-    formats = ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y")
+    formats = ("%d-%m-%Y", "%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d")
     for fmt in formats:
         try:
             return datetime.strptime(value, fmt).date()

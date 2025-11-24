@@ -53,7 +53,7 @@
     <div class="container">
         <h1>Teilnehmer per CSV importieren</h1>
         <p><a href="{{ admin_home }}">Zurück zur Admin Oberfläche</a></p>
-        <p>Erwartete Spalten: <code>first_name</code>, <code>surname</code>, <code>date_of_birth</code> (YYYY-MM-DD) und <code>gender</code>.</p>
+        <p>Erwartete Spalten: <code>first_name</code>, <code>surname</code>, <code>date_of_birth</code> (DD-MM-YYYY) und <code>gender</code>.</p>
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             {{ form.csv_file.label_tag }}

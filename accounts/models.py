@@ -78,7 +78,7 @@ class Participant(models.Model):
         # Automatically link to the appropriate age group if none is set.
         self.assign_age_group()
         if not self.password and self.date_of_birth:
-            self.password = self.date_of_birth.strftime("%d%m%Y")
+            self.password = self.date_of_birth.strftime("%d-%m-%Y")
         super().save(*args, **kwargs)
 
     @property
