@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Einstellungen – BoulderCup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f9fc;
+            margin: 0;
+        }
+        header {
+            background: #1f7a8c;
+            color: #fff;
+            padding: 1.5rem;
+        }
+        main {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+        a {
+            color: #1f7a8c;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Einstellungen</h1>
+    </header>
+    <main>
+        <p>{{ participant.name }}, hier kannst du später persönliche Daten, Benachrichtigungen oder Teams verwalten.</p>
+        <p>Diese Seite ist aktuell ein Platzhalter, der noch mit Funktionen gefüllt werden kann.</p>
+        <p><a href="{% url 'participant_dashboard' %}">Zurück zum Dashboard</a></p>
+    </main>
+</body>
+</html>

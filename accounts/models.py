@@ -62,8 +62,8 @@ class Participant(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    def assign_age_group(self):
-        if self.age_group_id:
+    def assign_age_group(self, force: bool = False):
+        if self.age_group_id and not force:
             return
         match = (
             AgeGroup.objects.filter(min_age__lte=self.age, max_age__gte=self.age)
@@ -71,14 +71,13 @@ class Participant(models.Model):
             .order_by("min_age", "name")
             .first()
         )
-        if match:
-            self.age_group = match
+        self.age_group = match
 
     def save(self, *args, **kwargs):
         # Automatically link to the appropriate age group if none is set.
         self.assign_age_group()
         if not self.password and self.date_of_birth:
-            self.password = self.date_of_birth.strftime("%d-%m-%Y")
+            self.password = self.date_of_birth.strftime("%d%m%Y")
         super().save(*args, **kwargs)
 
     @property

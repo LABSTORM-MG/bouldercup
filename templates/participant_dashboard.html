@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>BoulderCup Dashboard</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #1f7a8c 0%, #022f40 100%);
+            color: #fff;
+            margin: 0;
+            display: grid;
+            grid-template-rows: minmax(60px, 0.22fr) 1fr minmax(55px, 0.18fr);
+            height: 100vh;
+        }
+
+        header {
+            padding: 0.5rem 1rem;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: clamp(1.8rem, 6vw, 2.4rem);
+        }
+
+        .welcome {
+            margin-top: 0.15rem;
+            font-size: clamp(1rem, 3vw, 1.3rem);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .tiles {
+            padding: 0.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .tile {
+            flex: 1 1 0;
+            min-height: 0;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #fff;
+            text-decoration: none;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.15s ease, box-shadow 0.15s ease,
+                background 0.15s ease, border 0.15s ease;
+        }
+
+        .tile-content {
+            padding: 0 0.5rem;
+        }
+
+        .tile h2 {
+            margin: 0;
+            font-size: clamp(1.8rem, 6vw, 2.6rem);
+        }
+
+        .tile small {
+            margin-top: 0.5rem;
+            font-size: clamp(1rem, 3.5vw, 1.4rem);
+            color: rgba(255, 255, 255, 0.95);
+        }
+
+        .tile:active {
+            transform: scale(0.98);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .tile:hover {
+                transform: scale(1.02);
+                box-shadow: 0 18px 32px rgba(0, 0, 0, 0.35);
+                background: rgba(255, 255, 255, 0.18);
+                border-color: rgba(255, 255, 255, 0.35);
+            }
+        }
+
+        footer {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 0.6rem 1.1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 1rem;
+        }
+
+        footer a {
+            color: #f1f7f9;
+            text-decoration: none;
+            margin-right: 1rem;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Willkommen beim BoulderCup</h1>
+        <p class="welcome">{{ participant.name }} – {{ participant.age_group }}</p>
+    </header>
+    <section class="tiles">
+        <a class="tile" href="{% url 'participant_results' %}">
+            <div class="tile-content">
+                <h2>Ergebnisse eintragen</h2>
+                <small>Runs dokumentieren</small>
+            </div>
+        </a>
+        <a class="tile" href="{% url 'participant_run_plan' %}">
+            <div class="tile-content">
+                <h2>Laufplan</h2>
+                <small>Deine Route im Blick</small>
+            </div>
+        </a>
+        <a class="tile" href="{% url 'participant_live_scoreboard' %}">
+            <div class="tile-content">
+                <h2>Live Scoreboard</h2>
+                <small>Aktuelle Platzierungen</small>
+            </div>
+        </a>
+    </section>
+    <footer>
+        <div>
+            <a href="{% url 'participant_support' %}">Support</a>
+            <a href="{% url 'participant_settings' %}">Einstellungen</a>
+        </div>
+        <span>&copy; {{ now|default:2025 }} BoulderCup</span>
+    </footer>
+</body>
+</html>

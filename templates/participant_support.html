@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Support – BoulderCup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f9fc;
+            margin: 0;
+        }
+        header {
+            background: #1f7a8c;
+            color: #fff;
+            padding: 1.5rem;
+        }
+        main {
+            max-width: 800px;
+            margin: 2rem auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+        a {
+            color: #1f7a8c;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Support</h1>
+    </header>
+    <main>
+        <p>Hallo {{ participant.name }},</p>
+        <p>hier findest du Informationen und Ansprechpartner, falls du Hilfe benötigst. Diese Seite dient als Platzhalter und kann später mit FAQs, Kontaktformularen oder Links zu Messenger-Gruppen ergänzt werden.</p>
+        <p><a href="{% url 'participant_dashboard' %}">Zurück zum Dashboard</a></p>
+    </main>
+</body>
+</html>

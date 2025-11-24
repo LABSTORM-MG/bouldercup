@@ -17,10 +17,25 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
-from accounts.views import login_view, upload_participants
+from accounts.views import (
+    login_view,
+    participant_dashboard,
+    participant_live_scoreboard,
+    participant_results,
+    participant_run_plan,
+    participant_settings,
+    participant_support,
+    upload_participants,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', login_view, name='login'),
     path('upload/', upload_participants, name='upload_participants'),
+    path('dashboard/', participant_dashboard, name='participant_dashboard'),
+    path('dashboard/ergebnisse/', participant_results, name='participant_results'),
+    path('dashboard/laufplan/', participant_run_plan, name='participant_run_plan'),
+    path('dashboard/live-scoreboard/', participant_live_scoreboard, name='participant_live_scoreboard'),
+    path('support/', participant_support, name='participant_support'),
+    path('settings/', participant_settings, name='participant_settings'),
 ]

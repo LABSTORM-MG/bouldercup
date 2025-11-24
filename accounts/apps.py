@@ -23,3 +23,5 @@ class AccountsConfig(AppConfig):
             sender=self,
             dispatch_uid="accounts.ensure_superuser",
         )
+
+        from . import signals  # noqa: F401

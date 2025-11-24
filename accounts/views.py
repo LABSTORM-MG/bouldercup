@@ -2,8 +2,8 @@ import csv
 from datetime import datetime
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render
-from django.urls import reverse
+from django.shortcuts import redirect, render
+from django.urls import reverse, reverse_lazy
 from django.utils.text import slugify
 
 from .forms import CSVUploadForm, LoginForm
@@ -27,16 +27,7 @@ def login_view(request):
         else:
             if participant.password == password:
                 request.session["participant_id"] = participant.id
-                group_label = (
-                    participant.age_group.name
-                    if participant.age_group
-                    else "deiner Gruppe"
-                )
-                message = (
-                    f"Hallo {participant.name}! "
-                    f"Du wurdest der Gruppe {group_label} zugeordnet."
-                )
-                form = LoginForm()
+                return redirect("participant_dashboard")
             else:
                 message = "Falsches Passwort."
 
@@ -89,7 +80,7 @@ def upload_participants(request):
                 continue
 
             username = _unique_username(f"{first}.{last}".lower())
-            password = dob.strftime("%d-%m-%Y")  # simple reproducible password
+            password = dob.strftime("%d%m%Y")  # simple reproducible password
 
             full_name = f"{first} {last}"
 
@@ -119,6 +110,78 @@ def upload_participants(request):
             "admin_home": reverse("admin:index"),
         },
     )
+
+
+def participant_dashboard(request):
+    participant = _require_participant(request)
+    if isinstance(participant, Participant):
+        return render(
+            request,
+            "participant_dashboard.html",
+            {
+                "participant": participant,
+            },
+        )
+    return participant  # redirect
+
+
+def participant_support(request):
+    participant = _require_participant(request)
+    if isinstance(participant, Participant):
+        return render(
+            request,
+            "participant_support.html",
+            {
+                "participant": participant,
+            },
+        )
+    return participant
+
+
+def participant_settings(request):
+    participant = _require_participant(request)
+    if isinstance(participant, Participant):
+        return render(
+            request,
+            "participant_settings.html",
+            {
+                "participant": participant,
+            },
+        )
+    return participant
+
+
+def participant_results(request):
+    participant = _require_participant(request)
+    if isinstance(participant, Participant):
+        return render(
+            request,
+            "participant_results.html",
+            {"participant": participant, "title": "Ergebnisse eintragen"},
+        )
+    return participant
+
+
+def participant_run_plan(request):
+    participant = _require_participant(request)
+    if isinstance(participant, Participant):
+        return render(
+            request,
+            "participant_run_plan.html",
+            {"participant": participant, "title": "Laufplan"},
+        )
+    return participant
+
+
+def participant_live_scoreboard(request):
+    participant = _require_participant(request)
+    if isinstance(participant, Participant):
+        return render(
+            request,
+            "participant_live_scoreboard.html",
+            {"participant": participant, "title": "Live Scoreboard"},
+        )
+    return participant
 
 
 def _parse_date(value: str):
@@ -163,3 +226,15 @@ def _pick_value(row, *keys):
         if value is not None and value.strip():
             return value.strip()
     return ""
+
+
+def _require_participant(request):
+    participant_id = request.session.get("participant_id")
+    if not participant_id:
+        return redirect("login")
+    try:
+        return Participant.objects.select_related("age_group").get(
+            id=participant_id
+        )
+    except Participant.DoesNotExist:
+        return redirect("login")
