@@ -31,10 +31,48 @@ def _score_results(results):
     }
 
 
-def _rank_entries(entries):
+def _score_custom(results, settings):
+    """Compute points for custom scoring."""
+    points = 0
+    tops = zones = total_attempts = 0
+    for res in results:
+        achieved_zone = res.zone2 or res.zone1
+        if res.top:
+            tops += 1
+            base = settings.top_points + (settings.flash_points if res.attempts == 1 else 0)
+            penalty = settings.attempt_penalty * res.attempts
+            pts = max(base - penalty, 0)
+            points += pts
+            total_attempts += res.attempts
+        elif achieved_zone:
+            zones += 1
+            base = settings.zone_points
+            penalty = settings.attempt_penalty * res.attempts
+            pts = max(base - penalty, 0)
+            points += pts
+            total_attempts += res.attempts
+        else:
+            total_attempts += res.attempts
+    return {
+        "points": points,
+        "tops": tops,
+        "zones": zones,
+        "attempts": total_attempts,
+    }
+
+
+def _rank_entries(entries, grading_system="ifsc"):
     """Assign ranks based on IFSC sorting (tops, zones, attempts)."""
 
     def sort_key(entry):
+        if grading_system == "custom":
+            return (
+                -entry.get("points", 0),
+                -entry.get("tops", 0),
+                -entry.get("zones", 0),
+                entry.get("attempts", 0),
+                entry["participant"].name.lower(),
+            )
         top_att = entry["top_attempts"] if entry["tops"] > 0 else float("inf")
         zone_att = entry["zone_attempts"] if entry["zones"] > 0 else float("inf")
         return (
@@ -330,6 +368,11 @@ def participant_run_plan(request):
 def participant_live_scoreboard(request):
     participant = _require_participant(request)
     if isinstance(participant, Participant):
+        from .models import CompetitionSettings
+
+        settings_obj = CompetitionSettings.objects.first()
+        grading_system = settings_obj.grading_system if settings_obj else "ifsc"
+
         entries = []
         if participant.age_group_id:
             boulders = Boulder.objects.filter(age_groups=participant.age_group).order_by("label")
@@ -347,28 +390,33 @@ def participant_live_scoreboard(request):
                 result_map.setdefault(res.participant_id, []).append(res)
 
             for p in participants:
-                scored = _score_results(result_map.get(p.id, []))
+                res_list = result_map.get(p.id, [])
+                if grading_system == "custom":
+                    scored = _score_custom(res_list, settings_obj)
+                else:
+                    scored = _score_results(res_list)
                 entries.append(
                     {
                         "participant": p,
                         **scored,
                     }
                 )
-            _rank_entries(entries)
+            _rank_entries(entries, grading_system)
 
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             payload = [
                 {
                     "rank": e["rank"],
                     "name": e["participant"].name,
-                    "tops": e["tops"],
-                    "top_attempts": e["top_attempts"],
-                    "zones": e["zones"],
-                    "zone_attempts": e["zone_attempts"],
+                    "tops": e.get("tops", 0),
+                    "top_attempts": e.get("top_attempts", 0),
+                    "zones": e.get("zones", 0),
+                    "zone_attempts": e.get("zone_attempts", 0),
+                    "points": e.get("points", 0),
                 }
                 for e in entries
             ]
-            return JsonResponse({"ok": True, "entries": payload})
+            return JsonResponse({"ok": True, "entries": payload, "grading": grading_system})
 
         return render(
             request,
@@ -377,6 +425,7 @@ def participant_live_scoreboard(request):
                 "participant": participant,
                 "title": "Live Scoreboard",
                 "entries": entries,
+                "grading_system": grading_system,
             },
         )
     return participant

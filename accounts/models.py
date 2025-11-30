@@ -218,3 +218,29 @@ class Result(models.Model):
 
     def __str__(self) -> str:
         return f"{self.participant} – {self.boulder}: top={self.top}, z2={self.zone2}, z1={self.zone1}, tries={self.attempts}"
+
+
+class CompetitionSettings(models.Model):
+    """Singleton model to pick the active scoring/grading system."""
+
+    GRADING_CHOICES = [
+        ("ifsc", "IFSC (Tops/Zones/Versuche)"),
+        ("custom", "Punktebasiert"),
+    ]
+
+    grading_system = models.CharField(
+        max_length=20, choices=GRADING_CHOICES, default="ifsc"
+    )
+    top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top (Custom).")
+    zone_points = models.PositiveIntegerField(default=10, help_text="Punkte pro Zone (Custom).")
+    flash_points = models.PositiveIntegerField(default=5, help_text="Zusatzpunkte bei Flash (Top im ersten Versuch, Custom).")
+    attempt_penalty = models.PositiveIntegerField(default=1, help_text="Minuspunkte pro Versuch (Custom).")
+    singleton = models.BooleanField(default=True, unique=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Wettkampf-Einstellung"
+        verbose_name_plural = "Wettkampf-Einstellungen"
+
+    def __str__(self) -> str:
+        return f"Aktives Scoring: {self.get_grading_system_display()}"
