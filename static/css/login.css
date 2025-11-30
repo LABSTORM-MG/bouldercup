@@ -1,0 +1,84 @@
+:root {
+    font-size: clamp(15px, 2.8vw, 17px);
+}
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: clamp(1rem, 4vw, 2rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(1rem, 4vw, 2rem));
+}
+@supports (height: 100dvh) {
+    body {
+        min-height: 100dvh;
+    }
+}
+
+.login-card {
+    background: #fff;
+    padding: clamp(1.75rem, 6vw, 2.6rem);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    width: min(380px, 92vw);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+h1 {
+    margin-top: 0;
+    text-align: center;
+    font-size: clamp(1.4rem, 4vw, 1.8rem);
+    margin-bottom: 0.5rem;
+}
+
+label {
+    display: block;
+    margin-top: 1rem;
+    font-weight: 600;
+    text-align: left;
+}
+
+input {
+    width: 100%;
+    padding: 0.6rem 0.65rem;
+    margin-top: 0.35rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+button {
+    width: 100%;
+    margin-top: 1.5rem;
+    padding: 0.85rem;
+    background: #1f7a8c;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1.05rem;
+}
+
+.message {
+    margin-top: 1rem;
+    min-height: 1.25rem;
+    text-align: center;
+    color: #1f7a8c;
+}
+form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.form-field {
+    width: 100%;
+}

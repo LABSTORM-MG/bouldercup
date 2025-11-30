@@ -6,68 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ section_title }} – BoulderCup</title>
     <link rel="icon" href="{% static 'favicon.ico' %}">
-    <style>
-        :root {
-            font-size: clamp(15px, 2.8vw, 17px);
-        }
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            background: #f1f5f9;
-            min-height: 100vh;
-            line-height: 1.55;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
-        }
-        @supports (height: 100dvh) {
-            body {
-                min-height: 100dvh;
-            }
-        }
-        header {
-            background: #1f7a8c;
-            color: #fff;
-            padding: clamp(1rem, 3vw, 1.25rem);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        header a {
-            color: #fff;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: clamp(1rem, 3vw, 1.1rem);
-            background: rgba(255, 255, 255, 0.15);
-            padding: 0.4rem 0.75rem;
-            border-radius: 999px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        header h1 {
-            font-size: clamp(1.25rem, 4.5vw, 1.7rem);
-            margin: 0;
-        }
-        main {
-            width: min(920px, 94vw);
-            margin: clamp(1rem, 3vw, 2rem) auto;
-            background: #fff;
-            padding: clamp(1.25rem, 4vw, 2.25rem);
-            border-radius: 14px;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
-        }
-        @media (max-width: 640px) {
-            header {
-                justify-content: center;
-                text-align: center;
-            }
-            header a {
-                width: 100%;
-                text-align: left;
-            }
-            main {
-                width: 96vw;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/participant_section_base.css' %}">
 </head>
 <body>
     <header>

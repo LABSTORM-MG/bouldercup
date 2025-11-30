@@ -151,7 +151,10 @@
 <body>
     <header>
         <h1>Willkommen beim BoulderCup</h1>
-        <p class="welcome">{{ participant.name }} – {{ participant.age_group }}</p>
+        <p class="welcome">
+            {{ participant.name }}
+            {% if participant.age_group %} – {{ participant.age_group.name }}{% endif %}
+        </p>
     </header>
     <section class="tiles">
         <a class="tile" href="{% url 'participant_results' %}">
