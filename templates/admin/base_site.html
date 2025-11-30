@@ -17,32 +17,47 @@
         .import-link {
             margin-right: 0.4rem;
         }
-        /* Center the header actions (user tools + extra links) */
+        /* Align header content to the left for admin */
         #header {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
         }
         #user-tools {
             float: none;
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
-            justify-content: center;
+            justify-content: flex-start;
             width: 100%;
-            text-align: center;
+            text-align: left;
         }
         #user-tools a {
             margin: 0;
         }
         #branding {
             width: 100%;
-            text-align: center;
+            text-align: left;
             margin-bottom: 0.25rem;
         }
         #nav-global {
-            text-align: center;
+            text-align: left;
             width: 100%;
         }
+        /* Hide theme toggle (force dark) */
+        .theme-toggle {
+            display: none !important;
+        }
     </style>
+    <script>
+        (function() {
+            try {
+                const root = document.documentElement;
+                root.dataset.theme = "dark";
+                localStorage.setItem("django.admin.colorScheme", "dark");
+            } catch (e) {
+                // ignore
+            }
+        })();
+    </script>
 {% endblock %}

@@ -10,6 +10,9 @@
         :root {
             font-size: clamp(15px, 2.8vw, 17px);
         }
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
 
         body {
             font-family: Arial, sans-serif;
@@ -23,22 +26,27 @@
 
         .login-card {
             background: #fff;
-            padding: clamp(1.5rem, 5vw, 2.25rem);
+            padding: clamp(1.75rem, 6vw, 2.6rem);
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
-            width: min(360px, 92vw);
+            width: min(380px, 92vw);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         h1 {
             margin-top: 0;
             text-align: center;
             font-size: clamp(1.4rem, 4vw, 1.8rem);
+            margin-bottom: 0.5rem;
         }
 
         label {
             display: block;
             margin-top: 1rem;
             font-weight: 600;
+            text-align: left;
         }
 
         input {
@@ -68,6 +76,15 @@
             text-align: center;
             color: #1f7a8c;
         }
+        form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .form-field {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -75,11 +92,15 @@
         <h1>Login</h1>
         <form method="post">
             {% csrf_token %}
-            <label for="{{ form.username.id_for_label }}">Anmeldename</label>
-            {{ form.username }}
+            <div class="form-field">
+                <label for="{{ form.username.id_for_label }}">Anmeldename</label>
+                {{ form.username }}
+            </div>
 
-            <label for="{{ form.password.id_for_label }}">Passwort</label>
-            {{ form.password }}
+            <div class="form-field">
+                <label for="{{ form.password.id_for_label }}">Passwort</label>
+                {{ form.password }}
+            </div>
 
             <button type="submit">Anmelden</button>
         </form>

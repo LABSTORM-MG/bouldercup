@@ -23,22 +23,46 @@
             color: #fff;
             padding: clamp(1rem, 3vw, 1.4rem);
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 1rem;
+            gap: 0.55rem;
             flex-wrap: wrap;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
         }
         header a {
             color: #fff;
             text-decoration: none;
             font-weight: bold;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            align-self: flex-start;
         }
         header h1 {
             margin: 0;
             font-size: clamp(1.25rem, 4.5vw, 1.8rem);
+            text-align: center;
+        }
+        .header-meta {
+            display: flex;
+            flex-direction: row;
+            gap: 0.5rem;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            font-size: clamp(0.95rem, 3.4vw, 1.05rem);
+            color: #cbd5e1;
+        }
+        .header-meta strong {
+            font-size: clamp(1rem, 3.6vw, 1.15rem);
+            color: #e2e8f0;
         }
         main {
             max-width: 960px;
-            width: 100%;
+            width: min(960px, 95vw);
             margin: clamp(1rem, 3vw, 2rem) auto;
             background: #fff;
             padding: clamp(1.25rem, 4vw, 2.25rem);
@@ -78,6 +102,29 @@
             font-size: 1.15rem;
             font-weight: 700;
             color: #475569;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            position: relative;
+        }
+        .boulder-label::after {
+            content: "";
+            display: inline-block;
+            width: 1.1em;
+            height: 1em;
+        }
+        .flash-badge {
+            opacity: 0;
+            width: 1.1em;
+            height: 1em;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        .flash-badge.show {
+            opacity: 1;
         }
         .note {
             color: #94a3b8;
@@ -189,9 +236,11 @@
             header {
                 justify-content: center;
                 text-align: center;
+                padding-bottom: clamp(1.1rem, 4vw, 1.6rem);
             }
             header a {
                 width: 100%;
+                text-align: left;
             }
             .results-headings {
                 grid-template-columns: 1fr 1fr;
@@ -253,6 +302,10 @@
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>{{ title }}</h1>
+        <div class="header-meta">
+            <strong>{{ participant.name }}</strong>
+            <span>{{ participant.age_group }}</span>
+        </div>
     </header>
     <div id="autosave-toast" class="toast" aria-live="polite"></div>
     <main>
@@ -262,9 +315,12 @@
                 <div class="boulder-list">
                     {% for boulder in boulders %}
                         <div class="boulder-card" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
-                            <div class="boulder-card-body">
-                                <div class="boulder-info">
-                                    <div class="boulder-label">{{ boulder.label }}</div>
+                                <div class="boulder-card-body">
+                                    <div class="boulder-info">
+                                        <div class="boulder-label">
+                                            <span class="flash-badge" aria-label="Flash">⚡</span>
+                                            <span class="boulder-label-text">{{ boulder.label }}</span>
+                                        </div>
                                     {% if boulder.note %}
                                         <div class="note">{{ boulder.note }}</div>
                                     {% endif %}
@@ -297,7 +353,7 @@
                                             </div>
                                         {% endif %}
                                     </div>
-                                    <div class="attempts">
+                                    <div class="attempts" title="Versuche bis dein bestes Ergebnis (Top/Zone) zum ersten Mal geschafft wurde.">
                                         <button type="button" class="dec" aria-label="minus">-</button>
                                         <input type="number" min="0" name="attempts_{{ boulder.id }}" value="0">
                                         <button type="button" class="inc" aria-label="plus">+</button>
@@ -354,6 +410,14 @@
                 .then((res) => {
                     if (!res.ok) throw new Error("HTTP " + res.status);
                     showStatus("Gespeichert", "ok");
+                    document.querySelectorAll(".boulder-card").forEach((card) => {
+                        const input = card.querySelector("input[type='number']");
+                        const sent = card.querySelector("input[name^='sent_']");
+                        const badge = card.querySelector(".flash-badge");
+                        if (!badge || !sent || !input) return;
+                        const flash = sent.checked && Number(input.value || 0) === 1;
+                        badge.classList.toggle("show", flash);
+                    });
                 })
                 .catch(() => {
                     showStatus("Fehler beim Speichern", "error");
@@ -385,60 +449,111 @@
             const zone1 = card.querySelector("input[name^='zone1_']");
             const zone2 = card.querySelector("input[name^='zone2_']");
             const sent = card.querySelector("input[name^='sent_']");
+            const checkboxes = card.querySelectorAll("input[type='checkbox']");
+            const flashBadge = card.querySelector(".flash-badge");
+
+            const hasResult = () => {
+                return (
+                    (zone1 && zone1.checked) ||
+                    (zone2 && zone2.checked) ||
+                    (sent && sent.checked)
+                );
+            };
+
+            const syncAttempts = () => {
+                let val = Number(input.value || 0);
+                if (!hasResult()) {
+                    val = 0;
+                } else if (val < 1) {
+                    val = 1;
+                }
+                input.value = val;
+            };
+
+            const syncFlash = () => {
+                if (!flashBadge) return;
+                const attempts = Number(input.value || 0);
+                const flash = sent && sent.checked && attempts === 1;
+                flashBadge.classList.toggle("show", flash);
+            };
+
             card.querySelector(".dec").addEventListener("click", () => {
                 const next = Math.max(0, Number(input.value || 0) - 1);
                 input.value = next;
+                syncAttempts();
+                syncFlash();
                 queueSubmit();
             });
             card.querySelector(".inc").addEventListener("click", () => {
                 const next = Number(input.value || 0) + 1;
                 input.value = next;
+                syncAttempts();
+                syncFlash();
                 queueSubmit();
             });
-            input.addEventListener("input", queueSubmit);
+            input.addEventListener("input", () => {
+                let val = Number(input.value || 0);
+                if (Number.isNaN(val) || val < 0) val = 0;
+                input.value = val;
+                syncAttempts();
+                syncFlash();
+                queueSubmit();
+            });
             const cascade = (changed) => {
                 const levels = [
-                    zone1 ? { el: zone1 } : null,
-                    zone2 ? { el: zone2 } : null,
-                    sent ? { el: sent } : null,
+                    zone1 ? zone1 : null, // lowest
+                    zone2 ? zone2 : null,
+                    sent ? sent : null,   // top
                 ].filter(Boolean);
-
                 if (!changed) return;
-
-                const idx = levels.findIndex((lvl) => lvl.el === changed);
-                const isChecked = changed.checked;
-                const higherChecked = levels.slice(idx + 1).some((lvl) => lvl.el.checked);
+                const idx = levels.findIndex((el) => el === changed);
+                if (idx === -1) return;
+                const current = levels.map((el) => el.checked);
+                const higherChecked = current.slice(idx + 1).some(Boolean);
 
                 const selectThrough = (targetIdx) => {
-                    levels.forEach((lvl, i) => {
-                        lvl.el.checked = i <= targetIdx;
+                    levels.forEach((el, i) => {
+                        el.checked = i <= targetIdx;
                     });
                 };
 
-                if (isChecked) {
-                    // Turning on a level selects it and everything below, clears above.
+                if (changed.checked) {
+                    // Turning on: select this level and everything below; drop higher.
                     selectThrough(idx);
                 } else if (higherChecked) {
-                    // Demote to this level: keep this and below selected, drop above.
+                    // Demote to this level: keep this on, lower on, higher off.
                     selectThrough(idx);
+                    levels[idx].checked = true;
                 } else {
-                    // Highest selected toggled off: just uncheck it, keep lower state.
-                    changed.checked = false;
-                    // Ensure hierarchy consistency (no higher without lower).
-                    for (let i = levels.length - 1; i > 0; i--) {
-                        if (levels[i].el.checked && !levels[i - 1].el.checked) {
-                            levels[i].el.checked = false;
-                        }
+                    // Highest selected toggled off: just uncheck it, keep lower as-is.
+                    levels[idx].checked = false;
+                }
+
+                // Enforce hierarchy: no higher without lower.
+                for (let i = levels.length - 1; i > 0; i--) {
+                    if (levels[i].checked && !levels[i - 1].checked) {
+                        levels[i].checked = false;
                     }
                 }
+
+                // If top is checked, ensure all below are on.
+                const topIdx = sent ? levels.findIndex((el) => el === sent) : -1;
+                if (topIdx >= 0 && levels[topIdx].checked) {
+                    for (let i = 0; i < topIdx; i++) {
+                        levels[i].checked = true;
+                    }
+                }
+                syncAttempts();
+                syncFlash();
             };
-            const checkboxes = card.querySelectorAll("input[type='checkbox']");
             checkboxes.forEach((cb) => {
                 cb.addEventListener("change", () => {
                     cascade(cb);
                     queueSubmit();
                 });
             });
+            syncAttempts();
+            syncFlash();
         });
 
         // Improve text contrast based on background color of the boulder card body.
