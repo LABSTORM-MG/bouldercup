@@ -1,5 +1,11 @@
 const form = document.querySelector("form");
-const toast = document.getElementById("autosave-toast");
+let toast = document.getElementById("autosave-toast");
+if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "autosave-toast";
+    toast.classList.add("toast");
+    document.body.appendChild(toast);
+}
 let submitTimer;
 let hideToastTimer;
 let pending = false;
@@ -56,6 +62,7 @@ const submitAjax = () => {
     showStatus("Speichere ...", "pending");
     fetch(window.location.href, {
         method: "POST",
+        credentials: "same-origin",
         headers: {
             "X-Requested-With": "XMLHttpRequest",
             "X-CSRFToken": csrfToken(),
@@ -101,6 +108,7 @@ setInterval(() => {
     if (!form || pending || dirty) return;
     fetch(window.location.href, {
         method: "GET",
+        credentials: "same-origin",
         headers: {
             "X-Requested-With": "XMLHttpRequest",
         },

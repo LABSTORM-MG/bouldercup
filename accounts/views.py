@@ -10,7 +10,7 @@ from django.utils.text import slugify
 from .forms import CSVUploadForm, LoginForm
 from django.db import transaction
 
-from .models import Boulder, Participant, Result
+from .models import AgeGroup, Boulder, Participant, Result
 
 
 def _score_results(results):
@@ -98,15 +98,36 @@ def login_view(request):
     message = ""
     form = LoginForm(request.POST or None)
 
+    def _normalize_username(value: str) -> list[str]:
+        raw = value.strip().lower()
+        from django.utils.text import slugify
+        variants = [
+            raw,
+            raw.replace(" ", "").replace(".", "").replace("-", ""),
+            slugify(raw).replace("-", ""),
+            slugify(raw).replace("-", "."),
+        ]
+        seen = []
+        for v in variants:
+            if v and v not in seen:
+                seen.append(v)
+        return seen
+
     if request.method == "POST" and form.is_valid():
         username = form.cleaned_data["username"]
         password = form.cleaned_data["password"]
 
-        try:
-            participant = Participant.objects.select_related("age_group").get(
-                username=username
-            )
-        except Participant.DoesNotExist:
+        participant = None
+        for candidate in _normalize_username(username):
+            try:
+                participant = Participant.objects.select_related("age_group").get(
+                    username=candidate
+                )
+                break
+            except Participant.DoesNotExist:
+                continue
+
+        if not participant:
             message = "Unbekannter Teilnehmer."
         else:
             if participant.password == password:
@@ -256,6 +277,9 @@ def participant_results(request):
                     "zone2": res.zone2,
                     "zone1": res.zone1,
                     "attempts": res.attempts,
+                    "attempts_top": res.attempts_top,
+                    "attempts_zone2": res.attempts_zone2,
+                    "attempts_zone1": res.attempts_zone1,
                     "updated_at": res.updated_at.timestamp(),
                 }
                 for b, res in ((b, b.existing_result) for b in boulders)
@@ -373,11 +397,24 @@ def participant_live_scoreboard(request):
         settings_obj = CompetitionSettings.objects.first()
         grading_system = settings_obj.grading_system if settings_obj else "ifsc"
 
+        age_groups = list(AgeGroup.objects.filter(participants__isnull=False).distinct().order_by("name"))
+        requested_group_id = request.GET.get("age_group")
+        selected_group = None
+        show_all = requested_group_id == "all"
+        if requested_group_id and not show_all:
+            selected_group = next((g for g in age_groups if str(g.id) == requested_group_id), None)
+        if not selected_group and not show_all:
+            selected_group = participant.age_group if participant.age_group_id else (age_groups[0] if age_groups else None)
+
         entries = []
-        if participant.age_group_id:
-            boulders = Boulder.objects.filter(age_groups=participant.age_group).order_by("label")
+        if selected_group or show_all:
+            boulders = (
+                Boulder.objects.filter(age_groups=selected_group).order_by("label")
+                if selected_group
+                else Boulder.objects.all().order_by("label")
+            )
             participants = (
-                Participant.objects.filter(age_group=participant.age_group)
+                Participant.objects.filter(age_group__in=[selected_group] if selected_group else age_groups)
                 .order_by("name")
                 .prefetch_related("results")
             )
@@ -425,6 +462,8 @@ def participant_live_scoreboard(request):
                 "participant": participant,
                 "title": "Live Scoreboard",
                 "entries": entries,
+                "age_groups": age_groups,
+                "selected_group": selected_group,
                 "grading_system": grading_system,
             },
         )

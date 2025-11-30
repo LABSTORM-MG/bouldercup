@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant
+from .models import AgeGroup, Boulder, Participant, CompetitionSettings
 
 
 class ParticipantInline(admin.TabularInline):
@@ -70,3 +70,18 @@ class BoulderAdmin(admin.ModelAdmin):
     @admin.display(description="Zonen")
     def display_zone_count(self, obj):
         return obj.get_zone_count_display()
+
+
+@admin.register(CompetitionSettings)
+class CompetitionSettingsAdmin(admin.ModelAdmin):
+    list_display = ("grading_system", "top_points", "zone_points", "flash_points", "attempt_penalty", "updated_at")
+    fields = ("grading_system", "top_points", "zone_points", "flash_points", "attempt_penalty")
+
+    def has_add_permission(self, request):
+        # Only one settings row
+        if self.model.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+    class Media:
+        js = ("admin/js/competition_settings_toggle.js",)

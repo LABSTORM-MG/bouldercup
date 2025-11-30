@@ -20,6 +20,7 @@ class AgeGroup(models.Model):
     gender = models.CharField(
         max_length=10, choices=GENDER_CHOICES, default="mixed", help_text="Zielgruppe."
     )
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
     class Meta:
         ordering = ["min_age", "name"]
@@ -72,12 +73,10 @@ class Participant(models.Model):
     def assign_age_group(self, force: bool = False):
         if self.age_group_id and not force:
             return
-        match = (
-            AgeGroup.objects.filter(min_age__lte=self.age, max_age__gte=self.age)
-            .filter(models.Q(gender="mixed") | models.Q(gender=self.gender))
-            .order_by("min_age", "name")
-            .first()
+        qs = AgeGroup.objects.filter(min_age__lte=self.age, max_age__gte=self.age).filter(
+            models.Q(gender="mixed") | models.Q(gender=self.gender)
         )
+        match = qs.order_by("-created_at", "-id").first()
         self.age_group = match
 
     def save(self, *args, **kwargs):
@@ -207,6 +206,9 @@ class Result(models.Model):
         Boulder, on_delete=models.CASCADE, related_name="results"
     )
     attempts = models.PositiveIntegerField(default=0)
+    attempts_zone1 = models.PositiveIntegerField(default=0)
+    attempts_zone2 = models.PositiveIntegerField(default=0)
+    attempts_top = models.PositiveIntegerField(default=0)
     zone1 = models.BooleanField(default=False)
     zone2 = models.BooleanField(default=False)
     top = models.BooleanField(default=False)
