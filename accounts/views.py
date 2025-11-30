@@ -8,7 +8,9 @@ from django.urls import reverse, reverse_lazy
 from django.utils.text import slugify
 
 from .forms import CSVUploadForm, LoginForm
-from .models import Boulder, Participant
+from django.db import transaction
+
+from .models import Boulder, Participant, Result
 
 
 def login_view(request):
@@ -160,9 +162,105 @@ def participant_results(request):
             if participant.age_group_id
             else Boulder.objects.none()
         )
+        existing_results = {
+            r.boulder_id: r
+            for r in Result.objects.filter(participant=participant, boulder__in=boulders)
+        }
+        for b in boulders:
+            b.existing_result = existing_results.get(b.id)
+        if request.method == "GET" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+            payload = {
+                b.id: {
+                    "top": res.top,
+                    "zone2": res.zone2,
+                    "zone1": res.zone1,
+                    "attempts": res.attempts,
+                    "updated_at": res.updated_at.timestamp(),
+                }
+                for b, res in ((b, b.existing_result) for b in boulders)
+                if res is not None
+            }
+            return JsonResponse({"ok": True, "results": payload})
         if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
-            # TODO: Persist results once model is defined; for now acknowledge autosave.
-            return JsonResponse({"ok": True})
+            payload = {}
+            with transaction.atomic():
+                for boulder in boulders:
+                    attempts_raw = request.POST.get(f"attempts_{boulder.id}", "0")
+                    try:
+                        attempts = int(attempts_raw)
+                    except (TypeError, ValueError):
+                        attempts = 0
+                    z1 = bool(request.POST.get(f"zone1_{boulder.id}", False))
+                    z2 = bool(request.POST.get(f"zone2_{boulder.id}", False))
+                    top = bool(request.POST.get(f"sent_{boulder.id}", False))
+                    posted_ts_raw = request.POST.get(f"ts_{boulder.id}")
+                    posted_ts = None
+                    try:
+                        posted_ts = float(posted_ts_raw) if posted_ts_raw not in (None, "") else None
+                    except (TypeError, ValueError):
+                        posted_ts = None
+
+                    current_result = (
+                        Result.objects.select_for_update()
+                        .filter(participant=participant, boulder=boulder)
+                        .first()
+                    )
+                    if current_result and posted_ts is not None:
+                        # If client timestamp is older than the stored value, don't overwrite.
+                        if current_result.updated_at.timestamp() - posted_ts > 0.0001:
+                            payload[boulder.id] = {
+                                "top": current_result.top,
+                                "zone2": current_result.zone2,
+                                "zone1": current_result.zone1,
+                                "attempts": current_result.attempts,
+                                "updated_at": current_result.updated_at.timestamp(),
+                            }
+                            continue
+
+                    # Normalize based on zone availability and hierarchy.
+                    if boulder.zone_count == 0:
+                        # Only top available; zones are irrelevant.
+                        z1 = False
+                        z2 = False
+                    elif boulder.zone_count == 1:
+                        z2 = False
+                        if top:
+                            z1 = True
+                        if z2 and not z1:
+                            z2 = False
+                        if not z1:
+                            top = False
+                    else:  # two zones available
+                        if top:
+                            z2 = True
+                            z1 = True
+                        if z2 and not z1:
+                            z1 = True
+                        if not z1:
+                            z2 = False
+                            top = False
+
+                    if (top or z1 or z2) and attempts < 1:
+                        attempts = 1
+                    if attempts < 0:
+                        attempts = 0
+
+                    if not current_result:
+                        current_result = Result(participant=participant, boulder=boulder)
+                    current_result.zone1 = z1
+                    current_result.zone2 = z2
+                    current_result.top = top
+                    current_result.attempts = attempts
+                    current_result.save()
+                    existing_results[boulder.id] = current_result
+                    payload[boulder.id] = {
+                        "top": current_result.top,
+                        "zone2": current_result.zone2,
+                        "zone1": current_result.zone1,
+                        "attempts": current_result.attempts,
+                        "updated_at": current_result.updated_at.timestamp(),
+                    }
+            return JsonResponse({"ok": True, "results": payload})
         return render(
             request,
             "participant_results.html",

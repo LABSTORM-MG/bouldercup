@@ -17,6 +17,13 @@
             background: #f7f9fc;
             color: #0f172a;
             line-height: 1.6;
+            min-height: 100vh;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        @supports (height: 100dvh) {
+            body {
+                min-height: 100dvh;
+            }
         }
         header {
             background: #1f7a8c;
@@ -330,7 +337,7 @@
                                         <div class="score-row">
                                             <div class="score-name">Top</div>
                                             <label class="toggle">
-                                                <input type="checkbox" name="sent_{{ boulder.id }}">
+                                                <input type="checkbox" name="sent_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.top %}checked{% endif %}>
                                                 <span aria-hidden="true"></span>
                                             </label>
                                         </div>
@@ -339,7 +346,7 @@
                                                 <div class="score-row">
                                                     <div class="score-name">Zone 2</div>
                                                     <label class="toggle">
-                                                        <input type="checkbox" name="zone2_{{ boulder.id }}">
+                                                        <input type="checkbox" name="zone2_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone2 %}checked{% endif %}>
                                                         <span aria-hidden="true"></span>
                                                     </label>
                                                 </div>
@@ -347,7 +354,7 @@
                                             <div class="score-row">
                                                 <div class="score-name">Zone 1</div>
                                                 <label class="toggle">
-                                                    <input type="checkbox" name="zone1_{{ boulder.id }}">
+                                                    <input type="checkbox" name="zone1_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone1 %}checked{% endif %}>
                                                     <span aria-hidden="true"></span>
                                                 </label>
                                             </div>
@@ -355,9 +362,10 @@
                                     </div>
                                     <div class="attempts" title="Versuche bis dein bestes Ergebnis (Top/Zone) zum ersten Mal geschafft wurde.">
                                         <button type="button" class="dec" aria-label="minus">-</button>
-                                        <input type="number" min="0" name="attempts_{{ boulder.id }}" value="0">
+                                        <input type="number" min="0" name="attempts_{{ boulder.id }}" value="{{ boulder.existing_result.attempts|default:0 }}">
                                         <button type="button" class="inc" aria-label="plus">+</button>
                                     </div>
+                                    <input type="hidden" name="ts_{{ boulder.id }}" value="{% if boulder.existing_result %}{{ boulder.existing_result.updated_at|date:'U.u' }}{% endif %}">
                                 </div>
                             </div>
                         </div>
@@ -376,6 +384,31 @@
         let pending = false;
         let dirty = false;
         const csrfToken = () => document.querySelector("input[name='csrfmiddlewaretoken']").value;
+        const applyServerResults = (results) => {
+            if (!results) return;
+            Object.entries(results).forEach(([bid, vals]) => {
+                const card = document.querySelector(`.boulder-card[data-boulder='${bid}']`);
+                if (!card) return;
+                const input = card.querySelector(`input[name='attempts_${bid}']`);
+                const zone1 = card.querySelector(`input[name='zone1_${bid}']`);
+                const zone2 = card.querySelector(`input[name='zone2_${bid}']`);
+                const sent = card.querySelector(`input[name='sent_${bid}']`);
+                const ts = card.querySelector(`input[name='ts_${bid}']`);
+                const badge = card.querySelector(".flash-badge");
+                const incomingTs = typeof vals.updated_at === "number" ? vals.updated_at : null;
+                const localTs = ts ? parseFloat(ts.value || "0") : 0;
+                if (incomingTs && incomingTs <= localTs + 1e-4) return;
+                if (typeof vals.attempts === "number" && input) input.value = vals.attempts;
+                if (zone1 && typeof vals.zone1 === "boolean") zone1.checked = vals.zone1;
+                if (zone2 && typeof vals.zone2 === "boolean") zone2.checked = vals.zone2;
+                if (sent && typeof vals.top === "boolean") sent.checked = vals.top;
+                if (ts && incomingTs !== null) ts.value = incomingTs;
+                if (badge && sent && input) {
+                    const flash = sent.checked && Number(input.value || 0) === 1;
+                    badge.classList.toggle("show", flash);
+                }
+            });
+        };
 
         const showStatus = (text, state = "ok") => {
             if (!toast) return;
@@ -409,15 +442,11 @@
             })
                 .then((res) => {
                     if (!res.ok) throw new Error("HTTP " + res.status);
+                    return res.json();
+                })
+                .then((data) => {
                     showStatus("Gespeichert", "ok");
-                    document.querySelectorAll(".boulder-card").forEach((card) => {
-                        const input = card.querySelector("input[type='number']");
-                        const sent = card.querySelector("input[name^='sent_']");
-                        const badge = card.querySelector(".flash-badge");
-                        if (!badge || !sent || !input) return;
-                        const flash = sent.checked && Number(input.value || 0) === 1;
-                        badge.classList.toggle("show", flash);
-                    });
+                    applyServerResults(data.results || {});
                 })
                 .catch(() => {
                     showStatus("Fehler beim Speichern", "error");
@@ -444,6 +473,28 @@
             });
         }
 
+        // Periodic polling to pick up remote changes when multiple devices are active.
+        const pollIntervalMs = 5000;
+        setInterval(() => {
+            if (!form || pending || dirty) return;
+            fetch(window.location.href, {
+                method: "GET",
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            })
+                .then((res) => {
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    return res.json();
+                })
+                .then((data) => {
+                    applyServerResults(data.results || {});
+                })
+                .catch(() => {
+                    /* ignore poll errors */
+                });
+        }, pollIntervalMs);
+
         document.querySelectorAll(".boulder-card").forEach((card) => {
             const input = card.querySelector("input[type='number']");
             const zone1 = card.querySelector("input[name^='zone1_']");
@@ -462,11 +513,11 @@
 
             const syncAttempts = () => {
                 let val = Number(input.value || 0);
-                if (!hasResult()) {
-                    val = 0;
-                } else if (val < 1) {
+                if (Number.isNaN(val)) val = 0;
+                if (hasResult() && val < 1) {
                     val = 1;
                 }
+                if (val < 0) val = 0;
                 input.value = val;
             };
 

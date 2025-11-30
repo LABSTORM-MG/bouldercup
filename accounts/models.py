@@ -195,3 +195,26 @@ class Boulder(models.Model):
     def save(self, *args, **kwargs):
         self.color = self.normalize_color(self.color)
         super().save(*args, **kwargs)
+
+
+class Result(models.Model):
+    """Stores the outcome for a participant on a specific boulder."""
+
+    participant = models.ForeignKey(
+        Participant, on_delete=models.CASCADE, related_name="results"
+    )
+    boulder = models.ForeignKey(
+        Boulder, on_delete=models.CASCADE, related_name="results"
+    )
+    attempts = models.PositiveIntegerField(default=0)
+    zone1 = models.BooleanField(default=False)
+    zone2 = models.BooleanField(default=False)
+    top = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("participant", "boulder")
+        ordering = ["participant", "boulder"]
+
+    def __str__(self) -> str:
+        return f"{self.participant} – {self.boulder}: top={self.top}, z2={self.zone2}, z1={self.zone1}, tries={self.attempts}"

@@ -16,9 +16,16 @@
 
         html,
         body {
-            min-height: 100%;
+            min-height: 100vh;
             height: auto;
             overflow-x: hidden;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        @supports (height: 100dvh) {
+            html,
+            body {
+                min-height: 100dvh;
+            }
         }
 
         body {
@@ -110,6 +117,7 @@
             align-items: center;
             gap: 0.4rem;
             font-size: 1rem;
+            padding-bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
         }
 
         footer a {

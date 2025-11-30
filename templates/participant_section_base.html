@@ -16,6 +16,12 @@
             background: #f1f5f9;
             min-height: 100vh;
             line-height: 1.55;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        @supports (height: 100dvh) {
+            body {
+                min-height: 100dvh;
+            }
         }
         header {
             background: #1f7a8c;
