@@ -28,6 +28,7 @@ from accounts.views import (
     participant_settings,
     participant_support,
     upload_participants,
+    participant_rulebook,
 )
 
 urlpatterns = [
@@ -40,5 +41,6 @@ urlpatterns = [
     path('dashboard/live-scoreboard/', participant_live_scoreboard, name='participant_live_scoreboard'),
     path('support/', participant_support, name='participant_support'),
     path('settings/', participant_settings, name='participant_settings'),
+    path('regelwerk/', participant_rulebook, name='participant_rulebook'),
     path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicon.ico'), permanent=False), name='favicon'),
 ]

@@ -13,6 +13,49 @@ from django.db import transaction
 from .models import Boulder, Participant, Result
 
 
+def _score_results(results):
+    """Aggregate IFSC-style scoring metrics for a set of results."""
+    tops = zones = top_attempts = zone_attempts = 0
+    for res in results:
+        if res.top:
+            tops += 1
+            top_attempts += res.attempts
+        if res.zone2 or res.zone1:
+            zones += 1
+            zone_attempts += res.attempts
+    return {
+        "tops": tops,
+        "zones": zones,
+        "top_attempts": top_attempts,
+        "zone_attempts": zone_attempts,
+    }
+
+
+def _rank_entries(entries):
+    """Assign ranks based on IFSC sorting (tops, zones, attempts)."""
+
+    def sort_key(entry):
+        top_att = entry["top_attempts"] if entry["tops"] > 0 else float("inf")
+        zone_att = entry["zone_attempts"] if entry["zones"] > 0 else float("inf")
+        return (
+            -entry["tops"],
+            -entry["zones"],
+            top_att,
+            zone_att,
+            entry["participant"].name.lower(),
+        )
+
+    entries.sort(key=sort_key)
+    last_key = None
+    current_rank = 0
+    for idx, entry in enumerate(entries, start=1):
+        key = sort_key(entry)
+        if key != last_key:
+            current_rank = idx
+            last_key = key
+        entry["rank"] = current_rank
+
+
 def login_view(request):
     message = ""
     form = LoginForm(request.POST or None)
@@ -287,10 +330,65 @@ def participant_run_plan(request):
 def participant_live_scoreboard(request):
     participant = _require_participant(request)
     if isinstance(participant, Participant):
+        entries = []
+        if participant.age_group_id:
+            boulders = Boulder.objects.filter(age_groups=participant.age_group).order_by("label")
+            participants = (
+                Participant.objects.filter(age_group=participant.age_group)
+                .order_by("name")
+                .prefetch_related("results")
+            )
+            results = (
+                Result.objects.filter(participant__in=participants, boulder__in=boulders)
+                .select_related("participant", "boulder")
+            )
+            result_map = {}
+            for res in results:
+                result_map.setdefault(res.participant_id, []).append(res)
+
+            for p in participants:
+                scored = _score_results(result_map.get(p.id, []))
+                entries.append(
+                    {
+                        "participant": p,
+                        **scored,
+                    }
+                )
+            _rank_entries(entries)
+
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            payload = [
+                {
+                    "rank": e["rank"],
+                    "name": e["participant"].name,
+                    "tops": e["tops"],
+                    "top_attempts": e["top_attempts"],
+                    "zones": e["zones"],
+                    "zone_attempts": e["zone_attempts"],
+                }
+                for e in entries
+            ]
+            return JsonResponse({"ok": True, "entries": payload})
+
         return render(
             request,
             "participant_live_scoreboard.html",
-            {"participant": participant, "title": "Live Scoreboard"},
+            {
+                "participant": participant,
+                "title": "Live Scoreboard",
+                "entries": entries,
+            },
+        )
+    return participant
+
+
+def participant_rulebook(request):
+    participant = _require_participant(request)
+    if isinstance(participant, Participant):
+        return render(
+            request,
+            "participant_rulebook.html",
+            {"participant": participant, "title": "Regelwerk"},
         )
     return participant
 

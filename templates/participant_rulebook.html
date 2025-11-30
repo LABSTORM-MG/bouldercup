@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Regelwerk – BoulderCup</title>
+    <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
+</head>
+<body>
+    <header>
+        <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
+        <h1>Regelwerk</h1>
+    </header>
+    <main>
+        <h2>Wertung (IFSC-Style)</h2>
+        <p>Tops &gt; Zonen &gt; Versuche Tops &gt; Versuche Zonen. Weniger Versuche ist besser.</p>
+        <ul>
+            <li>Top: Boulder abgeschlossen (Top-Hold kontrolliert oder oben ausgebouldert).</li>
+            <li>Zone: Höchste erreichte Zone zählt (Zone 2 &gt; Zone 1).</li>
+            <li>Versuche: Bis zum ersten Erreichen von Zone/Top gezählt.</li>
+            <li>Hierarchie: Top setzt alle Zonen, Zone 2 setzt Zone 1.</li>
+        </ul>
+        <h2>Scoring-Anzeige</h2>
+        <p>Das Ranking erfolgt nach Tops, Zonen, Versuche Top, Versuche Zone. Es gibt keine Punktwerte pro Boulder.</p>
+        <p>Offizielle IFSC-Regeln findest du hier: <a href="https://www.ifsc-climbing.org/index.php/about-ifsc/rules" target="_blank" rel="noopener">IFSC Rules</a>.</p>
+    </main>
+</body>
+</html>

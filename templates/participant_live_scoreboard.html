@@ -1,1 +1,119 @@
-{% include "participant_section_base.html" with section_title=title content="Verfolge Live-Rankings und Fortschritt deiner Gruppe." %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} – BoulderCup</title>
+    <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
+    <style>
+        /* Table-specific tweaks */
+        body { overflow-x: hidden; }
+        main { overflow-x: hidden; }
+        .table-wrap { width: 100%; overflow: hidden; padding: 0; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        th, td { padding: clamp(0.35rem, 1vw, 0.45rem) clamp(0.35rem, 1vw, 0.45rem); text-align: left; border-bottom: 1px solid #e2e8f0; background: #fff; font-size: clamp(0.9rem, 2.5vw, 0.95rem); }
+        thead th {
+            position: sticky;
+            top: 0;
+            z-index: 4;
+            background: #fff;
+            height: clamp(40px, 8vw, 48px);
+            padding: clamp(0.2rem, 1vw, 0.35rem);
+            vertical-align: bottom;
+            overflow: visible;
+            text-transform: uppercase;
+            font-size: clamp(0.85rem, 2.4vw, 0.9rem);
+            letter-spacing: 0.02em;
+            color: #64748b;
+        }
+        tbody tr:hover { background: #f8fafc; }
+        .rank, .name { position: sticky; left: 0; top: 0; z-index: 5; background: #fff; border-bottom: 1px solid #e2e8f0; }
+        .rank { font-weight: 700; color: #0f172a; width: clamp(42px, 9vw, 48px); text-align: left; }
+        .name {
+            left: clamp(42px, 9vw, 48px);
+            min-width: 0;
+            white-space: normal;
+            word-break: break-word;
+            font-weight: 600;
+            text-align: left;
+            width: auto;
+            border-right: 1px solid #e2e8f0;
+        }
+        .muted { color: #64748b; font-size: 0.95rem; }
+        .attempt-col { min-width: clamp(56px, 12vw, 70px); padding-left: 0.25rem; padding-right: 0.25rem; white-space: nowrap; text-align: left; }
+        @media (max-width: 640px) {
+            .name { min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
+        <h1>{{ title }}</h1>
+        <div class="meta">{{ participant.name }} – {{ participant.age_group }}</div>
+    </header>
+    <main>
+        {% if entries %}
+            <div class="table-wrap">
+                <table aria-label="Scoreboard">
+                    <thead>
+                        <tr>
+                            <th class="rank no-angle"><span class="th-text">Platz</span></th>
+                            <th class="name no-angle"><span class="th-text">Teilnehmer</span></th>
+                            <th class="attempt-col"><span class="th-text">Tops</span></th>
+                            <th class="attempt-col"><span class="th-text">Zonen</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                            <tr>
+                                <td class="rank">{{ entry.rank }}</td>
+                                <td class="name">{{ entry.participant.name }}</td>
+                                <td class="attempt-col">{{ entry.tops }} / {{ entry.top_attempts }}</td>
+                                <td class="attempt-col">{{ entry.zones }} / {{ entry.zone_attempts }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="muted">Noch keine Ergebnisse vorhanden.</p>
+        {% endif %}
+    </main>
+    <script>
+        const tableBody = document.querySelector("table tbody");
+        const pollInterval = 5000;
+        const renderEntries = (entries) => {
+            if (!tableBody) return;
+            const rows = entries.map((e) => {
+                return `
+                    <tr>
+                        <td class="rank">${e.rank}</td>
+                        <td class="name">${e.name}</td>
+                        <td class="attempt-col">${e.tops} / ${e.top_attempts}</td>
+                        <td class="attempt-col">${e.zones} / ${e.zone_attempts}</td>
+                    </tr>
+                `;
+            }).join("");
+            tableBody.innerHTML = rows;
+        };
+
+        const poll = () => {
+            fetch(window.location.href, {
+                headers: { "X-Requested-With": "XMLHttpRequest" },
+            })
+                .then((res) => {
+                    if (!res.ok) throw new Error("HTTP " + res.status);
+                    return res.json();
+                })
+                .then((data) => {
+                    if (data && data.entries) renderEntries(data.entries);
+                })
+                .catch(() => { /* ignore polling errors */ });
+        };
+
+        setInterval(poll, pollInterval);
+    </script>
+</body>
+</html>

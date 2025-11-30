@@ -1,54 +1,6 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Einstellungen – BoulderCup</title>
-    <style>
-        :root {
-            font-size: clamp(15px, 2.8vw, 17px);
-        }
-        body {
-            font-family: Arial, sans-serif;
-            background: #f6f9fc;
-            margin: 0;
-            min-height: 100vh;
-            line-height: 1.55;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
-        }
-        @supports (height: 100dvh) {
-            body {
-                min-height: 100dvh;
-            }
-        }
-        header {
-            background: #1f7a8c;
-            color: #fff;
-            padding: clamp(1.2rem, 4vw, 1.6rem);
-            text-align: center;
-        }
-        main {
-            max-width: 820px;
-            width: min(900px, 94vw);
-            margin: clamp(1.2rem, 3vw, 2rem) auto;
-            background: #fff;
-            padding: clamp(1.25rem, 4vw, 2.25rem);
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-        }
-        a {
-            color: #1f7a8c;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>Einstellungen</h1>
-    </header>
-    <main>
-        <p>{{ participant.name }}, hier kannst du später persönliche Daten, Benachrichtigungen oder Teams verwalten.</p>
-        <p>Diese Seite ist aktuell ein Platzhalter, der noch mit Funktionen gefüllt werden kann.</p>
-        <p><a href="{% url 'participant_dashboard' %}">Zurück zum Dashboard</a></p>
-    </main>
-</body>
-</html>
+{% extends "participant_section_base.html" %}
+
+{% block content %}
+    <p>{{ participant.name }}, hier kannst du später persönliche Daten, Benachrichtigungen oder Teams verwalten.</p>
+    <p>Diese Seite ist aktuell ein Platzhalter, der noch mit Funktionen gefüllt werden kann.</p>
+{% endblock %}
