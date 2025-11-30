@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.contrib.staticfiles.storage import staticfiles_storage
+from django.views.generic.base import RedirectView
 
 from accounts.views import (
     login_view,
@@ -38,4 +40,5 @@ urlpatterns = [
     path('dashboard/live-scoreboard/', participant_live_scoreboard, name='participant_live_scoreboard'),
     path('support/', participant_support, name='participant_support'),
     path('settings/', participant_settings, name='participant_settings'),
+    path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicon.ico'), permanent=False), name='favicon'),
 ]

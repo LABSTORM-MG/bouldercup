@@ -2,64 +2,114 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ title }} – BoulderCup</title>
     <style>
+        :root {
+            font-size: clamp(15px, 2.6vw, 17px);
+        }
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            background: #f1f5f9;
+            background: #f7f9fc;
             color: #0f172a;
+            line-height: 1.6;
         }
         header {
             background: #1f7a8c;
             color: #fff;
-            padding: 1rem;
+            padding: clamp(1rem, 3vw, 1.4rem);
             display: flex;
             align-items: center;
             gap: 1rem;
+            flex-wrap: wrap;
         }
         header a {
             color: #fff;
             text-decoration: none;
             font-weight: bold;
         }
+        header h1 {
+            margin: 0;
+            font-size: clamp(1.25rem, 4.5vw, 1.8rem);
+        }
         main {
-            max-width: 900px;
-            margin: 2rem auto;
+            max-width: 960px;
+            width: 100%;
+            margin: clamp(1rem, 3vw, 2rem) auto;
             background: #fff;
-            padding: 2rem;
-            border-radius: 12px;
+            padding: clamp(1.25rem, 4vw, 2.25rem);
+            border-radius: 16px;
             box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
         }
         .boulder-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            display: flex;
+            flex-direction: column;
             gap: 1rem;
-            margin-top: 1rem;
+            margin-top: 0.75rem;
         }
         .boulder-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 1rem;
-            background: #f8fafc;
+            border: 2px solid var(--accent, #e2e8f0);
+            border-radius: 12px;
+            background: #fff;
             color: #0f172a;
-            box-shadow: 0 8px 18px rgba(0,0,0,0.08);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
         }
-        .boulder-header {
+        .boulder-card-body {
+            --accent: #22c55e;
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 1rem;
+            padding: 1.1rem 1.4rem;
+            border-radius: 12px;
+            background: #fff;
+        }
+        .boulder-info {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
+            flex-direction: column;
+            gap: 0.25rem;
+            align-self: flex-start;
+            text-align: center;
+        }
+        .boulder-label {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #475569;
         }
         .note {
-            margin-top: 0.4rem;
-            color: #475569;
+            color: #94a3b8;
             font-size: 0.9rem;
+        }
+        .score-table {
+            display: grid;
+            grid-template-columns: 1fr 150px;
+            column-gap: 1rem;
+            align-items: flex-start;
+        }
+        .score-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .score-row {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .score-name {
+            font-weight: 600;
+            color: #475569;
+            min-width: 68px;
+            text-align: left;
         }
         .toggle {
             position: relative;
             display: inline-flex;
             align-items: center;
+            justify-content: center;
         }
         .toggle input {
             position: absolute;
@@ -67,58 +117,60 @@
             pointer-events: none;
         }
         .toggle span {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid #d9e3f0;
+            background: #f8fafc;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 0.4rem 1rem;
-            border-radius: 999px;
-            border: 1px solid #cbd5e1;
-            background: #e2e8f0;
-            color: #0f172a;
-            font-weight: 600;
+            box-shadow: inset 0 0 0 2px #fff, 0 4px 10px rgba(15, 23, 42, 0.08);
             transition: all 0.15s ease;
-            min-width: 92px;
         }
         .toggle input:checked + span {
-            background: #1f7a8c;
-            color: #fff;
-            border-color: #1f7a8c;
-            box-shadow: 0 8px 16px rgba(31, 122, 140, 0.25);
-        }
-        .zones {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            margin-top: 0.5rem;
-            font-size: 0.95rem;
-            align-items: center;
-        }
-        .zones label {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
+            background: var(--accent, #22c55e);
+            border-color: var(--accent, #22c55e);
+            box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
         }
         .attempts {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-top: 0.5rem;
+            justify-content: flex-end;
+            gap: 0.4rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 999px;
+            padding: 0.25rem 0.6rem;
+            min-width: 140px;
+            justify-self: flex-end;
         }
         .attempts button {
-            width: 28px;
-            height: 28px;
-            border: 1px solid #cbd5e1;
-            background: #e2e8f0;
-            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            border: 1px solid #d9e3f0;
+            background: #fff;
+            border-radius: 50%;
             cursor: pointer;
+            color: #94a3b8;
+            font-size: 1rem;
+            transition: all 0.12s ease;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+        }
+        .attempts button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
         }
         .attempts input {
-            width: 60px;
+            width: 50px;
             text-align: center;
-            padding: 0.2rem 0.4rem;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
+            padding: 0.25rem 0.35rem;
+            border: 1px solid #d9e3f0;
+            border-radius: 10px;
             -moz-appearance: textfield;
+            font-weight: 600;
+            color: #334155;
+            background: #fff;
         }
         .attempts input::-webkit-outer-spin-button,
         .attempts input::-webkit-inner-spin-button {
@@ -132,6 +184,42 @@
         .empty {
             margin-top: 1rem;
             color: #475569;
+        }
+        @media (max-width: 780px) {
+            header {
+                justify-content: center;
+                text-align: center;
+            }
+            header a {
+                width: 100%;
+            }
+            .results-headings {
+                grid-template-columns: 1fr 1fr;
+                row-gap: 0.25rem;
+            }
+            .results-headings span:last-child {
+                justify-self: end;
+            }
+            .boulder-card-body {
+                grid-template-columns: 1fr;
+            }
+            .score-table {
+                grid-template-columns: 1fr;
+            }
+            .score-rows {
+                gap: 0.75rem;
+            }
+            .score-row {
+                justify-content: space-between;
+            }
+            .score-name {
+                min-width: 0;
+            }
+            .attempts {
+                width: 100%;
+                justify-content: space-between;
+                margin-top: 0.6rem;
+            }
         }
         .toast {
             position: fixed;
@@ -173,39 +261,47 @@
                 {% csrf_token %}
                 <div class="boulder-list">
                     {% for boulder in boulders %}
-                        <div class="boulder-card" data-boulder="{{ boulder.id }}">
-                            <div class="boulder-card-body" style="background: {{ boulder.color }}; padding: 0.6rem 0.8rem; border-radius: 8px;">
-                                <div class="boulder-header">
-                                    <div>
-                                        <strong>{{ boulder.label }}</strong>
-                                    </div>
-                                </div>
-                                {% if boulder.note %}
-                                    <div class="note">{{ boulder.note }}</div>
-                                {% endif %}
-                                <div class="zones">
-                                    {% if boulder.zone_count %}
-                                        <label class="toggle">
-                                            <input type="checkbox" name="zone1_{{ boulder.id }}">
-                                            <span>Zone 1</span>
-                                        </label>
-                                        {% if boulder.zone_count == 2 %}
-                                            <label class="toggle">
-                                                <input type="checkbox" name="zone2_{{ boulder.id }}">
-                                                <span>Zone 2</span>
-                                            </label>
-                                        {% endif %}
+                        <div class="boulder-card" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
+                            <div class="boulder-card-body">
+                                <div class="boulder-info">
+                                    <div class="boulder-label">{{ boulder.label }}</div>
+                                    {% if boulder.note %}
+                                        <div class="note">{{ boulder.note }}</div>
                                     {% endif %}
-                                    <label class="toggle">
-                                        <input type="checkbox" name="sent_{{ boulder.id }}">
-                                        <span>Geschafft</span>
-                                    </label>
                                 </div>
-                                <div class="attempts">
-                                    <span>Versuche:</span>
-                                    <button type="button" class="dec" aria-label="minus">-</button>
-                                    <input type="number" min="0" name="attempts_{{ boulder.id }}" value="0">
-                                    <button type="button" class="inc" aria-label="plus">+</button>
+                                <div class="score-table">
+                                    <div class="score-rows">
+                                        <div class="score-row">
+                                            <div class="score-name">Top</div>
+                                            <label class="toggle">
+                                                <input type="checkbox" name="sent_{{ boulder.id }}">
+                                                <span aria-hidden="true"></span>
+                                            </label>
+                                        </div>
+                                        {% if boulder.zone_count %}
+                                            {% if boulder.zone_count == 2 %}
+                                                <div class="score-row">
+                                                    <div class="score-name">Zone 2</div>
+                                                    <label class="toggle">
+                                                        <input type="checkbox" name="zone2_{{ boulder.id }}">
+                                                        <span aria-hidden="true"></span>
+                                                    </label>
+                                                </div>
+                                            {% endif %}
+                                            <div class="score-row">
+                                                <div class="score-name">Zone 1</div>
+                                                <label class="toggle">
+                                                    <input type="checkbox" name="zone1_{{ boulder.id }}">
+                                                    <span aria-hidden="true"></span>
+                                                </label>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="attempts">
+                                        <button type="button" class="dec" aria-label="minus">-</button>
+                                        <input type="number" min="0" name="attempts_{{ boulder.id }}" value="0">
+                                        <button type="button" class="inc" aria-label="plus">+</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -301,54 +397,40 @@
             });
             input.addEventListener("input", queueSubmit);
             const cascade = (changed) => {
-                let z1 = zone1 ? zone1.checked : false;
-                let z2 = zone2 ? zone2.checked : false;
-                let s = sent ? sent.checked : false;
-                const isChecked = changed ? changed.checked : false;
+                const levels = [
+                    zone1 ? { el: zone1 } : null,
+                    zone2 ? { el: zone2 } : null,
+                    sent ? { el: sent } : null,
+                ].filter(Boolean);
+
+                if (!changed) return;
+
+                const idx = levels.findIndex((lvl) => lvl.el === changed);
+                const isChecked = changed.checked;
+                const higherChecked = levels.slice(idx + 1).some((lvl) => lvl.el.checked);
+
+                const selectThrough = (targetIdx) => {
+                    levels.forEach((lvl, i) => {
+                        lvl.el.checked = i <= targetIdx;
+                    });
+                };
 
                 if (isChecked) {
-                    if (changed === sent) {
-                        s = true;
-                        if (zone2) z2 = true;
-                        z1 = true;
-                    } else if (changed === zone2) {
-                        z2 = true;
-                        z1 = true;
-                    } else if (changed === zone1) {
-                        z1 = true;
-                    }
-                } else if (changed) {
-                    if (changed === zone1) {
-                        z1 = false;
-                        z2 = false;
-                        s = false;
-                    } else if (changed === zone2) {
-                        z2 = false;
-                        s = false;
-                    } else if (changed === sent) {
-                        s = false;
+                    // Turning on a level selects it and everything below, clears above.
+                    selectThrough(idx);
+                } else if (higherChecked) {
+                    // Demote to this level: keep this and below selected, drop above.
+                    selectThrough(idx);
+                } else {
+                    // Highest selected toggled off: just uncheck it, keep lower state.
+                    changed.checked = false;
+                    // Ensure hierarchy consistency (no higher without lower).
+                    for (let i = levels.length - 1; i > 0; i--) {
+                        if (levels[i].el.checked && !levels[i - 1].el.checked) {
+                            levels[i].el.checked = false;
+                        }
                     }
                 }
-
-                // Maintain invariants after applying intent.
-                if (s) {
-                    if (zone2) z2 = true;
-                    z1 = true;
-                }
-                if (z2) {
-                    z1 = true;
-                }
-                if (!z1) {
-                    z2 = false;
-                    s = false;
-                }
-                if (zone2 && !z2) {
-                    s = false;
-                }
-
-                if (zone1) zone1.checked = z1;
-                if (zone2) zone2.checked = z2;
-                if (sent) sent.checked = s;
             };
             const checkboxes = card.querySelectorAll("input[type='checkbox']");
             checkboxes.forEach((cb) => {

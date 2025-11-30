@@ -2,23 +2,31 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Einstellungen – BoulderCup</title>
     <style>
+        :root {
+            font-size: clamp(15px, 2.8vw, 17px);
+        }
         body {
             font-family: Arial, sans-serif;
             background: #f6f9fc;
             margin: 0;
+            min-height: 100vh;
+            line-height: 1.55;
         }
         header {
             background: #1f7a8c;
             color: #fff;
-            padding: 1.5rem;
+            padding: clamp(1.2rem, 4vw, 1.6rem);
+            text-align: center;
         }
         main {
-            max-width: 800px;
-            margin: 2rem auto;
+            max-width: 820px;
+            width: min(900px, 94vw);
+            margin: clamp(1.2rem, 3vw, 2rem) auto;
             background: #fff;
-            padding: 2rem;
+            padding: clamp(1.25rem, 4vw, 2.25rem);
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
         }

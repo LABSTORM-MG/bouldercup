@@ -37,5 +37,6 @@ fi
 
 python3 manage.py migrate
 
-echo "Starting Django development server on http://127.0.0.1:8000/ ..."
-exec python3 manage.py runserver "${RUNSERVER_ARGS[@]}"
+DEFAULT_ADDR="0.0.0.0:8000"
+echo "Starting Django development server on http://${DEFAULT_ADDR}/ (reachable on local network) ..."
+exec python3 manage.py runserver "${RUNSERVER_ARGS[@]}" "${DEFAULT_ADDR}"
