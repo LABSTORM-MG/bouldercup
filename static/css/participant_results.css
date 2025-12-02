@@ -21,25 +21,25 @@ body {
 header {
     background: #1f7a8c;
     color: #fff;
-    padding: clamp(1rem, 3vw, 1.4rem);
+    padding: clamp(1.1rem, 3vw, 1.5rem);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.4rem;
     flex-wrap: wrap;
     justify-content: center;
     border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
 }
 header a {
     color: #fff;
     text-decoration: none;
     font-weight: bold;
     background: rgba(255, 255, 255, 0.15);
-    padding: 0.4rem 0.75rem;
+    padding: 0.45rem 0.85rem;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.2);
     align-self: flex-start;
+    box-shadow: none;
 }
 header h1 {
     margin: 0;
@@ -65,92 +65,69 @@ main {
     width: min(960px, 95vw);
     margin: clamp(1rem, 3vw, 2rem) auto;
     background: #fff;
-    padding: clamp(1.25rem, 4vw, 2.25rem);
-    border-radius: 16px;
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+    border-radius: 18px;
     box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
 }
 .boulder-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.85rem;
     margin-top: 0.75rem;
 }
 .boulder-card {
-    border: 2px solid var(--accent, #e2e8f0);
-    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
     background: #fff;
     color: #0f172a;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    overflow: hidden;
 }
-.boulder-card-body {
-    --accent: #22c55e;
-    display: grid;
-    grid-template-columns: 140px 1fr;
-    gap: 1rem;
-    padding: 1.1rem 1.4rem;
-    border-radius: 12px;
-    background: #fff;
-}
-.boulder-info {
+.boulder-header {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    align-self: flex-start;
-    text-align: center;
-}
-.boulder-label {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: #475569;
-    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    position: relative;
+    justify-content: space-between;
+    padding: 0.9rem 1rem;
+    background: var(--accent, #f9fafb);
+    border-bottom: 1px solid #e2e8f0;
+    font-weight: 700;
+    color: #0f172a;
 }
-.boulder-label::after {
-    content: "";
-    display: inline-block;
-    width: 1.1em;
-    height: 1em;
+.boulder-label-text {
+    font-size: 1.1rem;
 }
 .flash-badge {
     opacity: 0;
-    width: 1.1em;
-    height: 1em;
+    width: 1.2em;
+    height: 1.2em;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: 1.15rem;
+    color: #16a34a;
+    transition: opacity 0.15s ease;
 }
 .flash-badge.show {
     opacity: 1;
 }
-.note {
-    color: #94a3b8;
-    font-size: 0.9rem;
-}
-.score-table {
+.tier-list {
     display: grid;
-    grid-template-columns: 1fr 150px;
-    column-gap: 1rem;
-    align-items: flex-start;
+    grid-template-columns: 1fr;
 }
-.score-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-}
-.score-row {
-    display: inline-flex;
+.tier-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 180px;
     align-items: center;
-    gap: 0.6rem;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #eef2f7;
+    gap: 0.75rem;
 }
-.score-name {
+.tier-row:last-child {
+    border-bottom: none;
+}
+.tier-label {
+    color: #6b7280;
     font-weight: 600;
-    color: #475569;
-    min-width: 68px;
-    text-align: left;
 }
 .toggle {
     position: relative;
@@ -164,35 +141,28 @@ main {
     pointer-events: none;
 }
 .toggle span {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
-    border: 2px solid #d9e3f0;
+    border: 1px solid #d9e3f0;
     background: #f8fafc;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: inset 0 0 0 2px #fff, 0 4px 10px rgba(15, 23, 42, 0.08);
-    transition: all 0.15s ease;
+    box-shadow: inset 0 0 0 6px #f3f4f6, 0 4px 10px rgba(15, 23, 42, 0.06);
+    transition: all 0.14s ease;
 }
 .toggle input:checked + span {
-    background: var(--accent, #22c55e);
-    border-color: var(--accent, #22c55e);
-    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
+    background: #22c55e;
+    border-color: #22c55e;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
 }
-.attempts {
-    display: flex;
+.attempt-controls {
+    display: inline-flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 0.4rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
-    padding: 0.25rem 0.6rem;
-    min-width: 140px;
-    justify-self: flex-end;
 }
-.attempts button {
+.attempt-controls button {
     width: 30px;
     height: 30px;
     border: 1px solid #d9e3f0;
@@ -204,11 +174,11 @@ main {
     transition: all 0.12s ease;
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 }
-.attempts button:hover {
+.attempt-controls button:hover {
     transform: translateY(-1px);
     box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
 }
-.attempts input {
+.attempt-controls input {
     width: 50px;
     text-align: center;
     padding: 0.25rem 0.35rem;
@@ -219,8 +189,8 @@ main {
     color: #334155;
     background: #fff;
 }
-.attempts input::-webkit-outer-spin-button,
-.attempts input::-webkit-inner-spin-button {
+.attempt-controls input::-webkit-outer-spin-button,
+.attempt-controls input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
@@ -234,40 +204,24 @@ main {
 }
 @media (max-width: 780px) {
     header {
-        justify-content: center;
-        text-align: center;
-        padding-bottom: clamp(1.1rem, 4vw, 1.6rem);
+    justify-content: center;
+    text-align: center;
+    padding-bottom: clamp(1.1rem, 4vw, 1.6rem);
     }
     header a {
         width: 100%;
         text-align: left;
     }
-    .results-headings {
-        grid-template-columns: 1fr 1fr;
-        row-gap: 0.25rem;
+    main {
+        padding: clamp(1rem, 5vw, 1.4rem);
     }
-    .results-headings span:last-child {
-        justify-self: end;
+    .results-head {
+        grid-template-columns: 1fr 100px 120px;
+        font-size: 0.85rem;
     }
-    .boulder-card-body {
-        grid-template-columns: 1fr;
-    }
-    .score-table {
-        grid-template-columns: 1fr;
-    }
-    .score-rows {
-        gap: 0.75rem;
-    }
-    .score-row {
-        justify-content: space-between;
-    }
-    .score-name {
-        min-width: 0;
-    }
-    .attempts {
-        width: 100%;
-        justify-content: space-between;
-        margin-top: 0.6rem;
+    .tier-row {
+        grid-template-columns: 1fr 100px 140px;
+        padding: 0.75rem 0.85rem;
     }
 }
 .toast {

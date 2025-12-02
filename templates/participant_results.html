@@ -13,10 +13,13 @@
         <h1>{{ title }}</h1>
         <div class="header-meta">
             <strong>{{ participant.name }}</strong>
-            <span>{{ participant.age_group }}</span>
+            <span>
+                {% if participant.age_group %}
+                    {{ participant.age_group.name }}
+                {% endif %}
+            </span>
         </div>
     </header>
-    <div id="autosave-toast" class="toast" aria-live="polite"></div>
     <main>
         {% if boulders %}
             <form method="post">
@@ -24,51 +27,52 @@
                 <div class="boulder-list">
                     {% for boulder in boulders %}
                         <div class="boulder-card" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
-                                <div class="boulder-card-body">
-                                    <div class="boulder-info">
-                                        <div class="boulder-label">
-                                            <span class="flash-badge" aria-label="Flash">⚡</span>
-                                            <span class="boulder-label-text">{{ boulder.label }}</span>
-                                        </div>
-                                    {% if boulder.note %}
-                                        <div class="note">{{ boulder.note }}</div>
-                                    {% endif %}
-                                </div>
-                                <div class="score-table">
-                                    <div class="score-rows">
-                                        <div class="score-row">
-                                            <div class="score-name">Top</div>
-                                            <label class="toggle">
-                                                <input type="checkbox" name="sent_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.top %}checked{% endif %}>
-                                                <span aria-hidden="true"></span>
-                                            </label>
-                                        </div>
-                                        {% if boulder.zone_count %}
-                                            {% if boulder.zone_count == 2 %}
-                                                <div class="score-row">
-                                                    <div class="score-name">Zone 2</div>
-                                                    <label class="toggle">
-                                                        <input type="checkbox" name="zone2_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone2 %}checked{% endif %}>
-                                                        <span aria-hidden="true"></span>
-                                                    </label>
-                                                </div>
-                                            {% endif %}
-                                            <div class="score-row">
-                                                <div class="score-name">Zone 1</div>
-                                                <label class="toggle">
-                                                    <input type="checkbox" name="zone1_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone1 %}checked{% endif %}>
-                                                    <span aria-hidden="true"></span>
-                                                </label>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                    <div class="attempts" title="Versuche bis dein bestes Ergebnis (Top/Zone) zum ersten Mal geschafft wurde.">
+                            <div class="boulder-header">
+                                <span class="boulder-label-text">{{ boulder.label }}</span>
+                                <span class="flash-badge" aria-label="Flash">⚡</span>
+                            </div>
+                            <div class="tier-list" role="group" aria-label="Boulder {{ boulder.label }}">
+                                <div class="tier-row">
+                                    <div class="tier-label">Top</div>
+                                    <label class="toggle">
+                                        <input type="checkbox" name="sent_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.top %}checked{% endif %}>
+                                        <span aria-hidden="true"></span>
+                                    </label>
+                                    <div class="attempt-controls" aria-label="Versuche bis Top">
                                         <button type="button" class="dec" aria-label="minus">-</button>
-                                        <input type="number" min="0" name="attempts_{{ boulder.id }}" value="{{ boulder.existing_result.attempts|default:0 }}">
+                                        <input type="number" min="0" name="attempts_top_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_top|default:0 }}">
                                         <button type="button" class="inc" aria-label="plus">+</button>
                                     </div>
-                                    <input type="hidden" name="ts_{{ boulder.id }}" value="{% if boulder.existing_result %}{{ boulder.existing_result.updated_at|date:'U.u' }}{% endif %}">
                                 </div>
+                                {% if boulder.zone_count == 2 %}
+                                    <div class="tier-row">
+                                        <div class="tier-label">High Zone</div>
+                                        <label class="toggle">
+                                            <input type="checkbox" name="zone2_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone2 %}checked{% endif %}>
+                                            <span aria-hidden="true"></span>
+                                        </label>
+                                        <div class="attempt-controls" aria-label="Versuche bis High Zone">
+                                            <button type="button" class="dec" aria-label="minus">-</button>
+                                            <input type="number" min="0" name="attempts_zone2_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone2|default:0 }}">
+                                            <button type="button" class="inc" aria-label="plus">+</button>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                {% if boulder.zone_count >= 1 %}
+                                    <div class="tier-row">
+                                        <div class="tier-label">{% if boulder.zone_count == 2 %}Low Zone{% else %}Zone{% endif %}</div>
+                                        <label class="toggle">
+                                            <input type="checkbox" name="zone1_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone1 %}checked{% endif %}>
+                                            <span aria-hidden="true"></span>
+                                        </label>
+                                        <div class="attempt-controls" aria-label="Versuche bis Zone">
+                                            <button type="button" class="dec" aria-label="minus">-</button>
+                                            <input type="number" min="0" name="attempts_zone1_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone1|default:0 }}">
+                                            <button type="button" class="inc" aria-label="plus">+</button>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                <input type="hidden" name="ts_{{ boulder.id }}" value="{% if boulder.existing_result %}{{ boulder.existing_result.updated_at|date:'U.u' }}{% endif %}">
                             </div>
                         </div>
                     {% endfor %}
@@ -78,6 +82,7 @@
             <p class="empty">Für deine Altersgruppe sind aktuell keine Boulder hinterlegt.</p>
         {% endif %}
     </main>
+    <div id="autosave-toast" class="toast" aria-live="polite"></div>
     <script src="{% static 'js/participant_results.js' %}" defer></script>
 </body>
 </html>

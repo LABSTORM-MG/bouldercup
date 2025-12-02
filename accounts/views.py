@@ -19,10 +19,13 @@ def _score_results(results):
     for res in results:
         if res.top:
             tops += 1
-            top_attempts += res.attempts
+            top_attempts += res.attempts_top or res.attempts
         if res.zone2 or res.zone1:
             zones += 1
-            zone_attempts += res.attempts
+            if res.zone2:
+                zone_attempts += res.attempts_zone2 or res.attempts
+            elif res.zone1:
+                zone_attempts += res.attempts_zone1 or res.attempts
     return {
         "tops": tops,
         "zones": zones,
@@ -35,22 +38,25 @@ def _score_custom(results, settings):
     """Compute points for custom scoring."""
     points = 0
     tops = zones = total_attempts = 0
+    # Use tier-specific attempts if present; otherwise fall back to legacy aggregate.
     for res in results:
         achieved_zone = res.zone2 or res.zone1
         if res.top:
+            attempts_used = res.attempts_top or res.attempts
             tops += 1
-            base = settings.top_points + (settings.flash_points if res.attempts == 1 else 0)
-            penalty = settings.attempt_penalty * res.attempts
+            base = settings.top_points + (settings.flash_points if attempts_used == 1 else 0)
+            penalty = settings.attempt_penalty * attempts_used
             pts = max(base - penalty, 0)
             points += pts
-            total_attempts += res.attempts
+            total_attempts += attempts_used
         elif achieved_zone:
+            attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
             zones += 1
             base = settings.zone_points
-            penalty = settings.attempt_penalty * res.attempts
+            penalty = settings.attempt_penalty * attempts_used
             pts = max(base - penalty, 0)
             points += pts
-            total_attempts += res.attempts
+            total_attempts += attempts_used
         else:
             total_attempts += res.attempts
     return {
@@ -276,7 +282,6 @@ def participant_results(request):
                     "top": res.top,
                     "zone2": res.zone2,
                     "zone1": res.zone1,
-                    "attempts": res.attempts,
                     "attempts_top": res.attempts_top,
                     "attempts_zone2": res.attempts_zone2,
                     "attempts_zone1": res.attempts_zone1,
@@ -290,11 +295,16 @@ def participant_results(request):
             payload = {}
             with transaction.atomic():
                 for boulder in boulders:
-                    attempts_raw = request.POST.get(f"attempts_{boulder.id}", "0")
-                    try:
-                        attempts = int(attempts_raw)
-                    except (TypeError, ValueError):
-                        attempts = 0
+                    def _get_int(name: str) -> int:
+                        raw = request.POST.get(name, "0")
+                        try:
+                            return int(raw)
+                        except (TypeError, ValueError):
+                            return 0
+
+                    attempts_z1 = _get_int(f"attempts_zone1_{boulder.id}")
+                    attempts_z2 = _get_int(f"attempts_zone2_{boulder.id}")
+                    attempts_top = _get_int(f"attempts_top_{boulder.id}")
                     z1 = bool(request.POST.get(f"zone1_{boulder.id}", False))
                     z2 = bool(request.POST.get(f"zone2_{boulder.id}", False))
                     top = bool(request.POST.get(f"sent_{boulder.id}", False))
@@ -345,24 +355,45 @@ def participant_results(request):
                             z2 = False
                             top = False
 
-                    if (top or z1 or z2) and attempts < 1:
-                        attempts = 1
-                    if attempts < 0:
-                        attempts = 0
+                    # Clamp attempts per tier; ensure they align with selected tiers.
+                    attempts_z1 = max(attempts_z1, 0)
+                    attempts_z2 = max(attempts_z2, 0)
+                    attempts_top = max(attempts_top, 0)
+
+                    if z1 and attempts_z1 < 1:
+                        attempts_z1 = 1
+                    if z2 and attempts_z2 < 1:
+                        attempts_z2 = 1
+                    if top and attempts_top < 1:
+                        attempts_top = 1
+
+                    # If higher tier is selected, default lower tiers' attempts when missing.
+                    if top and attempts_top and attempts_z2 == 0 and boulder.zone_count >= 2:
+                        attempts_z2 = attempts_top
+                    if top and attempts_top and attempts_z1 == 0:
+                        attempts_z1 = attempts_top
+                    if z2 and attempts_z2 and attempts_z1 == 0:
+                        attempts_z1 = attempts_z2
 
                     if not current_result:
                         current_result = Result(participant=participant, boulder=boulder)
                     current_result.zone1 = z1
                     current_result.zone2 = z2
                     current_result.top = top
-                    current_result.attempts = attempts
+                    # Store per-tier attempts; keep legacy attempts in sync for now.
+                    current_result.attempts_zone1 = attempts_z1
+                    current_result.attempts_zone2 = attempts_z2
+                    current_result.attempts_top = attempts_top
+                    current_result.attempts = attempts_top if top else (attempts_z2 if z2 else attempts_z1)
                     current_result.save()
                     existing_results[boulder.id] = current_result
                     payload[boulder.id] = {
                         "top": current_result.top,
                         "zone2": current_result.zone2,
                         "zone1": current_result.zone1,
-                        "attempts": current_result.attempts,
+                        "attempts_top": current_result.attempts_top,
+                        "attempts_zone2": current_result.attempts_zone2,
+                        "attempts_zone1": current_result.attempts_zone1,
                         "updated_at": current_result.updated_at.timestamp(),
                     }
             return JsonResponse({"ok": True, "results": payload})
