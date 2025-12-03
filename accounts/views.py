@@ -1,131 +1,228 @@
+from __future__ import annotations
+
 import csv
+from dataclasses import dataclass
 from datetime import datetime
+from functools import wraps
+from typing import Callable, Iterable
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.http import JsonResponse
+from django.db import transaction
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse
 from django.utils.text import slugify
 
 from .forms import CSVUploadForm, LoginForm
-from django.db import transaction
-
 from .models import AgeGroup, Boulder, CompetitionSettings, Participant, Result, Rulebook
+from .services import build_scoreboard_entries, group_results_by_participant
 
 
-def _score_results(results):
-    """Aggregate IFSC-style scoring metrics for a set of results."""
-    tops = zones = top_attempts = zone_attempts = 0
-    for res in results:
-        if res.top:
-            tops += 1
-            top_attempts += res.attempts_top or res.attempts
-        if res.zone2 or res.zone1:
-            zones += 1
-            if res.zone2:
-                zone_attempts += res.attempts_zone2 or res.attempts
-            elif res.zone1:
-                zone_attempts += res.attempts_zone1 or res.attempts
+@dataclass
+class SubmittedResult:
+    zone1: bool
+    zone2: bool
+    top: bool
+    attempts_zone1: int
+    attempts_zone2: int
+    attempts_top: int
+    timestamp: float | None = None
+
+
+def _get_participant_from_session(request: HttpRequest) -> Participant | None:
+    participant_id = request.session.get("participant_id")
+    if not participant_id:
+        return None
+    try:
+        return Participant.objects.select_related("age_group").get(id=participant_id)
+    except Participant.DoesNotExist:
+        return None
+
+
+def participant_required(
+    view_func: Callable[[HttpRequest, Participant, ...], HttpResponse]
+):
+    """Redirect to login when no participant session is present."""
+
+    @wraps(view_func)
+    def wrapper(request: HttpRequest, *args, **kwargs):
+        participant = _get_participant_from_session(request)
+        if not participant:
+            return redirect("login")
+        return view_func(request, participant, *args, **kwargs)
+
+    return wrapper
+
+
+def _render_section(
+    request: HttpRequest,
+    participant: Participant,
+    template: str,
+    section_title: str,
+    extra_context: dict | None = None,
+) -> HttpResponse:
+    context = {"participant": participant, "section_title": section_title}
+    if extra_context:
+        context.update(extra_context)
+    return render(request, template, context)
+
+
+def _active_competition_settings() -> CompetitionSettings | None:
+    return CompetitionSettings.objects.order_by("-updated_at", "-id").first()
+
+
+def _safe_int(value: str | None) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _parse_timestamp(raw_value: str | None) -> float | None:
+    try:
+        return float(raw_value) if raw_value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_submission(post_data, boulder_id: int) -> SubmittedResult:
+    return SubmittedResult(
+        zone1=bool(post_data.get(f"zone1_{boulder_id}", False)),
+        zone2=bool(post_data.get(f"zone2_{boulder_id}", False)),
+        top=bool(post_data.get(f"sent_{boulder_id}", False)),
+        attempts_zone1=_safe_int(post_data.get(f"attempts_zone1_{boulder_id}")),
+        attempts_zone2=_safe_int(post_data.get(f"attempts_zone2_{boulder_id}")),
+        attempts_top=_safe_int(post_data.get(f"attempts_top_{boulder_id}")),
+        timestamp=_parse_timestamp(post_data.get(f"ts_{boulder_id}")),
+    )
+
+
+def _normalize_submission(boulder: Boulder, submission: SubmittedResult) -> SubmittedResult:
+    """Enforce zone hierarchy and attempt defaults for a submitted result."""
+    zone1 = submission.zone1
+    zone2 = submission.zone2
+    top = submission.top
+
+    if boulder.zone_count == 0:
+        zone1 = False
+        zone2 = False
+    elif boulder.zone_count == 1:
+        zone2 = False
+        if top:
+            zone1 = True
+        if not zone1:
+            top = False
+    else:
+        if top:
+            zone2 = True
+            zone1 = True
+        if zone2 and not zone1:
+            zone1 = True
+        if not zone1:
+            zone2 = False
+            top = False
+
+    attempts_z1 = max(submission.attempts_zone1, 0)
+    attempts_z2 = max(submission.attempts_zone2, 0)
+    attempts_top = max(submission.attempts_top, 0)
+
+    if zone1 and attempts_z1 < 1:
+        attempts_z1 = 1
+    if zone2 and attempts_z2 < 1:
+        attempts_z2 = 1
+    if top and attempts_top < 1:
+        attempts_top = 1
+
+    if top and attempts_top and attempts_z2 == 0 and boulder.zone_count >= 2:
+        attempts_z2 = attempts_top
+    if top and attempts_top and attempts_z1 == 0:
+        attempts_z1 = attempts_top
+    if zone2 and attempts_z2 and attempts_z1 == 0:
+        attempts_z1 = attempts_z2
+
+    return SubmittedResult(
+        zone1=zone1,
+        zone2=zone2,
+        top=top,
+        attempts_zone1=attempts_z1,
+        attempts_zone2=attempts_z2,
+        attempts_top=attempts_top,
+        timestamp=submission.timestamp,
+    )
+
+
+def _result_payload(result: Result) -> dict:
     return {
-        "tops": tops,
-        "zones": zones,
-        "top_attempts": top_attempts,
-        "zone_attempts": zone_attempts,
+        "top": result.top,
+        "zone2": result.zone2,
+        "zone1": result.zone1,
+        "attempts_top": result.attempts_top,
+        "attempts_zone2": result.attempts_zone2,
+        "attempts_zone1": result.attempts_zone1,
+        "updated_at": result.updated_at.timestamp(),
     }
 
 
-def _score_point_based(results, settings):
-    """Compute points for point-based scoring."""
-    points = 0
-    tops = zones = total_attempts = 0
-    # Use tier-specific attempts if present; otherwise fall back to legacy aggregate.
-    for res in results:
-        achieved_zone = res.zone2 or res.zone1
-        if res.top:
-            attempts_used = res.attempts_top or res.attempts
-            tops += 1
-            base = settings.flash_points if attempts_used == 1 else settings.top_points
-            penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
-            pts = max(base - penalty, settings.min_top_points)
-            points += pts
-            total_attempts += attempts_used
-        elif achieved_zone:
-            attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
-            zones += 1
-            is_two_zone = getattr(res.boulder, "zone_count", 0) >= 2
-            if res.zone2:
-                base = settings.zone2_points
-                min_zone = settings.min_zone2_points
-            elif is_two_zone:
-                base = settings.zone1_points
-                min_zone = settings.min_zone1_points
-            else:
-                base = settings.zone_points
-                min_zone = settings.min_zone_points
-            penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
-            pts = max(base - penalty, min_zone)
-            points += pts
-            total_attempts += attempts_used
-        else:
-            total_attempts += res.attempts
+def _load_existing_results(participant: Participant, boulders: Iterable[Boulder]) -> dict[int, Result]:
     return {
-        "points": points,
-        "tops": tops,
-        "zones": zones,
-        "attempts": total_attempts,
+        res.boulder_id: res
+        for res in Result.objects.filter(participant=participant, boulder__in=boulders)
     }
 
 
-def _rank_entries(entries, grading_system="ifsc"):
-    """Assign ranks based on IFSC sorting (tops, zones, attempts)."""
+def _handle_results_submission(
+    request: HttpRequest, participant: Participant, boulders: Iterable[Boulder]
+) -> dict[int, dict]:
+    payload: dict[int, dict] = {}
+    with transaction.atomic():
+        for boulder in boulders:
+            submission = _normalize_submission(boulder, _extract_submission(request.POST, boulder.id))
 
-    def sort_key(entry):
-        if grading_system == "point_based":
-            return (
-                -entry.get("points", 0),
-                -entry.get("tops", 0),
-                -entry.get("zones", 0),
-                entry.get("attempts", 0),
-                entry["participant"].name.lower(),
+            current_result = (
+                Result.objects.select_for_update()
+                .filter(participant=participant, boulder=boulder)
+                .first()
             )
-        top_att = entry["top_attempts"] if entry["tops"] > 0 else float("inf")
-        zone_att = entry["zone_attempts"] if entry["zones"] > 0 else float("inf")
-        return (
-            -entry["tops"],
-            -entry["zones"],
-            top_att,
-            zone_att,
-            entry["participant"].name.lower(),
-        )
+            if current_result and submission.timestamp is not None:
+                if current_result.updated_at.timestamp() - submission.timestamp > 0.0001:
+                    payload[boulder.id] = _result_payload(current_result)
+                    continue
 
-    entries.sort(key=sort_key)
-    last_key = None
-    current_rank = 0
-    for idx, entry in enumerate(entries, start=1):
-        key = sort_key(entry)
-        if key != last_key:
-            current_rank = idx
-            last_key = key
-        entry["rank"] = current_rank
+            if not current_result:
+                current_result = Result(participant=participant, boulder=boulder)
+
+            current_result.zone1 = submission.zone1
+            current_result.zone2 = submission.zone2
+            current_result.top = submission.top
+            current_result.attempts_zone1 = submission.attempts_zone1
+            current_result.attempts_zone2 = submission.attempts_zone2
+            current_result.attempts_top = submission.attempts_top
+            current_result.attempts = (
+                submission.attempts_top
+                if submission.top
+                else (submission.attempts_zone2 if submission.zone2 else submission.attempts_zone1)
+            )
+            current_result.save()
+            payload[boulder.id] = _result_payload(current_result)
+    return payload
 
 
-def login_view(request):
+def login_view(request: HttpRequest) -> HttpResponse:
     message = ""
     form = LoginForm(request.POST or None)
 
     def _normalize_username(value: str) -> list[str]:
         raw = value.strip().lower()
-        from django.utils.text import slugify
         variants = [
             raw,
             raw.replace(" ", "").replace(".", "").replace("-", ""),
             slugify(raw).replace("-", ""),
             slugify(raw).replace("-", "."),
         ]
-        seen = []
-        for v in variants:
-            if v and v not in seen:
-                seen.append(v)
+        seen: list[str] = []
+        for variant in variants:
+            if variant and variant not in seen:
+                seen.append(variant)
         return seen
 
     if request.method == "POST" and form.is_valid():
@@ -135,21 +232,18 @@ def login_view(request):
         participant = None
         for candidate in _normalize_username(username):
             try:
-                participant = Participant.objects.select_related("age_group").get(
-                    username=candidate
-                )
+                participant = Participant.objects.select_related("age_group").get(username=candidate)
                 break
             except Participant.DoesNotExist:
                 continue
 
         if not participant:
             message = "Unbekannter Teilnehmer."
+        elif participant.password == password:
+            request.session["participant_id"] = participant.id
+            return redirect("participant_dashboard")
         else:
-            if participant.password == password:
-                request.session["participant_id"] = participant.id
-                return redirect("participant_dashboard")
-            else:
-                message = "Falsches Passwort."
+            message = "Falsches Passwort."
 
     return render(
         request,
@@ -162,7 +256,7 @@ def login_view(request):
 
 
 @staff_member_required
-def upload_participants(request):
+def upload_participants(request: HttpRequest) -> HttpResponse:
     """Allow staff to import participants from a CSV file."""
 
     results = {"created": 0, "skipped": []}
@@ -180,9 +274,7 @@ def upload_participants(request):
             gender_value = _pick_value(row, "gender", "Geschlecht").lower()
 
             if not (first and last and dob_value and gender_value):
-                results["skipped"].append(
-                    f"Zeile {row_number}: fehlende Pflichtfelder."
-                )
+                results["skipped"].append(f"Zeile {row_number}: fehlende Pflichtfelder.")
                 continue
 
             dob = _parse_date(dob_value)
@@ -200,13 +292,10 @@ def upload_participants(request):
                 continue
 
             username = _unique_username(f"{first}.{last}".lower())
-            password = dob.strftime("%d%m%Y")  # simple reproducible password
-
+            password = dob.strftime("%d%m%Y")
             full_name = f"{first} {last}"
 
-            if Participant.objects.filter(
-                name__iexact=full_name, date_of_birth=dob
-            ).exists():
+            if Participant.objects.filter(name__iexact=full_name, date_of_birth=dob).exists():
                 results["skipped"].append(
                     f"Zeile {row_number}: Teilnehmer {full_name} bereits vorhanden."
                 )
@@ -232,302 +321,160 @@ def upload_participants(request):
     )
 
 
-def participant_dashboard(request):
-    participant = _require_participant(request)
-    if isinstance(participant, Participant):
-        return render(
-            request,
-            "participant_dashboard.html",
-            {
-                "participant": participant,
-            },
-        )
-    return participant  # redirect
+@participant_required
+def participant_dashboard(request: HttpRequest, participant: Participant) -> HttpResponse:
+    return render(
+        request,
+        "participant_dashboard.html",
+        {"participant": participant},
+    )
 
 
-def participant_support(request):
-    participant = _require_participant(request)
-    if isinstance(participant, Participant):
-        return render(
-            request,
-            "participant_support.html",
-            {
-                "participant": participant,
-            },
-        )
-    return participant
+@participant_required
+def participant_support(request: HttpRequest, participant: Participant) -> HttpResponse:
+    return _render_section(
+        request,
+        participant,
+        "participant_support.html",
+        "Hilfe & Support",
+    )
 
 
-def participant_settings(request):
-    participant = _require_participant(request)
-    if isinstance(participant, Participant):
-        return render(
-            request,
-            "participant_settings.html",
-            {
-                "participant": participant,
-            },
-        )
-    return participant
+@participant_required
+def participant_settings(request: HttpRequest, participant: Participant) -> HttpResponse:
+    return _render_section(
+        request,
+        participant,
+        "participant_settings.html",
+        "Einstellungen",
+    )
 
 
-def participant_results(request):
-    participant = _require_participant(request)
-    if isinstance(participant, Participant):
-        boulders = (
-            Boulder.objects.filter(age_groups=participant.age_group).order_by("label")
-            if participant.age_group_id
-            else Boulder.objects.none()
-        )
-        is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-        existing_results = {
-            r.boulder_id: r
-            for r in Result.objects.filter(participant=participant, boulder__in=boulders)
+@participant_required
+def participant_results(request: HttpRequest, participant: Participant) -> HttpResponse:
+    boulders = (
+        Boulder.objects.filter(age_groups=participant.age_group).order_by("label")
+        if participant.age_group_id
+        else Boulder.objects.none()
+    )
+    existing_results = _load_existing_results(participant, boulders)
+    for boulder in boulders:
+        boulder.existing_result = existing_results.get(boulder.id)
+
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    if request.method == "GET" and is_ajax:
+        payload = {
+            boulder.id: _result_payload(res)
+            for boulder, res in ((b, b.existing_result) for b in boulders)
+            if res is not None
         }
-        for b in boulders:
-            b.existing_result = existing_results.get(b.id)
-        if request.method == "GET" and is_ajax:
-            payload = {
-                b.id: {
-                    "top": res.top,
-                    "zone2": res.zone2,
-                    "zone1": res.zone1,
-                    "attempts_top": res.attempts_top,
-                    "attempts_zone2": res.attempts_zone2,
-                    "attempts_zone1": res.attempts_zone1,
-                    "updated_at": res.updated_at.timestamp(),
-                }
-                for b, res in ((b, b.existing_result) for b in boulders)
-                if res is not None
+        return JsonResponse({"ok": True, "results": payload})
+
+    if request.method == "POST":
+        payload = _handle_results_submission(request, participant, boulders)
+        return JsonResponse({"ok": True, "results": payload})
+
+    return render(
+        request,
+        "participant_results.html",
+        {
+            "participant": participant,
+            "title": "Ergebnisse eintragen",
+            "boulders": boulders,
+        },
+    )
+
+
+@participant_required
+def participant_run_plan(request: HttpRequest, participant: Participant) -> HttpResponse:
+    return _render_section(
+        request,
+        participant,
+        "participant_run_plan.html",
+        "Laufplan",
+    )
+
+
+@participant_required
+def participant_live_scoreboard(request: HttpRequest, participant: Participant) -> HttpResponse:
+    settings_obj = _active_competition_settings()
+    grading_system = settings_obj.grading_system if settings_obj else "ifsc"
+
+    age_groups = list(
+        AgeGroup.objects.filter(participants__isnull=False).distinct().order_by("name")
+    )
+    requested_group_id = request.GET.get("age_group")
+    selected_group = None
+    show_all = requested_group_id == "all"
+    if requested_group_id and not show_all:
+        selected_group = next((g for g in age_groups if str(g.id) == requested_group_id), None)
+    if not selected_group and not show_all:
+        selected_group = participant.age_group if participant.age_group_id else (age_groups[0] if age_groups else None)
+
+    entries: list[dict] = []
+    if selected_group or show_all:
+        boulders = (
+            Boulder.objects.filter(age_groups=selected_group).order_by("label")
+            if selected_group
+            else Boulder.objects.all().order_by("label")
+        )
+        participants = list(
+            Participant.objects.filter(age_group__in=[selected_group] if selected_group else age_groups).order_by(
+                "name"
+            )
+        )
+        results = (
+            Result.objects.filter(participant__in=participants, boulder__in=boulders)
+            .select_related("participant", "boulder")
+        )
+        result_map = group_results_by_participant(results)
+        entries = build_scoreboard_entries(participants, result_map, grading_system, settings_obj)
+
+    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+        payload = [
+            {
+                "rank": entry["rank"],
+                "name": entry["participant"].name,
+                "tops": entry.get("tops", 0),
+                "top_attempts": entry.get("top_attempts", 0),
+                "zones": entry.get("zones", 0),
+                "zone_attempts": entry.get("zone_attempts", 0),
+                "points": entry.get("points", 0),
             }
-            return JsonResponse({"ok": True, "results": payload})
-        if request.method == "POST":
-            payload = {}
-            with transaction.atomic():
-                for boulder in boulders:
-                    def _get_int(name: str) -> int:
-                        raw = request.POST.get(name, "0")
-                        try:
-                            return int(raw)
-                        except (TypeError, ValueError):
-                            return 0
+            for entry in entries
+        ]
+        return JsonResponse({"ok": True, "entries": payload, "grading": grading_system})
 
-                    attempts_z1 = _get_int(f"attempts_zone1_{boulder.id}")
-                    attempts_z2 = _get_int(f"attempts_zone2_{boulder.id}")
-                    attempts_top = _get_int(f"attempts_top_{boulder.id}")
-                    z1 = bool(request.POST.get(f"zone1_{boulder.id}", False))
-                    z2 = bool(request.POST.get(f"zone2_{boulder.id}", False))
-                    top = bool(request.POST.get(f"sent_{boulder.id}", False))
-                    posted_ts_raw = request.POST.get(f"ts_{boulder.id}")
-                    posted_ts = None
-                    try:
-                        posted_ts = float(posted_ts_raw) if posted_ts_raw not in (None, "") else None
-                    except (TypeError, ValueError):
-                        posted_ts = None
-
-                    current_result = (
-                        Result.objects.select_for_update()
-                        .filter(participant=participant, boulder=boulder)
-                        .first()
-                    )
-                    if current_result and posted_ts is not None:
-                        # If client timestamp is older than the stored value, don't overwrite.
-                        if current_result.updated_at.timestamp() - posted_ts > 0.0001:
-                            payload[boulder.id] = {
-                                "top": current_result.top,
-                                "zone2": current_result.zone2,
-                                "zone1": current_result.zone1,
-                                "attempts": current_result.attempts,
-                                "updated_at": current_result.updated_at.timestamp(),
-                            }
-                            continue
-
-                    # Normalize based on zone availability and hierarchy.
-                    if boulder.zone_count == 0:
-                        # Only top available; zones are irrelevant.
-                        z1 = False
-                        z2 = False
-                    elif boulder.zone_count == 1:
-                        z2 = False
-                        if top:
-                            z1 = True
-                        if z2 and not z1:
-                            z2 = False
-                        if not z1:
-                            top = False
-                    else:  # two zones available
-                        if top:
-                            z2 = True
-                            z1 = True
-                        if z2 and not z1:
-                            z1 = True
-                        if not z1:
-                            z2 = False
-                            top = False
-
-                    # Clamp attempts per tier; ensure they align with selected tiers.
-                    attempts_z1 = max(attempts_z1, 0)
-                    attempts_z2 = max(attempts_z2, 0)
-                    attempts_top = max(attempts_top, 0)
-
-                    if z1 and attempts_z1 < 1:
-                        attempts_z1 = 1
-                    if z2 and attempts_z2 < 1:
-                        attempts_z2 = 1
-                    if top and attempts_top < 1:
-                        attempts_top = 1
-
-                    # If higher tier is selected, default lower tiers' attempts when missing.
-                    if top and attempts_top and attempts_z2 == 0 and boulder.zone_count >= 2:
-                        attempts_z2 = attempts_top
-                    if top and attempts_top and attempts_z1 == 0:
-                        attempts_z1 = attempts_top
-                    if z2 and attempts_z2 and attempts_z1 == 0:
-                        attempts_z1 = attempts_z2
-
-                    if not current_result:
-                        current_result = Result(participant=participant, boulder=boulder)
-                    current_result.zone1 = z1
-                    current_result.zone2 = z2
-                    current_result.top = top
-                    # Store per-tier attempts; keep legacy attempts in sync for now.
-                    current_result.attempts_zone1 = attempts_z1
-                    current_result.attempts_zone2 = attempts_z2
-                    current_result.attempts_top = attempts_top
-                    current_result.attempts = attempts_top if top else (attempts_z2 if z2 else attempts_z1)
-                    current_result.save()
-                    existing_results[boulder.id] = current_result
-                    payload[boulder.id] = {
-                        "top": current_result.top,
-                        "zone2": current_result.zone2,
-                        "zone1": current_result.zone1,
-                        "attempts_top": current_result.attempts_top,
-                        "attempts_zone2": current_result.attempts_zone2,
-                        "attempts_zone1": current_result.attempts_zone1,
-                        "updated_at": current_result.updated_at.timestamp(),
-                    }
-            # Also respond to non-AJAX POSTs (e.g. sendBeacon during page unload).
-            return JsonResponse({"ok": True, "results": payload})
-        return render(
-            request,
-            "participant_results.html",
-            {
-                "participant": participant,
-                "title": "Ergebnisse eintragen",
-                "boulders": boulders,
-            },
-        )
-    return participant
+    return render(
+        request,
+        "participant_live_scoreboard.html",
+        {
+            "participant": participant,
+            "title": "Live-Ergebnisse",
+            "entries": entries,
+            "age_groups": age_groups,
+            "selected_group": selected_group,
+            "grading_system": grading_system,
+        },
+    )
 
 
-def participant_run_plan(request):
-    participant = _require_participant(request)
-    if isinstance(participant, Participant):
-        return render(
-            request,
-            "participant_run_plan.html",
-            {"participant": participant, "title": "Laufplan"},
-        )
-    return participant
-
-
-def participant_live_scoreboard(request):
-    participant = _require_participant(request)
-    if isinstance(participant, Participant):
-        settings_obj = CompetitionSettings.objects.order_by("-updated_at", "-id").first()
-        grading_system = settings_obj.grading_system if settings_obj else "ifsc"
-
-        age_groups = list(AgeGroup.objects.filter(participants__isnull=False).distinct().order_by("name"))
-        requested_group_id = request.GET.get("age_group")
-        selected_group = None
-        show_all = requested_group_id == "all"
-        if requested_group_id and not show_all:
-            selected_group = next((g for g in age_groups if str(g.id) == requested_group_id), None)
-        if not selected_group and not show_all:
-            selected_group = participant.age_group if participant.age_group_id else (age_groups[0] if age_groups else None)
-
-        entries = []
-        if selected_group or show_all:
-            boulders = (
-                Boulder.objects.filter(age_groups=selected_group).order_by("label")
-                if selected_group
-                else Boulder.objects.all().order_by("label")
-            )
-            participants = (
-                Participant.objects.filter(age_group__in=[selected_group] if selected_group else age_groups)
-                .order_by("name")
-                .prefetch_related("results")
-            )
-            results = (
-                Result.objects.filter(participant__in=participants, boulder__in=boulders)
-                .select_related("participant", "boulder")
-            )
-            result_map = {}
-            for res in results:
-                result_map.setdefault(res.participant_id, []).append(res)
-
-            for p in participants:
-                res_list = result_map.get(p.id, [])
-                if grading_system == "point_based":
-                    scored = _score_point_based(res_list, settings_obj)
-                else:
-                    scored = _score_results(res_list)
-                entries.append(
-                    {
-                        "participant": p,
-                        **scored,
-                    }
-                )
-            _rank_entries(entries, grading_system)
-
-        if request.headers.get("x-requested-with") == "XMLHttpRequest":
-            payload = [
-                {
-                    "rank": e["rank"],
-                    "name": e["participant"].name,
-                    "tops": e.get("tops", 0),
-                    "top_attempts": e.get("top_attempts", 0),
-                    "zones": e.get("zones", 0),
-                    "zone_attempts": e.get("zone_attempts", 0),
-                    "points": e.get("points", 0),
-                }
-                for e in entries
-            ]
-            return JsonResponse({"ok": True, "entries": payload, "grading": grading_system})
-
-        return render(
-            request,
-            "participant_live_scoreboard.html",
-            {
-                "participant": participant,
-                "title": "Live Scoreboard",
-                "entries": entries,
-                "age_groups": age_groups,
-                "selected_group": selected_group,
-                "grading_system": grading_system,
-            },
-        )
-    return participant
-
-
-def participant_rulebook(request):
-    participant = _require_participant(request)
-    if isinstance(participant, Participant):
-        settings_obj = CompetitionSettings.objects.order_by("-updated_at", "-id").first()
-        grading_system = settings_obj.grading_system if settings_obj else "ifsc"
-        rulebook = Rulebook.objects.order_by("-updated_at", "-id").first()
-        rules_text = rulebook.content if rulebook else ""
-        return render(
-            request,
-            "participant_rulebook.html",
-            {
-                "participant": participant,
-                "title": "Regelwerk",
-                "grading_system": grading_system,
-                "rules_text": rules_text,
-            },
-        )
-    return participant
+@participant_required
+def participant_rulebook(request: HttpRequest, participant: Participant) -> HttpResponse:
+    settings_obj = _active_competition_settings()
+    grading_system = settings_obj.grading_system if settings_obj else "ifsc"
+    rulebook = Rulebook.objects.order_by("-updated_at", "-id").first()
+    rules_text = rulebook.content if rulebook else ""
+    return render(
+        request,
+        "participant_rulebook.html",
+        {
+            "participant": participant,
+            "title": "Regelwerk",
+            "grading_system": grading_system,
+            "rules_text": rules_text,
+        },
+    )
 
 
 def _parse_date(value: str):
@@ -572,15 +519,3 @@ def _pick_value(row, *keys):
         if value is not None and value.strip():
             return value.strip()
     return ""
-
-
-def _require_participant(request):
-    participant_id = request.session.get("participant_id")
-    if not participant_id:
-        return redirect("login")
-    try:
-        return Participant.objects.select_related("age_group").get(
-            id=participant_id
-        )
-    except Participant.DoesNotExist:
-        return redirect("login")

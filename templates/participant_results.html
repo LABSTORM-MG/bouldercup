@@ -29,7 +29,7 @@
                         <div class="boulder-card" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
                             <div class="boulder-header">
                                 <span class="boulder-label-text">{{ boulder.label }}</span>
-                                <span class="flash-badge" aria-label="Flash">⚡</span>
+                                <span class="flash-badge" aria-label="Flash-Begehung">⚡</span>
                             </div>
                             <div class="tier-list" role="group" aria-label="Boulder {{ boulder.label }}">
                                 <div class="tier-row">
@@ -38,37 +38,37 @@
                                         <input type="checkbox" name="sent_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.top %}checked{% endif %}>
                                         <span aria-hidden="true"></span>
                                     </label>
-                                    <div class="attempt-controls" aria-label="Versuche bis Top">
-                                        <button type="button" class="dec" aria-label="minus">-</button>
+                                    <div class="attempt-controls" aria-label="Versuche bis zum Top">
+                                        <button type="button" class="dec" aria-label="Minus">-</button>
                                         <input type="number" min="0" name="attempts_top_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_top|default:0 }}">
-                                        <button type="button" class="inc" aria-label="plus">+</button>
+                                        <button type="button" class="inc" aria-label="Plus">+</button>
                                     </div>
                                 </div>
                                 {% if boulder.zone_count == 2 %}
                                     <div class="tier-row">
-                                        <div class="tier-label">High Zone</div>
+                                        <div class="tier-label">Obere Zone</div>
                                         <label class="toggle">
                                             <input type="checkbox" name="zone2_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone2 %}checked{% endif %}>
                                             <span aria-hidden="true"></span>
                                         </label>
-                                        <div class="attempt-controls" aria-label="Versuche bis High Zone">
-                                            <button type="button" class="dec" aria-label="minus">-</button>
+                                        <div class="attempt-controls" aria-label="Versuche bis zur oberen Zone">
+                                            <button type="button" class="dec" aria-label="Minus">-</button>
                                             <input type="number" min="0" name="attempts_zone2_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone2|default:0 }}">
-                                            <button type="button" class="inc" aria-label="plus">+</button>
+                                            <button type="button" class="inc" aria-label="Plus">+</button>
                                         </div>
                                     </div>
                                 {% endif %}
                                 {% if boulder.zone_count >= 1 %}
                                     <div class="tier-row">
-                                        <div class="tier-label">{% if boulder.zone_count == 2 %}Low Zone{% else %}Zone{% endif %}</div>
+                                        <div class="tier-label">{% if boulder.zone_count == 2 %}Untere Zone{% else %}Zone{% endif %}</div>
                                         <label class="toggle">
                                             <input type="checkbox" name="zone1_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone1 %}checked{% endif %}>
                                             <span aria-hidden="true"></span>
                                         </label>
-                                        <div class="attempt-controls" aria-label="Versuche bis Zone">
-                                            <button type="button" class="dec" aria-label="minus">-</button>
+                                        <div class="attempt-controls" aria-label="Versuche bis zur Zone">
+                                            <button type="button" class="dec" aria-label="Minus">-</button>
                                             <input type="number" min="0" name="attempts_zone1_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone1|default:0 }}">
-                                            <button type="button" class="inc" aria-label="plus">+</button>
+                                            <button type="button" class="inc" aria-label="Plus">+</button>
                                         </div>
                                     </div>
                                 {% endif %}

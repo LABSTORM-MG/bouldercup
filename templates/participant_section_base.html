@@ -14,7 +14,7 @@
         <h1>{{ section_title }}</h1>
     </header>
     <main>
-        <p>{{ content }}</p>
+        {% block content %}{% endblock %}
     </main>
 </body>
 </html>
