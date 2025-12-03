@@ -40,12 +40,59 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'accounts',
+    'django_ckeditor_5',
+    'accounts.apps.AccountsConfig',
+    'competition_admin',
 ]
+
+CKEDITOR_5_CONFIGS = {
+    "default": {
+        "toolbar": [
+            "heading",
+            "|",
+            "bold",
+            "italic",
+            "underline",
+            "strikethrough",
+            "subscript",
+            "superscript",
+            "link",
+            "bulletedList",
+            "numberedList",
+            "blockQuote",
+            "outdent",
+            "indent",
+            "alignment",
+            "insertTable",
+            "horizontalLine",
+            "removeFormat",
+            "|",
+            "undo",
+            "redo",
+        ],
+        "heading": {
+            "options": [
+                {"model": "paragraph", "title": "Paragraph", "class": "ck-heading_paragraph"},
+                {"model": "heading1", "view": "h1", "title": "Heading 1", "class": "ck-heading_heading1"},
+                {"model": "heading2", "view": "h2", "title": "Heading 2", "class": "ck-heading_heading2"},
+                {"model": "heading3", "view": "h3", "title": "Heading 3", "class": "ck-heading_heading3"},
+                {"model": "heading4", "view": "h4", "title": "Heading 4", "class": "ck-heading_heading4"},
+            ]
+        },
+        "list": {
+            "properties": {
+                "styles": True,
+                "startIndex": True,
+                "reversed": True,
+            }
+        },
+    }
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -107,9 +154,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'de'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Berlin'
 
 USE_I18N = True
 

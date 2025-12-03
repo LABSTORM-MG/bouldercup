@@ -3,6 +3,7 @@ from datetime import date
 
 from django.db import models
 from django.utils.text import slugify
+from django_ckeditor_5.fields import CKEditor5Field
 
 
 class AgeGroup(models.Model):
@@ -24,6 +25,8 @@ class AgeGroup(models.Model):
 
     class Meta:
         ordering = ["min_age", "name"]
+        verbose_name = "Altersgruppe"
+        verbose_name_plural = "Altersgruppen"
 
     def __str__(self) -> str:
         return f"{self.name} ({self.min_age}-{self.max_age}, {self.get_gender_display()})"
@@ -60,6 +63,8 @@ class Participant(models.Model):
 
     class Meta:
         ordering = ["name"]
+        verbose_name = "Teilnehmer*in"
+        verbose_name_plural = "Teilnehmer*innen"
         constraints = [
             models.UniqueConstraint(
                 fields=["name", "date_of_birth"],
@@ -223,21 +228,46 @@ class Result(models.Model):
 
 
 class CompetitionSettings(models.Model):
-    """Singleton model to pick the active scoring/grading system."""
+    """Singleton model holding the scoring/grading system."""
 
     GRADING_CHOICES = [
         ("ifsc", "IFSC (Tops/Zones/Versuche)"),
-        ("custom", "Punktebasiert"),
+        ("point_based", "Punktebasiert"),
     ]
 
+    name = models.CharField(max_length=150, default="Standard Punkte-Setup", editable=False)
     grading_system = models.CharField(
         max_length=20, choices=GRADING_CHOICES, default="ifsc"
     )
-    top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top (Custom).")
-    zone_points = models.PositiveIntegerField(default=10, help_text="Punkte pro Zone (Custom).")
-    flash_points = models.PositiveIntegerField(default=5, help_text="Zusatzpunkte bei Flash (Top im ersten Versuch, Custom).")
-    attempt_penalty = models.PositiveIntegerField(default=1, help_text="Minuspunkte pro Versuch (Custom).")
-    singleton = models.BooleanField(default=True, unique=True, editable=False)
+    # Prevent multiple scoring profiles; acts as a singleton guard.
+    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
+    top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top.")
+    flash_points = models.PositiveIntegerField(
+        default=5, help_text="Flash-Punkte (ersetzt Top-Punkte bei Top im ersten Versuch)."
+    )
+    min_top_points = models.PositiveIntegerField(
+        default=0, help_text="Mindestpunkte, die ein Top immer bringt."
+    )
+    zone_points = models.PositiveIntegerField(
+        default=10,
+        help_text="Punkte pro Zone (wenn nur eine Zone gewertet wird).",
+    )
+    zone1_points = models.PositiveIntegerField(
+        default=10, help_text="Punkte für Zone 1 (Low Zone bei zwei Zonen)."
+    )
+    zone2_points = models.PositiveIntegerField(
+        default=10, help_text="Punkte für Zone 2 (High Zone bei zwei Zonen)."
+    )
+    min_zone_points = models.PositiveIntegerField(
+        default=0, help_text="Mindestpunkte, die eine Zone immer bringt."
+    )
+    min_zone1_points = models.PositiveIntegerField(
+        default=0, help_text="Mindestpunkte für Zone 1 (Low Zone)."
+    )
+    min_zone2_points = models.PositiveIntegerField(
+        default=0, help_text="Mindestpunkte für Zone 2 (High Zone)."
+    )
+    attempt_penalty = models.PositiveIntegerField(default=1, help_text="Minuspunkte pro Versuch.")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -245,4 +275,51 @@ class CompetitionSettings(models.Model):
         verbose_name_plural = "Wettkampf-Einstellungen"
 
     def __str__(self) -> str:
-        return f"Aktives Scoring: {self.get_grading_system_display()}"
+        return f"Wertung: {self.get_grading_system_display()}"
+
+
+class Rulebook(models.Model):
+    """Standalone rulebook content."""
+
+    name = models.CharField(max_length=150, default="Regelwerk")
+    content = CKEditor5Field("Regelwerk", config_name="default", blank=True)
+    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Regelwerk"
+        verbose_name_plural = "Regelwerke"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class SubmissionWindow(models.Model):
+    """Optional submission window for result entry (future enforcement)."""
+
+    name = models.CharField(max_length=150, default="Standard Ergebnisfenster")
+    submission_start = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Zeitpunkt, ab dem Ergebnisse eingetragen werden dürfen.",
+    )
+    submission_end = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Zeitpunkt, bis zu dem Ergebnisse eingetragen werden dürfen.",
+    )
+    note = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Interne Notiz (optional).",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Zeitslot für Ergebnis-Eintrag"
+        verbose_name_plural = "Zeitslots für Ergebnis-Eintrag"
+
+    def __str__(self) -> str:
+        start = self.submission_start.isoformat() if self.submission_start else "offen"
+        end = self.submission_end.isoformat() if self.submission_end else "offen"
+        return f"Ergebnisfenster: {start} – {end}"

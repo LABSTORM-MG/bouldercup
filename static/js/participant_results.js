@@ -110,12 +110,37 @@ const queueSubmit = () => {
     submitTimer = setTimeout(submitAjax, 2000);
 };
 
+const flushBeforeUnload = () => {
+    if (!form) return;
+    // If nothing changed and nothing is in flight, skip.
+    if (!dirty && !pending) return;
+    const data = new FormData(form);
+    const targetUrl = form.getAttribute("action") || window.location.href;
+    // Try to persist even during page unload; sendBeacon is the most reliable option.
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon(targetUrl, data);
+        dirty = false;
+    } else {
+        submitAjax();
+    }
+};
+
 if (form) {
     form.addEventListener("submit", (e) => {
         e.preventDefault();
         queueSubmit();
     });
 }
+
+// Save on tab/window close or navigation away.
+window.addEventListener("pagehide", flushBeforeUnload);
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+        flushBeforeUnload();
+    }
+});
+window.addEventListener("beforeunload", flushBeforeUnload);
+window.addEventListener("unload", flushBeforeUnload);
 
 // Periodic polling to pick up remote changes when multiple devices are active.
 const pollIntervalMs = 5000;

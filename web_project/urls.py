@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 
@@ -33,6 +33,7 @@ from accounts.views import (
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("ckeditor5/", include('django_ckeditor_5.urls')),
     path('', login_view, name='login'),
     path('upload/', upload_participants, name='upload_participants'),
     path('dashboard/', participant_dashboard, name='participant_dashboard'),

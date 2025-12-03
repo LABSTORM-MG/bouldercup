@@ -71,7 +71,7 @@
                         <tr>
                             <th class="rank no-angle"><span class="th-text">Platz</span></th>
                             <th class="name no-angle"><span class="th-text">Teilnehmer</span></th>
-                            {% if grading_system == "custom" %}
+                            {% if grading_system == "point_based" %}
                                 <th class="attempt-col"><span class="th-text">Punkte</span></th>
                             {% else %}
                                 <th class="attempt-col"><span class="th-text">Tops</span></th>
@@ -84,7 +84,7 @@
                             <tr>
                                 <td class="rank">{{ entry.rank }}</td>
                                 <td class="name">{% if entry.participant.id == participant.id %}<strong>{{ entry.participant.name }}</strong>{% else %}{{ entry.participant.name }}{% endif %}</td>
-                                {% if grading_system == "custom" %}
+                                {% if grading_system == "point_based" %}
                                     <td class="attempt-col">{{ entry.points }}</td>
                                 {% else %}
                                     <td class="attempt-col">{{ entry.tops }} / {{ entry.top_attempts }}</td>
@@ -106,7 +106,7 @@
             if (!tableBody) return;
             const grading = document.querySelector("table")?.dataset.grading || "ifsc";
             const rows = entries.map((e) => {
-                if (grading === "custom") {
+                if (grading === "point_based") {
                     return `
                         <tr>
                             <td class="rank">${e.rank}</td>

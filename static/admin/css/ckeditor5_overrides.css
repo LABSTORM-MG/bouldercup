@@ -1,0 +1,48 @@
+.ck-editor__editable,
+.ck-content {
+    color: #0f172a;
+    background: #ffffff;
+    line-height: 1.55;
+    font-size: 16px;
+}
+
+.ck.ck-editor__editable:not(.ck-editor__nested-editable) {
+    padding: 14px 16px;
+    min-height: 240px;
+}
+
+.ck.ck-toolbar {
+    border-radius: 12px 12px 0 0;
+}
+
+.ck.ck-editor__editable:not(.ck-editor__nested-editable) {
+    border-radius: 0 0 12px 12px;
+}
+
+.ck .ck-placeholder::before {
+    color: #6b7280;
+}
+
+.ck-content h1,
+.ck-content h2,
+.ck-content h3 {
+    color: #0f172a;
+}
+
+.ck-content h4 {
+    color: #0f172a;
+}
+
+.ck .ck-toolbar__items .ck-button .ck-button__label,
+.ck .ck-toolbar__items .ck-button svg {
+    color: #0f172a;
+}
+
+.ck.ck-toolbar {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.ck.ck-editor__editable {
+    border-color: #e2e8f0;
+}

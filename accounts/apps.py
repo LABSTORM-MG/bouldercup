@@ -4,6 +4,7 @@ from django.apps import AppConfig
 class AccountsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "accounts"
+    verbose_name = "Teilnehmer*innen und Boulder"
 
     def ready(self):
         from django.conf import settings

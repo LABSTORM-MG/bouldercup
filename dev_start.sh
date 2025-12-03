@@ -4,11 +4,20 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
-# Ensure virtualenv exists and is activated.
-if [[ ! -d ".venv" ]]; then
-    python3 -m venv .venv
+# Ensure virtualenv exists and is activated (switch over if a different venv is active).
+if [[ -z "${VIRTUAL_ENV:-}" || "${VIRTUAL_ENV}" != "${PROJECT_ROOT}/.venv" ]]; then
+    if [[ -n "${VIRTUAL_ENV:-}" && "${VIRTUAL_ENV}" != "${PROJECT_ROOT}/.venv" ]]; then
+        # Leave any other virtualenv to avoid mixing site-packages.
+        if command -v deactivate >/dev/null 2>&1; then
+            deactivate
+        fi
+    fi
+    if [[ ! -d ".venv" ]]; then
+        python3 -m venv .venv
+    fi
+    # shellcheck source=/dev/null
+    source .venv/bin/activate
 fi
-source .venv/bin/activate
 
 # Make sure Django is present so migrations/admin work out of the box.
 if ! python -m django --version >/dev/null 2>&1; then

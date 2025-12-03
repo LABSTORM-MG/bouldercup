@@ -10,7 +10,7 @@ from django.utils.text import slugify
 from .forms import CSVUploadForm, LoginForm
 from django.db import transaction
 
-from .models import AgeGroup, Boulder, Participant, Result
+from .models import AgeGroup, Boulder, CompetitionSettings, Participant, Result, Rulebook
 
 
 def _score_results(results):
@@ -34,8 +34,8 @@ def _score_results(results):
     }
 
 
-def _score_custom(results, settings):
-    """Compute points for custom scoring."""
+def _score_point_based(results, settings):
+    """Compute points for point-based scoring."""
     points = 0
     tops = zones = total_attempts = 0
     # Use tier-specific attempts if present; otherwise fall back to legacy aggregate.
@@ -44,17 +44,26 @@ def _score_custom(results, settings):
         if res.top:
             attempts_used = res.attempts_top or res.attempts
             tops += 1
-            base = settings.top_points + (settings.flash_points if attempts_used == 1 else 0)
-            penalty = settings.attempt_penalty * attempts_used
-            pts = max(base - penalty, 0)
+            base = settings.flash_points if attempts_used == 1 else settings.top_points
+            penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
+            pts = max(base - penalty, settings.min_top_points)
             points += pts
             total_attempts += attempts_used
         elif achieved_zone:
             attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
             zones += 1
-            base = settings.zone_points
-            penalty = settings.attempt_penalty * attempts_used
-            pts = max(base - penalty, 0)
+            is_two_zone = getattr(res.boulder, "zone_count", 0) >= 2
+            if res.zone2:
+                base = settings.zone2_points
+                min_zone = settings.min_zone2_points
+            elif is_two_zone:
+                base = settings.zone1_points
+                min_zone = settings.min_zone1_points
+            else:
+                base = settings.zone_points
+                min_zone = settings.min_zone_points
+            penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
+            pts = max(base - penalty, min_zone)
             points += pts
             total_attempts += attempts_used
         else:
@@ -71,7 +80,7 @@ def _rank_entries(entries, grading_system="ifsc"):
     """Assign ranks based on IFSC sorting (tops, zones, attempts)."""
 
     def sort_key(entry):
-        if grading_system == "custom":
+        if grading_system == "point_based":
             return (
                 -entry.get("points", 0),
                 -entry.get("tops", 0),
@@ -270,13 +279,14 @@ def participant_results(request):
             if participant.age_group_id
             else Boulder.objects.none()
         )
+        is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
         existing_results = {
             r.boulder_id: r
             for r in Result.objects.filter(participant=participant, boulder__in=boulders)
         }
         for b in boulders:
             b.existing_result = existing_results.get(b.id)
-        if request.method == "GET" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+        if request.method == "GET" and is_ajax:
             payload = {
                 b.id: {
                     "top": res.top,
@@ -291,7 +301,7 @@ def participant_results(request):
                 if res is not None
             }
             return JsonResponse({"ok": True, "results": payload})
-        if request.method == "POST" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+        if request.method == "POST":
             payload = {}
             with transaction.atomic():
                 for boulder in boulders:
@@ -396,6 +406,7 @@ def participant_results(request):
                         "attempts_zone1": current_result.attempts_zone1,
                         "updated_at": current_result.updated_at.timestamp(),
                     }
+            # Also respond to non-AJAX POSTs (e.g. sendBeacon during page unload).
             return JsonResponse({"ok": True, "results": payload})
         return render(
             request,
@@ -423,9 +434,7 @@ def participant_run_plan(request):
 def participant_live_scoreboard(request):
     participant = _require_participant(request)
     if isinstance(participant, Participant):
-        from .models import CompetitionSettings
-
-        settings_obj = CompetitionSettings.objects.first()
+        settings_obj = CompetitionSettings.objects.order_by("-updated_at", "-id").first()
         grading_system = settings_obj.grading_system if settings_obj else "ifsc"
 
         age_groups = list(AgeGroup.objects.filter(participants__isnull=False).distinct().order_by("name"))
@@ -459,8 +468,8 @@ def participant_live_scoreboard(request):
 
             for p in participants:
                 res_list = result_map.get(p.id, [])
-                if grading_system == "custom":
-                    scored = _score_custom(res_list, settings_obj)
+                if grading_system == "point_based":
+                    scored = _score_point_based(res_list, settings_obj)
                 else:
                     scored = _score_results(res_list)
                 entries.append(
@@ -504,10 +513,19 @@ def participant_live_scoreboard(request):
 def participant_rulebook(request):
     participant = _require_participant(request)
     if isinstance(participant, Participant):
+        settings_obj = CompetitionSettings.objects.order_by("-updated_at", "-id").first()
+        grading_system = settings_obj.grading_system if settings_obj else "ifsc"
+        rulebook = Rulebook.objects.order_by("-updated_at", "-id").first()
+        rules_text = rulebook.content if rulebook else ""
         return render(
             request,
             "participant_rulebook.html",
-            {"participant": participant, "title": "Regelwerk"},
+            {
+                "participant": participant,
+                "title": "Regelwerk",
+                "grading_system": grading_system,
+                "rules_text": rules_text,
+            },
         )
     return participant
 

@@ -4,19 +4,11 @@
     {{ block.super }}
 {% endblock %}
 
-{% block userlinks %}
-    {% if user.is_active and user.is_staff %}
-        <a href="{% url 'upload_participants' %}" class="import-link">Teilnehmerliste laden</a> /
-    {% endif %}
-    {{ block.super }}
-{% endblock %}
+{% block welcome-msg %}{% endblock %}
 
 {% block extrahead %}
     {{ block.super }}
     <style>
-        .import-link {
-            margin-right: 0.4rem;
-        }
         /* Align header content to the left for admin */
         #header {
             display: flex;
