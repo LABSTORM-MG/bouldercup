@@ -27,9 +27,21 @@ class AgeGroup(models.Model):
         ordering = ["min_age", "name"]
         verbose_name = "Altersgruppe"
         verbose_name_plural = "Altersgruppen"
+        indexes = [
+            models.Index(fields=["min_age", "max_age", "gender"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.name} ({self.min_age}-{self.max_age}, {self.get_gender_display()})"
+
+    def matches(self, age: int, gender: str) -> bool:
+        in_range = self.min_age <= age <= self.max_age
+        gender_ok = self.gender == "mixed" or self.gender == gender
+        return in_range and gender_ok
+
+    @property
+    def boulders(self):
+        return self.boulder_set.all()
 
 
 class Participant(models.Model):
@@ -61,11 +73,16 @@ class Participant(models.Model):
                 name="unique_participant_name_dob",
             )
         ]
+        indexes = [
+            models.Index(fields=["age_group", "name"]),
+            models.Index(fields=["username"]),
+        ]
 
     def __str__(self) -> str:
         return self.name
 
-    def assign_age_group(self, force: bool = False):
+    def assign_age_group(self, force: bool = False) -> None:
+        """Assign appropriate age group based on age and gender."""
         if self.age_group_id and not force:
             return
         qs = AgeGroup.objects.filter(min_age__lte=self.age, max_age__gte=self.age).filter(
@@ -73,13 +90,6 @@ class Participant(models.Model):
         )
         match = qs.order_by("-created_at", "-id").first()
         self.age_group = match
-
-    def save(self, *args, **kwargs):
-        # Automatically link to the appropriate age group if none is set.
-        self.assign_age_group()
-        if not self.password and self.date_of_birth:
-            self.password = self.date_of_birth.strftime("%d%m%Y")
-        super().save(*args, **kwargs)
 
     @property
     def age(self) -> int:
@@ -154,9 +164,16 @@ class Boulder(models.Model):
 
     class Meta:
         ordering = ["label"]
+        indexes = [
+            models.Index(fields=["label"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.label} ({self.color})"
+
+    def get_zone_count_display(self) -> str:
+        """Get human-readable zone count."""
+        return dict(self._meta.get_field('zone_count').choices).get(self.zone_count, str(self.zone_count))
 
     @classmethod
     def normalize_color(cls, value: str) -> str:
@@ -212,6 +229,11 @@ class Result(models.Model):
     class Meta:
         unique_together = ("participant", "boulder")
         ordering = ["participant", "boulder"]
+        indexes = [
+            models.Index(fields=["participant", "-updated_at"]),
+            models.Index(fields=["boulder", "-updated_at"]),
+            models.Index(fields=["participant", "boulder"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.participant} – {self.boulder}: top={self.top}, z2={self.zone2}, z1={self.zone1}, tries={self.attempts}"
@@ -229,7 +251,6 @@ class CompetitionSettings(models.Model):
     grading_system = models.CharField(
         max_length=20, choices=GRADING_CHOICES, default="ifsc"
     )
-    # Prevent multiple scoring profiles; acts as a singleton guard.
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
     top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top.")
     flash_points = models.PositiveIntegerField(
@@ -266,6 +287,12 @@ class CompetitionSettings(models.Model):
 
     def __str__(self) -> str:
         return f"Wertung: {self.get_grading_system_display()}"
+    
+    def save(self, *args, **kwargs):
+        """Invalidate cache on save."""
+        super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete('competition_settings')
 
 
 class Rulebook(models.Model):
@@ -278,7 +305,7 @@ class Rulebook(models.Model):
 
     class Meta:
         verbose_name = "Regelwerk"
-        verbose_name_plural = "Regelwerk"
+        verbose_name_plural = "Regelwerke"
 
     def __str__(self) -> str:
         return self.name

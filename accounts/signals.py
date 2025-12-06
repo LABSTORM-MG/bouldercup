@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from django.db.models import Q
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from .models import AgeGroup, Participant
@@ -13,6 +13,21 @@ def _shift_years(reference_date: date, years: int) -> date:
         return reference_date.replace(year=reference_date.year - years)
     except ValueError:
         return reference_date.replace(month=2, day=28, year=reference_date.year - years)
+
+
+@receiver(pre_save, sender=Participant)
+def set_participant_defaults(sender, instance, **kwargs):
+    """
+    Set default values for participant before saving.
+    
+    - Assigns age group based on age and gender
+    - Sets default password from date of birth if not set
+    """
+    if not instance.age_group_id:
+        instance.assign_age_group()
+    
+    if not instance.password and instance.date_of_birth:
+        instance.password = instance.date_of_birth.strftime("%d%m%Y")
 
 
 @receiver(post_save, sender=AgeGroup)
