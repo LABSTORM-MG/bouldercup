@@ -31,16 +31,6 @@ class AgeGroup(models.Model):
     def __str__(self) -> str:
         return f"{self.name} ({self.min_age}-{self.max_age}, {self.get_gender_display()})"
 
-    def matches(self, age: int, gender: str) -> bool:
-        in_range = self.min_age <= age <= self.max_age
-        gender_ok = self.gender == "mixed" or self.gender == gender
-        return in_range and gender_ok
-
-    @property
-    def boulders(self):
-        # Expose reverse relation when defined on Boulder.
-        return self.boulder_set.all()
-
 
 class Participant(models.Model):
     """Stores a competitor account and links to the matching age group."""
@@ -288,7 +278,7 @@ class Rulebook(models.Model):
 
     class Meta:
         verbose_name = "Regelwerk"
-        verbose_name_plural = "Regelwerke"
+        verbose_name_plural = "Regelwerk"
 
     def __str__(self) -> str:
         return self.name

@@ -19,4 +19,4 @@ class RulebookProxy(Rulebook):
     class Meta:
         proxy = True
         verbose_name = "Regelwerk"
-        verbose_name_plural = "Regelwerke"
+        verbose_name_plural = "Regelwerk"
