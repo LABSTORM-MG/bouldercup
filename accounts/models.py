@@ -254,7 +254,7 @@ class CompetitionSettings(models.Model):
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
     top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top.")
     flash_points = models.PositiveIntegerField(
-        default=5, help_text="Flash-Punkte (ersetzt Top-Punkte bei Top im ersten Versuch)."
+        default=30, help_text="Flash-Punkte (ersetzt Top-Punkte bei Top im ersten Versuch)."
     )
     min_top_points = models.PositiveIntegerField(
         default=0, help_text="Mindestpunkte, die ein Top immer bringt."

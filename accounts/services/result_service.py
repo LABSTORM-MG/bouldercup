@@ -107,6 +107,8 @@ class ResultService:
             attempts_top = 1
         if top and attempts_top and attempts_z1 == 0:
             attempts_z1 = attempts_top
+        if top and attempts_top and attempts_top < attempts_z1:
+            attempts_top = attempts_z1
         
         return SubmittedResult(
             zone1=zone1,
@@ -151,6 +153,13 @@ class ResultService:
             attempts_z1 = attempts_top
         if zone2 and attempts_z2 and attempts_z1 == 0:
             attempts_z1 = attempts_z2
+        
+        if zone2 and attempts_z2 and attempts_z2 < attempts_z1:
+            attempts_z2 = attempts_z1
+        if top and attempts_top:
+            baseline = attempts_z2 if zone2 else attempts_z1
+            if attempts_top < baseline:
+                attempts_top = baseline
         
         return SubmittedResult(
             zone1=zone1,

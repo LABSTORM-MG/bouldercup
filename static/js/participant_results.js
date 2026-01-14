@@ -107,7 +107,8 @@ const submitAjax = () => {
 const queueSubmit = () => {
     clearTimeout(submitTimer);
     dirty = true;
-    submitTimer = setTimeout(submitAjax, 2000);
+    // Save 5s after the last detected change.
+    submitTimer = setTimeout(submitAjax, 5000);
 };
 
 const flushBeforeUnload = () => {
@@ -141,29 +142,6 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("beforeunload", flushBeforeUnload);
 window.addEventListener("unload", flushBeforeUnload);
-
-// Periodic polling to pick up remote changes when multiple devices are active.
-const pollIntervalMs = 5000;
-setInterval(() => {
-    if (!form || pending || dirty) return;
-    fetch(window.location.href, {
-        method: "GET",
-        credentials: "same-origin",
-        headers: {
-            "X-Requested-With": "XMLHttpRequest",
-        },
-    })
-        .then((res) => {
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            return res.json();
-        })
-        .then((data) => {
-            applyServerResults(data.results || {});
-        })
-        .catch(() => {
-            /* ignore poll errors */
-        });
-}, pollIntervalMs);
 
 document.querySelectorAll(".boulder-card").forEach((card) => {
     const bid = card.dataset.boulder;
@@ -213,6 +191,18 @@ document.querySelectorAll(".boulder-card").forEach((card) => {
         if (state.top && inputs.z2 && valZ2 === 0) inputs.z2.value = valTop || 1;
         if ((state.top || state.z2) && inputs.z1 && Number(inputs.z1.value || 0) === 0) {
             inputs.z1.value = inputs.z2 ? Number(inputs.z2.value || 0) || valTop || 1 : valTop || 1;
+        }
+
+        const z1Val = Number(inputs.z1?.value || 0);
+        const z2Val = Number(inputs.z2?.value || 0);
+        if (state.z2 && inputs.z2 && z2Val < z1Val) {
+            inputs.z2.value = z1Val;
+        }
+        if (state.top && inputs.top) {
+            const baseline = inputs.z2 ? Number(inputs.z2.value || 0) : z1Val;
+            if (Number(inputs.top.value || 0) < baseline) {
+                inputs.top.value = baseline;
+            }
         }
 
         syncFlash();

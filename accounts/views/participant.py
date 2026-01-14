@@ -4,6 +4,7 @@ from typing import Callable
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
+from ..forms import PasswordChangeForm
 from ..models import AgeGroup, Boulder, Participant, Result, Rulebook
 from ..services import ResultService, ScoringService
 
@@ -71,12 +72,28 @@ def participant_support(request: HttpRequest, participant: Participant) -> HttpR
 
 @participant_required
 def participant_settings(request: HttpRequest, participant: Participant) -> HttpResponse:
-    """Settings section."""
+    """Settings section with password change."""
+    success_message = ""
+
+    if request.method == "POST":
+        form = PasswordChangeForm(participant, request.POST)
+        if form.is_valid():
+            participant.password = form.cleaned_data["new_password"]
+            participant.save(update_fields=["password"])
+            success_message = "Dein Passwort wurde aktualisiert."
+            form = PasswordChangeForm(participant)
+    else:
+        form = PasswordChangeForm(participant)
+
     return _render_section(
         request,
         participant,
         "participant_settings.html",
         "Einstellungen",
+        {
+            "form": form,
+            "success_message": success_message,
+        },
     )
 
 

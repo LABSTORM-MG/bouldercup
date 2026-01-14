@@ -56,7 +56,7 @@ python3 manage.py migrate
 
 if [[ "$SEED_PARTICIPANTS" == true ]]; then
     python3 manage.py shell <<'PY'
-from accounts.models import Participant, AgeGroup
+from accounts.models import Participant, AgeGroup, Boulder
 from datetime import date
 from django.utils.text import slugify
 
@@ -77,6 +77,20 @@ default_group, _ = AgeGroup.objects.get_or_create(
     name="all (0-99, Gemischt)",
     defaults={"min_age": 0, "max_age": 99, "gender": "mixed"},
 )
+
+# Seed a few demo boulders with 0/1/2 zones and attach to the default group.
+boulder_specs = [
+    ("Demo-0", 0, "#f97316"),
+    ("Demo-1", 1, "#22c55e"),
+    ("Demo-2", 2, "#3b82f6"),
+]
+for label, zones, color in boulder_specs:
+    boulder, _ = Boulder.objects.get_or_create(
+        label=label,
+        defaults={"zone_count": zones, "color": color},
+    )
+    if default_group not in boulder.age_groups.all():
+        boulder.age_groups.add(default_group)
 
 print("Seeding demo participants (username / password):")
 for name, dob, gender in seed_data:

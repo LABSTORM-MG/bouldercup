@@ -1,6 +1,47 @@
 {% extends "participant_section_base.html" %}
 
 {% block content %}
-    <p>{{ participant.name }}, hier kannst du später persönliche Daten, Benachrichtigungen oder Teams verwalten.</p>
-    <p>Diese Seite ist aktuell ein Platzhalter, der noch mit Funktionen gefüllt werden kann.</p>
+    <section class="card">
+        <h2>Passwort ändern</h2>
+
+        {% if success_message %}
+            <div class="alert alert-success">{{ success_message }}</div>
+        {% endif %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-error">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" class="settings-form">
+            {% csrf_token %}
+            <div class="form-field">
+                <label for="{{ form.current_password.id_for_label }}">Aktuelles Passwort</label>
+                {{ form.current_password }}
+                {% if form.current_password.errors %}
+                    <div class="field-error">{{ form.current_password.errors|join:", " }}</div>
+                {% endif %}
+            </div>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="{{ form.new_password.id_for_label }}">Neues Passwort</label>
+                    {{ form.new_password }}
+                    <small class="hint">{{ form.new_password.help_text }}</small>
+                    {% if form.new_password.errors %}
+                        <div class="field-error">{{ form.new_password.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+                <div class="form-field">
+                    <label for="{{ form.confirm_password.id_for_label }}">Bestätigung</label>
+                    {{ form.confirm_password }}
+                    {% if form.confirm_password.errors %}
+                        <div class="field-error">{{ form.confirm_password.errors|join:", " }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <button type="submit" class="primary">Passwort speichern</button>
+        </form>
+    </section>
 {% endblock %}
