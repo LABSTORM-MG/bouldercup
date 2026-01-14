@@ -17,6 +17,7 @@ class ScoringService:
     POINT_BASED_SYSTEMS = {"point_based", "point_based_dynamic", "point_based_dynamic_attempts"}
     # Dynamic grading systems (percentage-based top points)
     DYNAMIC_SYSTEMS = {"point_based_dynamic", "point_based_dynamic_attempts"}
+
     @staticmethod
     def get_active_settings() -> CompetitionSettings | None:
         """Get active competition settings with caching."""

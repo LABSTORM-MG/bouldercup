@@ -2,6 +2,7 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
+
     initial = True
 
     dependencies = [
@@ -32,5 +33,17 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "Zeitslots",
             },
             bases=("accounts.submissionwindow",),
+        ),
+        migrations.CreateModel(
+            name="RulebookProxy",
+            fields=[],
+            options={
+                "proxy": True,
+                "indexes": [],
+                "constraints": [],
+                "verbose_name": "Regelwerk",
+                "verbose_name_plural": "Regelwerk",
+            },
+            bases=("accounts.rulebook",),
         ),
     ]

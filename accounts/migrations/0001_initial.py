@@ -4,13 +4,14 @@ from django_ckeditor_5.fields import CKEditor5Field
 
 
 def seed_competition_settings(apps, schema_editor):
+    """Seed default competition settings."""
     Settings = apps.get_model("accounts", "CompetitionSettings")
     if not Settings.objects.exists():
         Settings.objects.create(
             grading_system="ifsc",
             name="Standard Punkte-Setup",
             top_points=25,
-            flash_points=5,
+            flash_points=30,
             min_top_points=0,
             zone_points=10,
             zone1_points=10,
@@ -19,11 +20,22 @@ def seed_competition_settings(apps, schema_editor):
             min_zone1_points=0,
             min_zone2_points=0,
             attempt_penalty=1,
+            top_points_100=25,
+            top_points_90=25,
+            top_points_80=25,
+            top_points_70=30,
+            top_points_60=35,
+            top_points_50=40,
+            top_points_40=42,
+            top_points_30=44,
+            top_points_20=46,
+            top_points_10=50,
             singleton_guard=True,
         )
 
 
 def seed_rulebook(apps, schema_editor):
+    """Seed empty rulebook."""
     Rulebook = apps.get_model("accounts", "Rulebook")
     if not Rulebook.objects.exists():
         Rulebook.objects.create(name="Regelwerk", content="")
@@ -68,9 +80,14 @@ class Migration(migrations.Migration):
                 (
                     "grading_system",
                     models.CharField(
-                        choices=[("ifsc", "IFSC (Tops/Zones/Versuche)"), ("point_based", "Punktebasiert")],
+                        choices=[
+                            ("ifsc", "IFSC (Tops/Zones/Versuche)"),
+                            ("point_based", "Punktebasiert"),
+                            ("point_based_dynamic", "Punktebasiert (dynamisch)"),
+                            ("point_based_dynamic_attempts", "Punktebasiert (dynamisch + Versuche)"),
+                        ],
                         default="ifsc",
-                        max_length=20,
+                        max_length=30,
                     ),
                 ),
                 ("singleton_guard", models.BooleanField(default=True, editable=False, unique=True)),
@@ -78,10 +95,20 @@ class Migration(migrations.Migration):
                 (
                     "flash_points",
                     models.PositiveIntegerField(
-                        default=5, help_text="Flash-Punkte (ersetzt Top-Punkte bei Top im ersten Versuch)."
+                        default=30, help_text="Flash-Punkte (ersetzt Top-Punkte bei Top im ersten Versuch)."
                     ),
                 ),
                 ("min_top_points", models.PositiveIntegerField(default=0, help_text="Mindestpunkte, die ein Top immer bringt.")),
+                ("top_points_100", models.PositiveIntegerField(default=25, verbose_name="100%", help_text="Top-Punkte wenn 100% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_90", models.PositiveIntegerField(default=25, verbose_name="90%", help_text="Top-Punkte wenn 90% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_80", models.PositiveIntegerField(default=25, verbose_name="80%", help_text="Top-Punkte wenn 80% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_70", models.PositiveIntegerField(default=30, verbose_name="70%", help_text="Top-Punkte wenn 70% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_60", models.PositiveIntegerField(default=35, verbose_name="60%", help_text="Top-Punkte wenn 60% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_50", models.PositiveIntegerField(default=40, verbose_name="50%", help_text="Top-Punkte wenn 50% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_40", models.PositiveIntegerField(default=42, verbose_name="40%", help_text="Top-Punkte wenn 40% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_30", models.PositiveIntegerField(default=44, verbose_name="30%", help_text="Top-Punkte wenn 30% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_20", models.PositiveIntegerField(default=46, verbose_name="20%", help_text="Top-Punkte wenn 20% der Teilnehmer den Boulder getoppt haben.")),
+                ("top_points_10", models.PositiveIntegerField(default=50, verbose_name="10%", help_text="Top-Punkte wenn 10% oder weniger der Teilnehmer den Boulder getoppt haben.")),
                 (
                     "zone_points",
                     models.PositiveIntegerField(default=10, help_text="Punkte pro Zone (wenn nur eine Zone gewertet wird)."),
@@ -201,10 +228,41 @@ class Migration(migrations.Migration):
                 "unique_together": {("participant", "boulder")},
             },
         ),
+        # Constraints
         migrations.AddConstraint(
             model_name="participant",
             constraint=models.UniqueConstraint(fields=("name", "date_of_birth"), name="unique_participant_name_dob"),
         ),
+        # Indexes
+        migrations.AddIndex(
+            model_name="agegroup",
+            index=models.Index(fields=["min_age", "max_age", "gender"], name="accounts_ag_min_age_a2e8f4_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="participant",
+            index=models.Index(fields=["age_group", "name"], name="accounts_pa_age_gro_461ba4_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="participant",
+            index=models.Index(fields=["username"], name="accounts_pa_usernam_5f4b9e_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="boulder",
+            index=models.Index(fields=["label"], name="accounts_bo_label_8b7580_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="result",
+            index=models.Index(fields=["participant", "-updated_at"], name="accounts_re_partici_c1dc6b_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="result",
+            index=models.Index(fields=["boulder", "-updated_at"], name="accounts_re_boulder_b7e486_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="result",
+            index=models.Index(fields=["participant", "boulder"], name="accounts_re_partici_26b273_idx"),
+        ),
+        # Seed data
         migrations.RunPython(seed_competition_settings, reverse_code=migrations.RunPython.noop),
         migrations.RunPython(seed_rulebook, reverse_code=migrations.RunPython.noop),
     ]
