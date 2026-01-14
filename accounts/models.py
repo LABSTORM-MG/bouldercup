@@ -245,11 +245,13 @@ class CompetitionSettings(models.Model):
     GRADING_CHOICES = [
         ("ifsc", "IFSC (Tops/Zones/Versuche)"),
         ("point_based", "Punktebasiert"),
+        ("point_based_dynamic", "Punktebasiert (dynamisch)"),
+        ("point_based_dynamic_attempts", "Punktebasiert (dynamisch + Versuche)"),
     ]
 
     name = models.CharField(max_length=150, default="Standard Punkte-Setup", editable=False)
     grading_system = models.CharField(
-        max_length=20, choices=GRADING_CHOICES, default="ifsc"
+        max_length=30, choices=GRADING_CHOICES, default="ifsc"
     )
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
     top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top.")
@@ -258,6 +260,57 @@ class CompetitionSettings(models.Model):
     )
     min_top_points = models.PositiveIntegerField(
         default=0, help_text="Mindestpunkte, die ein Top immer bringt."
+    )
+    # Dynamic scoring: percentage-based top points
+    top_points_100 = models.PositiveIntegerField(
+        default=25,
+        verbose_name="100%",
+        help_text="Top-Punkte wenn 100% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_90 = models.PositiveIntegerField(
+        default=25,
+        verbose_name="90%",
+        help_text="Top-Punkte wenn 90% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_80 = models.PositiveIntegerField(
+        default=25,
+        verbose_name="80%",
+        help_text="Top-Punkte wenn 80% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_70 = models.PositiveIntegerField(
+        default=30,
+        verbose_name="70%",
+        help_text="Top-Punkte wenn 70% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_60 = models.PositiveIntegerField(
+        default=35,
+        verbose_name="60%",
+        help_text="Top-Punkte wenn 60% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_50 = models.PositiveIntegerField(
+        default=40,
+        verbose_name="50%",
+        help_text="Top-Punkte wenn 50% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_40 = models.PositiveIntegerField(
+        default=42,
+        verbose_name="40%",
+        help_text="Top-Punkte wenn 40% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_30 = models.PositiveIntegerField(
+        default=44,
+        verbose_name="30%",
+        help_text="Top-Punkte wenn 30% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_20 = models.PositiveIntegerField(
+        default=46,
+        verbose_name="20%",
+        help_text="Top-Punkte wenn 20% der Teilnehmer den Boulder getoppt haben.",
+    )
+    top_points_10 = models.PositiveIntegerField(
+        default=50,
+        verbose_name="10%",
+        help_text="Top-Punkte wenn 10% oder weniger der Teilnehmer den Boulder getoppt haben.",
     )
     zone_points = models.PositiveIntegerField(
         default=10,

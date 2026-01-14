@@ -71,7 +71,7 @@
                         <tr>
                             <th class="rank no-angle"><span class="th-text">Platz</span></th>
                             <th class="name no-angle"><span class="th-text">Teilnehmer</span></th>
-                            {% if grading_system == "point_based" %}
+                            {% if grading_system == "point_based" or grading_system == "point_based_dynamic" or grading_system == "point_based_dynamic_attempts" %}
                                 <th class="attempt-col"><span class="th-text">Punkte</span></th>
                             {% else %}
                                 <th class="attempt-col"><span class="th-text">Tops</span></th>
@@ -84,7 +84,7 @@
                             <tr>
                                 <td class="rank">{{ entry.rank }}</td>
                                 <td class="name">{% if entry.participant.id == participant.id %}<strong>{{ entry.participant.name }}</strong>{% else %}{{ entry.participant.name }}{% endif %}</td>
-                                {% if grading_system == "point_based" %}
+                                {% if grading_system == "point_based" or grading_system == "point_based_dynamic" or grading_system == "point_based_dynamic_attempts" %}
                                     <td class="attempt-col">{{ entry.points }}</td>
                                 {% else %}
                                     <td class="attempt-col">{{ entry.tops }} / {{ entry.top_attempts }}</td>
@@ -102,11 +102,14 @@
     <script>
         const tableBody = document.querySelector("table tbody");
         const pollInterval = 5000;
+        const pointBasedSystems = ["point_based", "point_based_dynamic", "point_based_dynamic_attempts"];
+
         const renderEntries = (entries) => {
             if (!tableBody) return;
             const grading = document.querySelector("table")?.dataset.grading || "ifsc";
+            const isPointBased = pointBasedSystems.includes(grading);
             const rows = entries.map((e) => {
-                if (grading === "point_based") {
+                if (isPointBased) {
                     return `
                         <tr>
                             <td class="rank">${e.rank}</td>

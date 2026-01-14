@@ -117,8 +117,27 @@ class CompetitionSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
             {"fields": ("grading_system",)},
         ),
         (
-            "Top & Flash",
-            {"fields": ("top_points", "flash_points")},
+            "Flash-Punkte",
+            {"fields": ("flash_points",)},
+        ),
+        (
+            "Top-Punkte (Punktebasiert)",
+            {"fields": ("top_points",)},
+        ),
+        (
+            "Top-Punkte nach Prozentsatz (Dynamisch)",
+            {"fields": (
+                "top_points_10",
+                "top_points_20",
+                "top_points_30",
+                "top_points_40",
+                "top_points_50",
+                "top_points_60",
+                "top_points_70",
+                "top_points_80",
+                "top_points_90",
+                "top_points_100",
+            )},
         ),
         (
             "Zonenpunkte",

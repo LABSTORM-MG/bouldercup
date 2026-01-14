@@ -195,7 +195,7 @@ def participant_live_scoreboard(request: HttpRequest, participant: Participant) 
             if selected_group
             else Boulder.objects.all().order_by("label")
         )
-        
+
         participants_qs = (
             Participant.objects
             .filter(age_group__in=[selected_group] if selected_group else age_groups)
@@ -203,17 +203,27 @@ def participant_live_scoreboard(request: HttpRequest, participant: Participant) 
             .order_by("name")
         )
         participants = list(participants_qs)
-        
+
         results = (
             Result.objects
             .filter(participant__in=participants, boulder__in=boulders)
             .select_related("participant__age_group", "boulder")
         )
-        
-        result_map = ScoringService.group_results_by_participant(results)
-        entries = ScoringService.build_scoreboard_entries(
-            participants, result_map, grading_system, settings_obj
-        )
+
+        # For dynamic scoring, we need to calculate top counts per boulder
+        if grading_system in ("point_based_dynamic", "point_based_dynamic_attempts"):
+            results_list = list(results)
+            result_map = ScoringService.group_results_by_participant(results_list)
+            top_counts = ScoringService.count_tops_per_boulder(results_list)
+            entries = ScoringService.build_scoreboard_entries(
+                participants, result_map, grading_system, settings_obj,
+                top_counts=top_counts, participant_count=len(participants)
+            )
+        else:
+            result_map = ScoringService.group_results_by_participant(results)
+            entries = ScoringService.build_scoreboard_entries(
+                participants, result_map, grading_system, settings_obj
+            )
 
     if is_ajax:
         payload = {
