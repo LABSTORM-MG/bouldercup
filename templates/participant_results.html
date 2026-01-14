@@ -7,7 +7,7 @@
     <title>{{ title }} – BoulderCup</title>
     <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
 </head>
-<body>
+<body data-can-submit="{{ can_submit|yesno:'true,false' }}"{% if next_window_timestamp %} data-next-window-timestamp="{{ next_window_timestamp }}"{% endif %}>
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>{{ title }}</h1>
@@ -20,11 +20,25 @@
             </span>
         </div>
     </header>
+    {% if not can_submit %}
+        <div class="submission-locked-notice" id="locked-notice">
+            {% if not has_windows %}
+                <p><strong>Event hat noch nicht begonnen</strong></p>
+                <p>Es wurden noch keine Zeitfenster für deine Altersgruppe festgelegt.</p>
+            {% elif next_window %}
+                <p><strong>Ergebniseintragung startet in <span id="countdown"></span></strong></p>
+                <p>Bitte warte, bis dein Zeitfenster beginnt.</p>
+            {% else %}
+                <p><strong>Ergebnisse sind endgültig</strong></p>
+                <p>Die Ergebniseintragung für deine Altersgruppe ist abgeschlossen.</p>
+            {% endif %}
+        </div>
+    {% endif %}
     <main>
         {% if boulders %}
             <form method="post">
                 {% csrf_token %}
-                <div class="boulder-list">
+                <div class="boulder-list{% if not can_submit %} readonly{% endif %}">
                     {% for boulder in boulders %}
                         <div class="boulder-card" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
                             <div class="boulder-header">
@@ -35,26 +49,26 @@
                                 <div class="tier-row">
                                     <div class="tier-label">Top</div>
                                     <label class="toggle">
-                                        <input type="checkbox" name="sent_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.top %}checked{% endif %}>
+                                        <input type="checkbox" name="sent_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.top %}checked{% endif %}{% if not can_submit %} disabled{% endif %}>
                                         <span aria-hidden="true"></span>
                                     </label>
                                     <div class="attempt-controls" aria-label="Versuche bis zum Top">
-                                        <button type="button" class="dec" aria-label="Minus">-</button>
-                                        <input type="number" min="0" name="attempts_top_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_top|default:0 }}">
-                                        <button type="button" class="inc" aria-label="Plus">+</button>
+                                        <button type="button" class="dec" aria-label="Minus"{% if not can_submit %} disabled{% endif %}>-</button>
+                                        <input type="number" min="0" name="attempts_top_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_top|default:0 }}"{% if not can_submit %} disabled{% endif %}>
+                                        <button type="button" class="inc" aria-label="Plus"{% if not can_submit %} disabled{% endif %}>+</button>
                                     </div>
                                 </div>
                                 {% if boulder.zone_count == 2 %}
                                     <div class="tier-row">
                                         <div class="tier-label">Obere Zone</div>
                                         <label class="toggle">
-                                            <input type="checkbox" name="zone2_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone2 %}checked{% endif %}>
+                                            <input type="checkbox" name="zone2_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone2 %}checked{% endif %}{% if not can_submit %} disabled{% endif %}>
                                             <span aria-hidden="true"></span>
                                         </label>
                                         <div class="attempt-controls" aria-label="Versuche bis zur oberen Zone">
-                                            <button type="button" class="dec" aria-label="Minus">-</button>
-                                            <input type="number" min="0" name="attempts_zone2_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone2|default:0 }}">
-                                            <button type="button" class="inc" aria-label="Plus">+</button>
+                                            <button type="button" class="dec" aria-label="Minus"{% if not can_submit %} disabled{% endif %}>-</button>
+                                            <input type="number" min="0" name="attempts_zone2_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone2|default:0 }}"{% if not can_submit %} disabled{% endif %}>
+                                            <button type="button" class="inc" aria-label="Plus"{% if not can_submit %} disabled{% endif %}>+</button>
                                         </div>
                                     </div>
                                 {% endif %}
@@ -62,13 +76,13 @@
                                     <div class="tier-row">
                                         <div class="tier-label">{% if boulder.zone_count == 2 %}Untere Zone{% else %}Zone{% endif %}</div>
                                         <label class="toggle">
-                                            <input type="checkbox" name="zone1_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone1 %}checked{% endif %}>
+                                            <input type="checkbox" name="zone1_{{ boulder.id }}" {% if boulder.existing_result and boulder.existing_result.zone1 %}checked{% endif %}{% if not can_submit %} disabled{% endif %}>
                                             <span aria-hidden="true"></span>
                                         </label>
                                         <div class="attempt-controls" aria-label="Versuche bis zur Zone">
-                                            <button type="button" class="dec" aria-label="Minus">-</button>
-                                            <input type="number" min="0" name="attempts_zone1_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone1|default:0 }}">
-                                            <button type="button" class="inc" aria-label="Plus">+</button>
+                                            <button type="button" class="dec" aria-label="Minus"{% if not can_submit %} disabled{% endif %}>-</button>
+                                            <input type="number" min="0" name="attempts_zone1_{{ boulder.id }}" value="{{ boulder.existing_result.attempts_zone1|default:0 }}"{% if not can_submit %} disabled{% endif %}>
+                                            <button type="button" class="inc" aria-label="Plus"{% if not can_submit %} disabled{% endif %}>+</button>
                                         </div>
                                     </div>
                                 {% endif %}

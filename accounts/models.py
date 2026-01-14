@@ -365,9 +365,15 @@ class Rulebook(models.Model):
 
 
 class SubmissionWindow(models.Model):
-    """Optional submission window for result entry (future enforcement)."""
+    """Time window during which specific age groups can submit results."""
 
     name = models.CharField(max_length=150, default="Standard Ergebnisfenster")
+    age_groups = models.ManyToManyField(
+        AgeGroup,
+        related_name="submission_windows",
+        blank=True,
+        help_text="Altersgruppen, die in diesem Zeitfenster Ergebnisse eintragen dürfen.",
+    )
     submission_start = models.DateTimeField(
         null=True,
         blank=True,
@@ -390,6 +396,61 @@ class SubmissionWindow(models.Model):
         verbose_name_plural = "Zeitslots für Ergebnis-Eintrag"
 
     def __str__(self) -> str:
-        start = self.submission_start.isoformat() if self.submission_start else "offen"
-        end = self.submission_end.isoformat() if self.submission_end else "offen"
-        return f"Ergebnisfenster: {start} – {end}"
+        start = self.submission_start.strftime("%d.%m. %H:%M") if self.submission_start else "offen"
+        end = self.submission_end.strftime("%d.%m. %H:%M") if self.submission_end else "offen"
+        return f"{self.name} ({start} – {end})"
+
+    def is_active(self) -> bool:
+        """Check if the current time is within the submission window."""
+        from django.utils import timezone
+        now = timezone.now()
+        if self.submission_start and now < self.submission_start:
+            return False
+        if self.submission_end and now > self.submission_end:
+            return False
+        return True
+
+    @classmethod
+    def get_active_for_age_group(cls, age_group) -> "SubmissionWindow | None":
+        """Get the active submission window for an age group, if any."""
+        if not age_group:
+            return None
+        from django.utils import timezone
+        now = timezone.now()
+        return cls.objects.filter(
+            age_groups=age_group,
+        ).filter(
+            models.Q(submission_start__isnull=True) | models.Q(submission_start__lte=now),
+            models.Q(submission_end__isnull=True) | models.Q(submission_end__gte=now),
+        ).first()
+
+    @classmethod
+    def get_next_upcoming_for_age_group(cls, age_group) -> "SubmissionWindow | None":
+        """Get the next upcoming (not yet started) submission window for an age group."""
+        if not age_group:
+            return None
+        from django.utils import timezone
+        now = timezone.now()
+        return cls.objects.filter(
+            age_groups=age_group,
+            submission_start__gt=now,
+        ).order_by("submission_start").first()
+
+    @classmethod
+    def has_windows_for_age_group(cls, age_group) -> bool:
+        """Check if any submission windows are configured for an age group."""
+        if not age_group:
+            return False
+        return cls.objects.filter(age_groups=age_group).exists()
+
+    @classmethod
+    def is_submission_allowed(cls, age_group) -> bool:
+        """
+        Check if result submission is allowed for an age group.
+
+        Returns True only if an active submission window exists for this age group.
+        Returns False if no windows are configured (event not started) or none are active.
+        """
+        if not age_group:
+            return False
+        return cls.get_active_for_age_group(age_group) is not None

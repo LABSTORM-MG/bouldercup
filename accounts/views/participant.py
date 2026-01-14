@@ -5,7 +5,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
 from ..forms import PasswordChangeForm
-from ..models import AgeGroup, Boulder, Participant, Result, Rulebook
+from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, SubmissionWindow
 from ..services import ResultService, ScoringService
 
 
@@ -101,8 +101,9 @@ def participant_settings(request: HttpRequest, participant: Participant) -> Http
 def participant_results(request: HttpRequest, participant: Participant) -> HttpResponse:
     """
     Handle result submission and display.
-    
+
     Supports both AJAX (for autosave) and regular POST.
+    Enforces submission windows when configured for the participant's age group.
     """
     boulders = (
         Boulder.objects.filter(age_groups=participant.age_group)
@@ -111,22 +112,43 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
         if participant.age_group_id
         else Boulder.objects.none()
     )
-    
+
     existing_results = ResultService.load_existing_results(participant, boulders)
     for boulder in boulders:
         boulder.existing_result = existing_results.get(boulder.id)
 
+    # Check if submission is allowed for this participant's age group
+    can_submit = SubmissionWindow.is_submission_allowed(participant.age_group)
+    has_windows = SubmissionWindow.has_windows_for_age_group(participant.age_group)
+    active_window = SubmissionWindow.get_active_for_age_group(participant.age_group)
+    next_window = None
+    next_window_timestamp = None
+
+    if not can_submit and participant.age_group:
+        next_window = SubmissionWindow.get_next_upcoming_for_age_group(participant.age_group)
+        if next_window and next_window.submission_start:
+            next_window_timestamp = next_window.submission_start.timestamp()
+
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
-    
+
     if request.method == "GET" and is_ajax:
+        # Re-check submission status for AJAX (countdown may have expired)
+        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group)
         payload = {
             boulder.id: ResultService.result_to_payload(res)
             for boulder, res in ((b, b.existing_result) for b in boulders)
             if res is not None
         }
-        return JsonResponse({"ok": True, "results": payload})
+        return JsonResponse({"ok": True, "results": payload, "can_submit": can_submit})
 
     if request.method == "POST":
+        # Re-check submission status (countdown may have expired)
+        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group)
+        if not can_submit:
+            return JsonResponse({
+                "ok": False,
+                "error": "Ergebniseintragung ist außerhalb des Zeitfensters nicht möglich."
+            }, status=403)
         payload = ResultService.handle_submission(request.POST, participant, boulders)
         return JsonResponse({"ok": True, "results": payload})
 
@@ -137,6 +159,11 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
             "participant": participant,
             "title": "Ergebnisse eintragen",
             "boulders": boulders,
+            "can_submit": can_submit,
+            "has_windows": has_windows,
+            "active_window": active_window,
+            "next_window": next_window,
+            "next_window_timestamp": next_window_timestamp,
         },
     )
 

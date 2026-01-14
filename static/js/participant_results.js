@@ -1,4 +1,6 @@
 const form = document.querySelector("form");
+let canSubmit = document.body.dataset.canSubmit === "true";
+const nextWindowTimestamp = parseFloat(document.body.dataset.nextWindowTimestamp) || null;
 let toast = document.getElementById("autosave-toast");
 if (!toast) {
     toast = document.createElement("div");
@@ -10,7 +12,70 @@ let submitTimer;
 let hideToastTimer;
 let pending = false;
 let dirty = false;
+let countdownInterval = null;
 const csrfToken = () => document.querySelector("input[name='csrfmiddlewaretoken']").value;
+
+// Countdown and unlock functionality
+const formatCountdown = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    if (h > 0) {
+        return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+    return `${m}:${String(s).padStart(2, "0")}`;
+};
+
+const enableSubmission = () => {
+    canSubmit = true;
+    document.body.dataset.canSubmit = "true";
+
+    // Hide the locked notice
+    const notice = document.getElementById("locked-notice");
+    if (notice) {
+        notice.style.display = "none";
+    }
+
+    // Enable all form inputs
+    const boulderList = document.querySelector(".boulder-list");
+    if (boulderList) {
+        boulderList.classList.remove("readonly");
+    }
+
+    document.querySelectorAll("input[disabled], button[disabled]").forEach((el) => {
+        el.disabled = false;
+    });
+
+    // Show success toast
+    showStatus("Eintragung freigeschaltet!", "ok");
+};
+
+const updateCountdown = () => {
+    if (!nextWindowTimestamp) return;
+
+    const now = Date.now() / 1000;
+    const remaining = Math.max(0, Math.floor(nextWindowTimestamp - now));
+    const countdownEl = document.getElementById("countdown");
+
+    if (remaining <= 0) {
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+        enableSubmission();
+        return;
+    }
+
+    if (countdownEl) {
+        countdownEl.textContent = formatCountdown(remaining);
+    }
+};
+
+// Start countdown if there's a next window
+if (nextWindowTimestamp && !canSubmit) {
+    updateCountdown();
+    countdownInterval = setInterval(updateCountdown, 1000);
+}
 
 const isFlashState = (checkboxes, inputs) => {
     if (!checkboxes.top || !checkboxes.top.checked) return false;
@@ -105,6 +170,7 @@ const submitAjax = () => {
 };
 
 const queueSubmit = () => {
+    if (!canSubmit) return; // Don't save when submission is locked
     clearTimeout(submitTimer);
     dirty = true;
     // Save 5s after the last detected change.
@@ -112,7 +178,7 @@ const queueSubmit = () => {
 };
 
 const flushBeforeUnload = () => {
-    if (!form) return;
+    if (!form || !canSubmit) return;
     // If nothing changed and nothing is in flight, skip.
     if (!dirty && !pending) return;
     const data = new FormData(form);

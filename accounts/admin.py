@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, Rulebook, Result
+from .models import AgeGroup, Boulder, Participant, Rulebook, Result, SubmissionWindow
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 
@@ -157,36 +157,48 @@ class CompetitionSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
         js = ("admin/js/competition_settings_toggle.js",)
 
 
+class AdminSplitDateTimeNoSeconds(admin.widgets.AdminSplitDateTime):
+    """AdminSplitDateTime without seconds in the time field."""
+    def __init__(self, attrs=None):
+        super().__init__(attrs)
+        # Override the time widget format to exclude seconds
+        self.widgets[1].format = "%H:%M"
+
+
 class SubmissionWindowAdminForm(forms.ModelForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        fmt = "%d.%m.%Y %H:%M"
-        for name in ("submission_start", "submission_end"):
-            if name in self.fields:
-                self.fields[name].input_formats = [fmt]
-                self.fields[name].widget.format = fmt
-                self.fields[name].widget.attrs.setdefault("placeholder", "tt.mm.jjjj hh:mm")
+    submission_start = forms.SplitDateTimeField(
+        required=False,
+        label="Start",
+        input_time_formats=["%H:%M", "%H:%M:%S"],
+        widget=AdminSplitDateTimeNoSeconds(),
+    )
+    submission_end = forms.SplitDateTimeField(
+        required=False,
+        label="Ende",
+        input_time_formats=["%H:%M", "%H:%M:%S"],
+        widget=AdminSplitDateTimeNoSeconds(),
+    )
 
     class Meta:
+        model = SubmissionWindow
         fields = "__all__"
-        widgets = {
-            "submission_start": forms.DateTimeInput(
-                format="%d.%m.%Y %H:%M", attrs={"placeholder": "tt.mm.jjjj hh:mm"}
-            ),
-            "submission_end": forms.DateTimeInput(
-                format="%d.%m.%Y %H:%M", attrs={"placeholder": "tt.mm.jjjj hh:mm"}
-            ),
-        }
 
 
 class SubmissionWindowAdmin(admin.ModelAdmin):
     form = SubmissionWindowAdminForm
-    list_display = ("name", "display_start", "display_end", "updated_at")
-    list_filter = ()
+    list_display = ("name", "display_age_groups", "display_start", "display_end", "display_status", "updated_at")
+    list_filter = ("age_groups",)
     search_fields = ("name", "note")
     ordering = ("submission_start",)
-    list_editable = ()
-    fields = ("name", "submission_start", "submission_end", "note")
+    filter_horizontal = ("age_groups",)
+    fields = ("name", "age_groups", "submission_start", "submission_end", "note")
+
+    @admin.display(description="Altersgruppen")
+    def display_age_groups(self, obj):
+        groups = obj.age_groups.all()
+        if not groups:
+            return "—"
+        return ", ".join(g.name for g in groups[:3]) + ("..." if groups.count() > 3 else "")
 
     @admin.display(description="Start")
     def display_start(self, obj):
@@ -195,6 +207,12 @@ class SubmissionWindowAdmin(admin.ModelAdmin):
     @admin.display(description="Ende")
     def display_end(self, obj):
         return obj.submission_end.strftime("%d.%m.%Y %H:%M") if obj.submission_end else "—"
+
+    @admin.display(description="Status")
+    def display_status(self, obj):
+        if obj.is_active():
+            return "Aktiv"
+        return "Inaktiv"
 
 
 class RulebookAdminForm(forms.ModelForm):
