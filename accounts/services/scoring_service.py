@@ -1,15 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import Iterable, Mapping, Sequence
 
 from django.core.cache import cache
+from web_project.settings.config import TIMING
 
 from ..models import CompetitionSettings, Participant, Result
 
-
-# Cache timeouts
-SETTINGS_CACHE_TIMEOUT = 300  # 5 minutes (settings change rarely)
-SCOREBOARD_CACHE_TIMEOUT = 5  # 5 seconds for live updates
+logger = logging.getLogger(__name__)
 
 
 class ScoringService:
@@ -25,7 +24,7 @@ class ScoringService:
         if cached is None:
             cached = CompetitionSettings.objects.order_by("-updated_at", "-id").first()
             if cached:
-                cache.set('competition_settings', cached, SETTINGS_CACHE_TIMEOUT)
+                cache.set('competition_settings', cached, TIMING.SETTINGS_CACHE_TIMEOUT)
         return cached
     
     @staticmethod
@@ -416,4 +415,4 @@ class ScoringService:
     def cache_scoreboard(age_group_id: int | str, grading_system: str, data: dict) -> None:
         """Cache scoreboard data."""
         cache_key = f"scoreboard_{age_group_id}_{grading_system}"
-        cache.set(cache_key, data, timeout=SCOREBOARD_CACHE_TIMEOUT)
+        cache.set(cache_key, data, timeout=TIMING.SCOREBOARD_CACHE_TIMEOUT)

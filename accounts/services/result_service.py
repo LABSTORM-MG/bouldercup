@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Iterable
 
 from django.core.cache import cache
 from django.db import transaction
+from web_project.settings.config import TIMING
 
 from ..models import Boulder, Participant, Result
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -21,8 +25,6 @@ class SubmittedResult:
 
 
 class ResultService:
-    TIMESTAMP_EPSILON = 0.0001  # microsecond precision tolerance
-    
     @staticmethod
     def safe_int(value: str | None) -> int:
         """Convert string to int, returning 0 if conversion fails."""
@@ -219,7 +221,7 @@ class ResultService:
                 
                 if current_result and submission.timestamp is not None:
                     time_diff = current_result.updated_at.timestamp() - submission.timestamp
-                    if time_diff > ResultService.TIMESTAMP_EPSILON:
+                    if time_diff > TIMING.TIMESTAMP_EPSILON:
                         payload[boulder.id] = ResultService.result_to_payload(current_result)
                         continue
                 

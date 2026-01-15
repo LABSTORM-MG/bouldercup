@@ -1,12 +1,16 @@
+import logging
 from functools import wraps
 from typing import Callable
 
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from web_project.settings.config import TIMING
 
 from ..forms import PasswordChangeForm
 from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, SubmissionWindow
 from ..services import ResultService, ScoringService
+
+logger = logging.getLogger(__name__)
 
 
 def _get_participant_from_session(request: HttpRequest) -> Participant | None:
@@ -171,7 +175,7 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
     if request.method == "POST":
         # Re-check submission status with 30-second grace period
         # Grace period prevents data loss due to network latency and clock differences
-        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group, grace_period_seconds=30)
+        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group, grace_period_seconds=TIMING.GRACE_PERIOD_SECONDS)
         if not can_submit:
             return JsonResponse({
                 "ok": False,

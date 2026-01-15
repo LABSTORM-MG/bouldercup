@@ -4,6 +4,7 @@ Base settings for web_project.
 
 import os
 from pathlib import Path
+from .config import TIMING, FRONTEND, HEALTH
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -94,6 +95,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.context_processors.frontend_config',
             ],
         },
     },
@@ -144,12 +146,62 @@ CACHES = {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'bouldercup-cache',
         'OPTIONS': {
-            'MAX_ENTRIES': 1000
+            'MAX_ENTRIES': TIMING.CACHE_MAX_ENTRIES
         }
     }
 }
 
 # Session configuration
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_COOKIE_AGE = TIMING.SESSION_COOKIE_AGE
 SESSION_SAVE_EVERY_REQUEST = False
+
+# Create logs directory
+os.makedirs(HEALTH.LOG_DIR, exist_ok=True)
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'json': {
+            '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            'format': '%(asctime)s %(name)s %(levelname)s %(message)s'
+        },
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(HEALTH.LOG_DIR, 'bouldercup.log'),
+            'maxBytes': HEALTH.LOG_MAX_BYTES,
+            'backupCount': HEALTH.LOG_BACKUP_COUNT,
+            'formatter': 'json',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['file', 'console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'accounts': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
