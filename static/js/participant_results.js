@@ -35,7 +35,7 @@ const enableSubmission = () => {
     if (!canSubmit && nextWindowTimestamp) {
         // We're transitioning from a locked state to unlocked
         // Reload the page to get fresh data including the new active window end time
-        showStatus("Zeitfenster gestartet - Seite wird aktualisiert...", "ok");
+        showStatus("Abgabe gestartet - Seite wird aktualisiert...", "ok");
         // Add random jitter (0-5 seconds) to prevent all clients refreshing simultaneously
         const jitter = Math.random() * 5000;
         setTimeout(() => {
@@ -122,7 +122,7 @@ const disableSubmission = () => {
 
     // Reload the page to get fresh data (next window info, updated state, etc.)
     // Add random jitter (0-5 seconds) to prevent all clients refreshing simultaneously
-    showStatus("Zeitfenster beendet - Seite wird aktualisiert...", "pending");
+    showStatus("Abgabe beendet - Seite wird aktualisiert...", "pending");
     const jitter = Math.random() * 5000;
     setTimeout(() => {
         window.location.reload();
@@ -168,6 +168,61 @@ if (activeWindowEndTimestamp && canSubmit) {
     updateEndingCountdown();
     endingCountdownInterval = setInterval(updateEndingCountdown, 1000);
 }
+
+// Poll server to detect submission window changes (e.g., admin creates new window)
+const checkWindowState = () => {
+    fetch(window.location.href, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+    })
+        .then((res) => {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.json();
+        })
+        .then((data) => {
+            if (!data) return;
+
+            const serverCanSubmit = data.can_submit;
+            const serverHasWindows = data.has_windows;
+            const serverNextWindowTimestamp = data.next_window_timestamp;
+            const serverActiveWindowEndTimestamp = data.active_window_end_timestamp;
+
+            const localHasWindows = document.body.dataset.hasWindows === "true";
+
+            // Check if submission state changed
+            const stateChanged = serverCanSubmit !== canSubmit;
+
+            // Check if windows were added/removed
+            const windowsChanged = serverHasWindows !== localHasWindows;
+
+            // Check if a new next window appeared (wasn't there before)
+            const newNextWindow = serverNextWindowTimestamp && !nextWindowTimestamp;
+
+            // Check if active window appeared or disappeared
+            const newActiveWindow = serverActiveWindowEndTimestamp && !activeWindowEndTimestamp;
+            const activeWindowEnded = !serverActiveWindowEndTimestamp && activeWindowEndTimestamp;
+
+            // Reload if any significant change detected
+            if (stateChanged || windowsChanged || newNextWindow || newActiveWindow || activeWindowEnded) {
+                window.location.reload();
+            }
+
+            // Update results if provided
+            if (data.results) {
+                applyServerResults(data.results);
+            }
+        })
+        .catch(() => {
+            // Silently ignore polling errors
+        });
+};
+
+// Start polling with jitter to prevent thundering herd
+// Poll every 15 seconds, starting after 5-10 seconds
+const pollInterval = 15000;
+const pollJitter = Math.random() * 5000 + 5000; // 5-10 seconds
+setTimeout(() => {
+    setInterval(checkWindowState, pollInterval);
+}, pollJitter);
 
 const isFlashState = (checkboxes, inputs) => {
     if (!checkboxes.top || !checkboxes.top.checked) return false;

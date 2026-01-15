@@ -7,7 +7,7 @@
     <title>{{ title }} – BoulderCup</title>
     <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
 </head>
-<body data-can-submit="{{ can_submit|yesno:'true,false' }}"{% if next_window_timestamp %} data-next-window-timestamp="{{ next_window_timestamp }}"{% endif %}{% if active_window_end_timestamp %} data-active-window-end-timestamp="{{ active_window_end_timestamp }}"{% endif %}>
+<body data-can-submit="{{ can_submit|yesno:'true,false' }}" data-has-windows="{{ has_windows|yesno:'true,false' }}"{% if next_window_timestamp %} data-next-window-timestamp="{{ next_window_timestamp }}"{% endif %}{% if active_window_end_timestamp %} data-active-window-end-timestamp="{{ active_window_end_timestamp }}"{% endif %}>
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>{{ title }}</h1>
@@ -21,26 +21,26 @@
         </div>
     </header>
     <div class="submission-ending-notice" id="ending-notice" style="display: none;">
-        <p><strong>Zeitfenster endet in <span id="ending-countdown"></span></strong></p>
+        <p><strong>Abgabe endet in <span id="ending-countdown"></span></strong></p>
         <p>Bitte schließe deine Eintragungen ab.</p>
     </div>
     {% if not can_submit %}
         <div class="submission-locked-notice" id="locked-notice">
             {% if not has_windows %}
                 <p><strong>Event hat noch nicht begonnen</strong></p>
-                <p>Es wurden noch keine Zeitfenster für deine Altersgruppe festgelegt.</p>
+                <p>Es wurden noch keine Abgabezeiträume für deine Altersgruppe festgelegt.</p>
             {% elif next_window %}
                 <p><strong>Ergebniseintragung startet in <span id="countdown"></span></strong></p>
-                <p>Bitte warte, bis dein Zeitfenster beginnt.</p>
+                <p>Bitte warte, bis die Abgabe beginnt.</p>
             {% else %}
-                <p><strong>Ergebnisse sind endgültig</strong></p>
-                <p>Die Ergebniseintragung für deine Altersgruppe ist abgeschlossen.</p>
+                <p><strong>Ergebniseintragung nicht möglich</strong></p>
+                <p>Aktuell können keine Ergebnisse eingetragen werden.</p>
             {% endif %}
         </div>
     {% else %}
         <div class="submission-locked-notice" id="locked-notice" style="display: none;">
-            <p><strong>Ergebnisse sind endgültig</strong></p>
-            <p>Die Ergebniseintragung für deine Altersgruppe ist abgeschlossen.</p>
+            <p><strong>Ergebniseintragung nicht möglich</strong></p>
+            <p>Aktuell können keine Ergebnisse eingetragen werden.</p>
         </div>
     {% endif %}
     <main>

@@ -138,18 +138,40 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
 
     if request.method == "GET" and is_ajax:
-        # Re-check submission status for AJAX (countdown may have expired)
+        # Re-check submission status for AJAX (countdown may have expired or windows changed)
         can_submit = SubmissionWindow.is_submission_allowed(participant.age_group)
+        has_windows = SubmissionWindow.has_windows_for_age_group(participant.age_group)
+        active_window = SubmissionWindow.get_active_for_age_group(participant.age_group)
+        next_window = None
+        next_window_timestamp = None
+        active_window_end_timestamp = None
+
+        if can_submit and active_window and active_window.submission_end:
+            active_window_end_timestamp = active_window.submission_end.timestamp()
+
+        if participant.age_group:
+            next_window = SubmissionWindow.get_next_upcoming_for_age_group(participant.age_group)
+            if next_window and next_window.submission_start:
+                next_window_timestamp = next_window.submission_start.timestamp()
+
         payload = {
             boulder.id: ResultService.result_to_payload(res)
             for boulder, res in ((b, b.existing_result) for b in boulders)
             if res is not None
         }
-        return JsonResponse({"ok": True, "results": payload, "can_submit": can_submit})
+        return JsonResponse({
+            "ok": True,
+            "results": payload,
+            "can_submit": can_submit,
+            "has_windows": has_windows,
+            "next_window_timestamp": next_window_timestamp,
+            "active_window_end_timestamp": active_window_end_timestamp,
+        })
 
     if request.method == "POST":
-        # Re-check submission status (countdown may have expired)
-        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group)
+        # Re-check submission status with 30-second grace period
+        # Grace period prevents data loss due to network latency and clock differences
+        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group, grace_period_seconds=30)
         if not can_submit:
             return JsonResponse({
                 "ok": False,

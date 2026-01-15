@@ -444,13 +444,33 @@ class SubmissionWindow(models.Model):
         return cls.objects.filter(age_groups=age_group).exists()
 
     @classmethod
-    def is_submission_allowed(cls, age_group) -> bool:
+    def is_submission_allowed(cls, age_group, grace_period_seconds: int = 0) -> bool:
         """
         Check if result submission is allowed for an age group.
 
         Returns True only if an active submission window exists for this age group.
         Returns False if no windows are configured (event not started) or none are active.
+
+        Args:
+            age_group: The age group to check
+            grace_period_seconds: Optional grace period after window end to still allow submissions
+                                 (default: 0, used for preventing data loss due to network latency)
         """
         if not age_group:
             return False
-        return cls.get_active_for_age_group(age_group) is not None
+
+        if grace_period_seconds == 0:
+            return cls.get_active_for_age_group(age_group) is not None
+
+        # Check with grace period
+        from django.utils import timezone
+        from datetime import timedelta
+        now = timezone.now()
+        grace_now = now - timedelta(seconds=grace_period_seconds)
+
+        return cls.objects.filter(
+            age_groups=age_group,
+        ).filter(
+            models.Q(submission_start__isnull=True) | models.Q(submission_start__lte=now),
+            models.Q(submission_end__isnull=True) | models.Q(submission_end__gte=grace_now),
+        ).exists()
