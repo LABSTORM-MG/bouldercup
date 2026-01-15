@@ -148,7 +148,11 @@
                 .catch(() => { /* ignore polling errors */ });
         };
 
-        setInterval(poll, pollInterval);
+        // Add random jitter (3-8 seconds) to prevent all clients polling simultaneously
+        const jitter = Math.random() * 5000 + 3000;
+        setTimeout(() => {
+            setInterval(poll, pollInterval);
+        }, jitter);
     </script>
 </body>
 </html>

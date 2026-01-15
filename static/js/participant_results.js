@@ -36,9 +36,11 @@ const enableSubmission = () => {
         // We're transitioning from a locked state to unlocked
         // Reload the page to get fresh data including the new active window end time
         showStatus("Zeitfenster gestartet - Seite wird aktualisiert...", "ok");
+        // Add random jitter (0-5 seconds) to prevent all clients refreshing simultaneously
+        const jitter = Math.random() * 5000;
         setTimeout(() => {
             window.location.reload();
-        }, 500);
+        }, 500 + jitter);
         return;
     }
 
@@ -119,10 +121,12 @@ const disableSubmission = () => {
     });
 
     // Reload the page to get fresh data (next window info, updated state, etc.)
+    // Add random jitter (0-5 seconds) to prevent all clients refreshing simultaneously
     showStatus("Zeitfenster beendet - Seite wird aktualisiert...", "pending");
+    const jitter = Math.random() * 5000;
     setTimeout(() => {
         window.location.reload();
-    }, 1500);
+    }, 1500 + jitter);
 };
 
 // Update ending countdown (last 5 minutes)
