@@ -183,6 +183,18 @@ class SubmissionWindowAdminForm(forms.ModelForm):
         model = SubmissionWindow
         fields = "__all__"
 
+    def clean(self):
+        cleaned_data = super().clean()
+        start = cleaned_data.get("submission_start")
+        end = cleaned_data.get("submission_end")
+
+        if start and end and end <= start:
+            raise forms.ValidationError(
+                "Das Ende des Zeitfensters muss nach dem Start liegen."
+            )
+
+        return cleaned_data
+
 
 class SubmissionWindowAdmin(admin.ModelAdmin):
     form = SubmissionWindowAdminForm
@@ -192,6 +204,9 @@ class SubmissionWindowAdmin(admin.ModelAdmin):
     ordering = ("submission_start",)
     filter_horizontal = ("age_groups",)
     fields = ("name", "age_groups", "submission_start", "submission_end", "note")
+
+    class Media:
+        js = ("admin/js/submission_window_time.js",)
 
     @admin.display(description="Altersgruppen")
     def display_age_groups(self, obj):

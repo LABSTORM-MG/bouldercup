@@ -7,7 +7,7 @@
     <title>{{ title }} – BoulderCup</title>
     <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
 </head>
-<body data-can-submit="{{ can_submit|yesno:'true,false' }}"{% if next_window_timestamp %} data-next-window-timestamp="{{ next_window_timestamp }}"{% endif %}>
+<body data-can-submit="{{ can_submit|yesno:'true,false' }}"{% if next_window_timestamp %} data-next-window-timestamp="{{ next_window_timestamp }}"{% endif %}{% if active_window_end_timestamp %} data-active-window-end-timestamp="{{ active_window_end_timestamp }}"{% endif %}>
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>{{ title }}</h1>
@@ -20,6 +20,10 @@
             </span>
         </div>
     </header>
+    <div class="submission-ending-notice" id="ending-notice" style="display: none;">
+        <p><strong>Zeitfenster endet in <span id="ending-countdown"></span></strong></p>
+        <p>Bitte schließe deine Eintragungen ab.</p>
+    </div>
     {% if not can_submit %}
         <div class="submission-locked-notice" id="locked-notice">
             {% if not has_windows %}
@@ -32,6 +36,11 @@
                 <p><strong>Ergebnisse sind endgültig</strong></p>
                 <p>Die Ergebniseintragung für deine Altersgruppe ist abgeschlossen.</p>
             {% endif %}
+        </div>
+    {% else %}
+        <div class="submission-locked-notice" id="locked-notice" style="display: none;">
+            <p><strong>Ergebnisse sind endgültig</strong></p>
+            <p>Die Ergebniseintragung für deine Altersgruppe ist abgeschlossen.</p>
         </div>
     {% endif %}
     <main>

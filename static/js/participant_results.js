@@ -1,6 +1,7 @@
 const form = document.querySelector("form");
 let canSubmit = document.body.dataset.canSubmit === "true";
 const nextWindowTimestamp = parseFloat(document.body.dataset.nextWindowTimestamp) || null;
+const activeWindowEndTimestamp = parseFloat(document.body.dataset.activeWindowEndTimestamp) || null;
 let toast = document.getElementById("autosave-toast");
 if (!toast) {
     toast = document.createElement("div");
@@ -13,6 +14,8 @@ let hideToastTimer;
 let pending = false;
 let dirty = false;
 let countdownInterval = null;
+let endingCountdownInterval = null;
+const FIVE_MINUTES = 5 * 60; // 5 minutes in seconds
 const csrfToken = () => document.querySelector("input[name='csrfmiddlewaretoken']").value;
 
 // Countdown and unlock functionality
@@ -27,6 +30,18 @@ const formatCountdown = (seconds) => {
 };
 
 const enableSubmission = () => {
+    // When transitioning from one window to another, reload to get new window data
+    // This ensures we have the correct active_window_end_timestamp
+    if (!canSubmit && nextWindowTimestamp) {
+        // We're transitioning from a locked state to unlocked
+        // Reload the page to get fresh data including the new active window end time
+        showStatus("Zeitfenster gestartet - Seite wird aktualisiert...", "ok");
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+        return;
+    }
+
     canSubmit = true;
     document.body.dataset.canSubmit = "true";
 
@@ -75,6 +90,79 @@ const updateCountdown = () => {
 if (nextWindowTimestamp && !canSubmit) {
     updateCountdown();
     countdownInterval = setInterval(updateCountdown, 1000);
+}
+
+// Disable submission when window ends
+const disableSubmission = () => {
+    // Flush any pending changes before disabling
+    if (dirty && form) {
+        flushBeforeUnload();
+    }
+
+    canSubmit = false;
+    document.body.dataset.canSubmit = "false";
+
+    // Hide the ending notice
+    const endingNotice = document.getElementById("ending-notice");
+    if (endingNotice) {
+        endingNotice.style.display = "none";
+    }
+
+    // Disable all form inputs
+    const boulderList = document.querySelector(".boulder-list");
+    if (boulderList) {
+        boulderList.classList.add("readonly");
+    }
+
+    document.querySelectorAll(".boulder-card input:not([type='hidden']), .boulder-card button").forEach((el) => {
+        el.disabled = true;
+    });
+
+    // Reload the page to get fresh data (next window info, updated state, etc.)
+    showStatus("Zeitfenster beendet - Seite wird aktualisiert...", "pending");
+    setTimeout(() => {
+        window.location.reload();
+    }, 1500);
+};
+
+// Update ending countdown (last 5 minutes)
+const updateEndingCountdown = () => {
+    if (!activeWindowEndTimestamp || !canSubmit) return;
+
+    const now = Date.now() / 1000;
+    const remaining = Math.max(0, Math.floor(activeWindowEndTimestamp - now));
+    const endingNotice = document.getElementById("ending-notice");
+    const endingCountdownEl = document.getElementById("ending-countdown");
+
+    if (remaining <= 0) {
+        // Window has ended
+        if (endingCountdownInterval) {
+            clearInterval(endingCountdownInterval);
+            endingCountdownInterval = null;
+        }
+        disableSubmission();
+        return;
+    }
+
+    // Show/hide the ending notice based on remaining time
+    if (remaining <= FIVE_MINUTES) {
+        if (endingNotice) {
+            endingNotice.style.display = "";
+        }
+        if (endingCountdownEl) {
+            endingCountdownEl.textContent = formatCountdown(remaining);
+        }
+    } else {
+        if (endingNotice) {
+            endingNotice.style.display = "none";
+        }
+    }
+};
+
+// Start ending countdown if there's an active window
+if (activeWindowEndTimestamp && canSubmit) {
+    updateEndingCountdown();
+    endingCountdownInterval = setInterval(updateEndingCountdown, 1000);
 }
 
 const isFlashState = (checkboxes, inputs) => {

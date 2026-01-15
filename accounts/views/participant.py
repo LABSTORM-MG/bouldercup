@@ -123,8 +123,14 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
     active_window = SubmissionWindow.get_active_for_age_group(participant.age_group)
     next_window = None
     next_window_timestamp = None
+    active_window_end_timestamp = None
 
-    if not can_submit and participant.age_group:
+    if can_submit and active_window and active_window.submission_end:
+        # Pass the active window end timestamp for countdown display
+        active_window_end_timestamp = active_window.submission_end.timestamp()
+
+    # Always check for next window, regardless of current submission state
+    if participant.age_group:
         next_window = SubmissionWindow.get_next_upcoming_for_age_group(participant.age_group)
         if next_window and next_window.submission_start:
             next_window_timestamp = next_window.submission_start.timestamp()
@@ -164,6 +170,7 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
             "active_window": active_window,
             "next_window": next_window,
             "next_window_timestamp": next_window_timestamp,
+            "active_window_end_timestamp": active_window_end_timestamp,
         },
     )
 
