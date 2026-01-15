@@ -292,3 +292,8 @@ tmp.sh
 #Claude
 CLAUDE.md
 CLAUDE.md
+
+# BoulderCup - Logs and Backups
+logs/
+backups/
+*.before_restore

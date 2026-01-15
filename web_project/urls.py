@@ -20,6 +20,8 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 
 from accounts.views import (
+    health_check,
+    health_logs,
     login_view,
     participant_dashboard,
     participant_live_scoreboard,
@@ -35,6 +37,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("ckeditor5/", include('django_ckeditor_5.urls')),
     path('', login_view, name='login'),
+    path('health/', health_check, name='health_check'),
+    path('health/logs/', health_logs, name='health_logs'),
     path('upload/', upload_participants, name='upload_participants'),
     path('dashboard/', participant_dashboard, name='participant_dashboard'),
     path('dashboard/ergebnisse/', participant_results, name='participant_results'),
