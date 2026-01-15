@@ -46,6 +46,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$KEEP_DB" == false ]]; then
+    # Create backup before resetting database
+    if [ -f db.sqlite3 ]; then
+        echo "Creating backup before database reset..."
+        python3 manage.py backup_database 2>/dev/null || echo "Backup skipped (command may not be available yet)"
+    fi
     rm -f db.sqlite3
 fi
 
