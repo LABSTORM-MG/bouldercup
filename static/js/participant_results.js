@@ -1,3 +1,17 @@
+// Read configuration from data attributes
+const config = {
+    autosaveDelay: parseInt(document.body.dataset.autosaveDelay) || 5000,
+    pollInterval: parseInt(document.body.dataset.pollInterval) || 15000,
+    pollJitterMin: parseInt(document.body.dataset.pollJitterMin) || 5000,
+    pollJitterMax: parseInt(document.body.dataset.pollJitterMax) || 10000,
+    reloadBaseDelay: parseInt(document.body.dataset.reloadBaseDelay) || 500,
+    reloadBaseDelayEnd: parseInt(document.body.dataset.reloadBaseDelayEnd) || 1500,
+    reloadJitter: parseInt(document.body.dataset.reloadJitter) || 5000,
+    warningCountdownSeconds: parseInt(document.body.dataset.warningCountdownSeconds) || 300,
+    toastErrorDuration: parseInt(document.body.dataset.toastErrorDuration) || 3000,
+    toastSuccessDuration: parseInt(document.body.dataset.toastSuccessDuration) || 1500,
+};
+
 const form = document.querySelector("form");
 let canSubmit = document.body.dataset.canSubmit === "true";
 const nextWindowTimestamp = parseFloat(document.body.dataset.nextWindowTimestamp) || null;
@@ -15,7 +29,6 @@ let pending = false;
 let dirty = false;
 let countdownInterval = null;
 let endingCountdownInterval = null;
-const FIVE_MINUTES = 5 * 60; // 5 minutes in seconds
 const csrfToken = () => document.querySelector("input[name='csrfmiddlewaretoken']").value;
 
 // Countdown and unlock functionality
@@ -36,11 +49,11 @@ const enableSubmission = () => {
         // We're transitioning from a locked state to unlocked
         // Reload the page to get fresh data including the new active window end time
         showStatus("Abgabe gestartet - Seite wird aktualisiert...", "ok");
-        // Add random jitter (0-5 seconds) to prevent all clients refreshing simultaneously
-        const jitter = Math.random() * 5000;
+        // Add random jitter to prevent all clients refreshing simultaneously
+        const jitter = Math.random() * config.reloadJitter;
         setTimeout(() => {
             window.location.reload();
-        }, 500 + jitter);
+        }, config.reloadBaseDelay + jitter);
         return;
     }
 
@@ -121,12 +134,12 @@ const disableSubmission = () => {
     });
 
     // Reload the page to get fresh data (next window info, updated state, etc.)
-    // Add random jitter (0-5 seconds) to prevent all clients refreshing simultaneously
+    // Add random jitter to prevent all clients refreshing simultaneously
     showStatus("Abgabe beendet - Seite wird aktualisiert...", "pending");
-    const jitter = Math.random() * 5000;
+    const jitter = Math.random() * config.reloadJitter;
     setTimeout(() => {
         window.location.reload();
-    }, 1500 + jitter);
+    }, config.reloadBaseDelayEnd + jitter);
 };
 
 // Update ending countdown (last 5 minutes)
@@ -149,7 +162,7 @@ const updateEndingCountdown = () => {
     }
 
     // Show/hide the ending notice based on remaining time
-    if (remaining <= FIVE_MINUTES) {
+    if (remaining <= config.warningCountdownSeconds) {
         if (endingNotice) {
             endingNotice.style.display = "";
         }
@@ -217,11 +230,9 @@ const checkWindowState = () => {
 };
 
 // Start polling with jitter to prevent thundering herd
-// Poll every 15 seconds, starting after 5-10 seconds
-const pollInterval = 15000;
-const pollJitter = Math.random() * 5000 + 5000; // 5-10 seconds
+const pollJitter = Math.random() * (config.pollJitterMax - config.pollJitterMin) + config.pollJitterMin;
 setTimeout(() => {
-    setInterval(checkWindowState, pollInterval);
+    setInterval(checkWindowState, config.pollInterval);
 }, pollJitter);
 
 const isFlashState = (checkboxes, inputs) => {
@@ -273,7 +284,7 @@ const showStatus = (text, state = "ok") => {
     if (state === "pending") toast.classList.add("pending");
     requestAnimationFrame(() => toast.classList.add("show"));
     clearTimeout(hideToastTimer);
-    const timeout = state === "error" ? 3000 : 1500;
+    const timeout = state === "error" ? config.toastErrorDuration : config.toastSuccessDuration;
     hideToastTimer = setTimeout(() => {
         toast.classList.remove("show");
     }, timeout);
@@ -320,8 +331,8 @@ const queueSubmit = () => {
     if (!canSubmit) return; // Don't save when submission is locked
     clearTimeout(submitTimer);
     dirty = true;
-    // Save 5s after the last detected change.
-    submitTimer = setTimeout(submitAjax, 5000);
+    // Save after the configured delay following the last detected change
+    submitTimer = setTimeout(submitAjax, config.autosaveDelay);
 };
 
 const flushBeforeUnload = () => {

@@ -177,11 +177,13 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
         # Grace period prevents data loss due to network latency and clock differences
         can_submit = SubmissionWindow.is_submission_allowed(participant.age_group, grace_period_seconds=TIMING.GRACE_PERIOD_SECONDS)
         if not can_submit:
+            logger.warning(f"Result submission rejected: participant {participant.username} (ID: {participant.id}) outside time window")
             return JsonResponse({
                 "ok": False,
                 "error": "Ergebniseintragung ist außerhalb des Zeitfensters nicht möglich."
             }, status=403)
         payload = ResultService.handle_submission(request.POST, participant, boulders)
+        logger.info(f"Results submitted: participant {participant.username} (ID: {participant.id}), {len(payload)} boulders")
         return JsonResponse({"ok": True, "results": payload})
 
     return render(

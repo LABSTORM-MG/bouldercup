@@ -1,9 +1,13 @@
+import logging
+
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.text import slugify
 
 from ..forms import LoginForm
 from ..models import Participant
+
+logger = logging.getLogger(__name__)
 
 
 def login_view(request: HttpRequest) -> HttpResponse:
@@ -40,11 +44,14 @@ def login_view(request: HttpRequest) -> HttpResponse:
 
         if not participant:
             message = "Unbekannter Teilnehmer."
+            logger.warning(f"Login failed: unknown user '{username}'")
         elif participant.password == password:
             request.session["participant_id"] = participant.id
+            logger.info(f"Login successful: {participant.username} (ID: {participant.id})")
             return redirect("participant_dashboard")
         else:
             message = "Falsches Passwort."
+            logger.warning(f"Login failed: incorrect password for user '{participant.username}' (ID: {participant.id})")
 
     return render(
         request,

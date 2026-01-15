@@ -7,7 +7,20 @@
     <title>{{ title }} – BoulderCup</title>
     <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
 </head>
-<body data-can-submit="{{ can_submit|yesno:'true,false' }}" data-has-windows="{{ has_windows|yesno:'true,false' }}"{% if next_window_timestamp %} data-next-window-timestamp="{{ next_window_timestamp }}"{% endif %}{% if active_window_end_timestamp %} data-active-window-end-timestamp="{{ active_window_end_timestamp }}"{% endif %}>
+<body data-can-submit="{{ can_submit|yesno:'true,false' }}"
+      data-has-windows="{{ has_windows|yesno:'true,false' }}"
+      {% if next_window_timestamp %}data-next-window-timestamp="{{ next_window_timestamp }}"{% endif %}
+      {% if active_window_end_timestamp %}data-active-window-end-timestamp="{{ active_window_end_timestamp }}"{% endif %}
+      data-autosave-delay="{{ frontend_config.AUTOSAVE_DELAY_MS }}"
+      data-poll-interval="{{ frontend_config.POLL_INTERVAL_MS }}"
+      data-poll-jitter-min="{{ frontend_config.POLL_JITTER_MIN_MS }}"
+      data-poll-jitter-max="{{ frontend_config.POLL_JITTER_MAX_MS }}"
+      data-reload-base-delay="{{ frontend_config.RELOAD_BASE_DELAY_MS }}"
+      data-reload-base-delay-end="{{ frontend_config.RELOAD_BASE_DELAY_WINDOW_END_MS }}"
+      data-reload-jitter="{{ frontend_config.RELOAD_JITTER_MS }}"
+      data-warning-countdown-seconds="{{ frontend_config.WARNING_COUNTDOWN_SECONDS }}"
+      data-toast-error-duration="{{ frontend_config.TOAST_ERROR_DURATION_MS }}"
+      data-toast-success-duration="{{ frontend_config.TOAST_SUCCESS_DURATION_MS }}">
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>{{ title }}</h1>

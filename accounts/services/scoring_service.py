@@ -25,12 +25,14 @@ class ScoringService:
             cached = CompetitionSettings.objects.order_by("-updated_at", "-id").first()
             if cached:
                 cache.set('competition_settings', cached, TIMING.SETTINGS_CACHE_TIMEOUT)
+                logger.debug("Competition settings cached")
         return cached
-    
+
     @staticmethod
     def invalidate_settings_cache() -> None:
         """Invalidate cached competition settings."""
         cache.delete('competition_settings')
+        logger.info("Competition settings cache invalidated")
     
     @staticmethod
     def score_ifsc(results: Iterable[Result]) -> dict:
