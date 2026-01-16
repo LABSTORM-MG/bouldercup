@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
 from .models import Participant
 from .utils import verify_password, hash_password
@@ -56,7 +57,20 @@ class ParticipantAdminForm(forms.ModelForm):
             attrs={"placeholder": "DD-MM-YYYY"},
         ),
     )
+    password = ReadOnlyPasswordHashField(
+        label="Passwort",
+        help_text=(
+            "Passwörter werden gehasht gespeichert und können nicht im Klartext angezeigt werden. "
+            "Das Standard-Passwort ist das Geburtsdatum im Format TTMMJJJJ (z.B. 01012000)."
+        ),
+    )
 
     class Meta:
         model = Participant
         fields = "__all__"
+
+    def clean_password(self):
+        # Regardless of what the user provides, return the initial value.
+        # This is done here, rather than on the field, because the
+        # field does not have access to the initial value
+        return self.initial.get("password")
