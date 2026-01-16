@@ -7,7 +7,7 @@ from django.shortcuts import redirect, render
 from web_project.settings.config import TIMING
 
 from ..forms import PasswordChangeForm
-from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, SubmissionWindow
+from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, HelpText, SubmissionWindow
 from ..services import ResultService, ScoringService
 
 logger = logging.getLogger(__name__)
@@ -66,11 +66,15 @@ def participant_dashboard(request: HttpRequest, participant: Participant) -> Htt
 @participant_required
 def participant_support(request: HttpRequest, participant: Participant) -> HttpResponse:
     """Support and help section."""
+    help_text_obj = HelpText.objects.order_by("-updated_at", "-id").first()
+    help_text_content = help_text_obj.content if help_text_obj else ""
+
     return _render_section(
         request,
         participant,
         "participant_support.html",
         "Hilfe & Support",
+        {"help_text": help_text_content},
     )
 
 

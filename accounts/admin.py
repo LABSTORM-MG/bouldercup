@@ -4,7 +4,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, Rulebook, Result, SubmissionWindow
+from .models import AgeGroup, Boulder, Participant, Rulebook, HelpText, Result, SubmissionWindow
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 
@@ -251,6 +251,30 @@ class RulebookAdmin(SingletonAdminMixin, admin.ModelAdmin):
         css = {
             "all": ("admin/css/ckeditor5_overrides.css",),
         }
+
+
+class HelpTextAdminForm(forms.ModelForm):
+    content = forms.CharField(
+        widget=CKEditor5Widget(config_name="default"), required=False, label="Hilfetext"
+    )
+
+    class Meta:
+        model = HelpText
+        fields = ("name", "content")
+
+
+class HelpTextAdmin(SingletonAdminMixin, admin.ModelAdmin):
+    form = HelpTextAdminForm
+    list_display = ("name", "updated_at")
+    fieldsets = (
+        (None, {"fields": ("name", "content")}),
+    )
+
+    class Media:
+        css = {
+            "all": ("admin/css/ckeditor5_overrides.css",),
+        }
+
 
 @admin.register(Result)
 class ResultAdmin(admin.ModelAdmin):

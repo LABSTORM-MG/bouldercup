@@ -364,6 +364,22 @@ class Rulebook(models.Model):
         return self.name
 
 
+class HelpText(models.Model):
+    """Standalone help and support content."""
+
+    name = models.CharField(max_length=150, default="Hilfe & Support")
+    content = CKEditor5Field("Hilfetext", config_name="default", blank=True)
+    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Hilfetext"
+        verbose_name_plural = "Hilfetexte"
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class SubmissionWindow(models.Model):
     """Time window during which specific age groups can submit results."""
 

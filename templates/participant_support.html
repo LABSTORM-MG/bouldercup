@@ -1,6 +1,10 @@
 {% extends "participant_section_base.html" %}
 
 {% block content %}
-    <p>Hallo {{ participant.name }},</p>
-    <p>Hier findest du Informationen und Ansprechpartner, falls du Hilfe benötigst. Diese Seite dient als Platzhalter und kann später mit FAQs, Kontaktformularen oder Links zu Messenger-Gruppen ergänzt werden.</p>
+    {% if help_text %}
+        <div class="help-text-block">{{ help_text|safe }}</div>
+    {% else %}
+        <p>Hallo {{ participant.name }},</p>
+        <p>Hier findest du Informationen und Ansprechpartner, falls du Hilfe benötigst. Diese Seite dient als Platzhalter und kann später mit FAQs, Kontaktformularen oder Links zu Messenger-Gruppen ergänzt werden.</p>
+    {% endif %}
 {% endblock %}

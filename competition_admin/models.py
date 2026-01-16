@@ -1,11 +1,11 @@
-from accounts.models import CompetitionSettings, SubmissionWindow, Rulebook
+from accounts.models import CompetitionSettings, SubmissionWindow, Rulebook, HelpText
 
 
 class CompetitionSettingsProxy(CompetitionSettings):
     class Meta:
         proxy = True
         verbose_name = "Punktesystem"
-        verbose_name_plural = "Punktesysteme"
+        verbose_name_plural = "Punktesystem"
 
 
 class SubmissionWindowProxy(SubmissionWindow):
@@ -20,3 +20,10 @@ class RulebookProxy(Rulebook):
         proxy = True
         verbose_name = "Regelwerk"
         verbose_name_plural = "Regelwerk"
+
+
+class HelpTextProxy(HelpText):
+    class Meta:
+        proxy = True
+        verbose_name = "Hilfetext"
+        verbose_name_plural = "Hilfetext"
