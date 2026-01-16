@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from ..forms import CSVUploadForm
 from ..models import Participant
-from ..utils import parse_date, normalize_gender, unique_username, pick_value
+from ..utils import parse_date, normalize_gender, unique_username, pick_value, hash_password
 
 
 @staff_member_required
@@ -47,7 +47,7 @@ def upload_participants(request: HttpRequest) -> HttpResponse:
                 continue
 
             username = unique_username(f"{first}.{last}".lower())
-            password = dob.strftime("%d%m%Y")
+            password = hash_password(dob.strftime("%d%m%Y"))
             full_name = f"{first} {last}"
 
             if Participant.objects.filter(name__iexact=full_name, date_of_birth=dob).exists():

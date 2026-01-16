@@ -1,3 +1,5 @@
+import logging
+
 from django import forms
 from django.contrib import admin
 from django.shortcuts import redirect
@@ -6,6 +8,8 @@ from django.urls import reverse
 from .forms import ParticipantAdminForm
 from .models import AgeGroup, Boulder, Participant, Rulebook, HelpText, Result, SubmissionWindow
 from django_ckeditor_5.widgets import CKEditor5Widget
+
+logger = logging.getLogger(__name__)
 
 
 class ParticipantInline(admin.TabularInline):
@@ -282,3 +286,31 @@ class ResultAdmin(admin.ModelAdmin):
     list_filter = ('top', 'zone2', 'zone1', 'boulder', 'participant__age_group')
     search_fields = ('participant__name', 'boulder__label')
     readonly_fields = ('updated_at',)
+
+    def save_model(self, request, obj, form, change):
+        """Log admin changes to results."""
+        if change:
+            # Get old values for comparison
+            old_obj = Result.objects.get(pk=obj.pk)
+            changes = []
+            for field in ['top', 'zone2', 'zone1', 'attempts', 'attempts_top', 'attempts_zone2', 'attempts_zone1']:
+                old_val = getattr(old_obj, field)
+                new_val = getattr(obj, field)
+                if old_val != new_val:
+                    changes.append(f"{field}: {old_val} → {new_val}")
+
+            if changes:
+                logger.warning(
+                    f"Admin result change by {request.user.username}: "
+                    f"Participant {obj.participant.username} (ID: {obj.participant.id}), "
+                    f"Boulder {obj.boulder.label}, "
+                    f"Changes: {', '.join(changes)}"
+                )
+        else:
+            logger.info(
+                f"Admin result created by {request.user.username}: "
+                f"Participant {obj.participant.username} (ID: {obj.participant.id}), "
+                f"Boulder {obj.boulder.label}"
+            )
+
+        super().save_model(request, obj, form, change)

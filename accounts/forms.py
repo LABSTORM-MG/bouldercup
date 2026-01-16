@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import Participant
+from .utils import verify_password, hash_password
 
 
 class LoginForm(forms.Form):
@@ -28,7 +29,7 @@ class PasswordChangeForm(forms.Form):
 
     def clean_current_password(self):
         current_password = self.cleaned_data["current_password"]
-        if current_password != self.participant.password:
+        if not verify_password(current_password, self.participant.password):
             raise forms.ValidationError("Aktuelles Passwort ist nicht korrekt.")
         return current_password
 

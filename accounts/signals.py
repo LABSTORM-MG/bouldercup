@@ -5,6 +5,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from .models import AgeGroup, Participant
+from .utils import hash_password
 
 
 def _shift_years(reference_date: date, years: int) -> date:
@@ -25,9 +26,10 @@ def set_participant_defaults(sender, instance, **kwargs):
     """
     if not instance.age_group_id:
         instance.assign_age_group()
-    
+
     if not instance.password and instance.date_of_birth:
-        instance.password = instance.date_of_birth.strftime("%d%m%Y")
+        raw_password = instance.date_of_birth.strftime("%d%m%Y")
+        instance.password = hash_password(raw_password)
 
 
 @receiver(post_save, sender=AgeGroup)

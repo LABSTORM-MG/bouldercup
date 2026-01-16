@@ -6,6 +6,7 @@ from django.utils.text import slugify
 
 from ..forms import LoginForm
 from ..models import Participant
+from ..utils import verify_password
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
         if not participant:
             message = "Unbekannter Teilnehmer."
             logger.warning(f"Login failed: unknown user '{username}'")
-        elif participant.password == password:
+        elif verify_password(password, participant.password):
             request.session["participant_id"] = participant.id
             logger.info(f"Login successful: {participant.username} (ID: {participant.id})")
             return redirect("participant_dashboard")

@@ -71,13 +71,13 @@ def unique_username(base: str) -> str:
 def pick_value(row: dict, *keys: str) -> str:
     """
     Pick first non-empty value from dict by trying multiple keys.
-    
+
     Useful for CSV parsing where column names might vary.
-    
+
     Args:
         row: Dictionary to search in
         *keys: Keys to try in order
-        
+
     Returns:
         First non-empty value found, or empty string
     """
@@ -86,3 +86,32 @@ def pick_value(row: dict, *keys: str) -> str:
         if value is not None and str(value).strip():
             return str(value).strip()
     return ""
+
+
+def hash_password(raw_password: str) -> str:
+    """
+    Hash a password using Django's make_password.
+
+    Args:
+        raw_password: The plaintext password to hash
+
+    Returns:
+        The hashed password string (e.g., pbkdf2_sha256$...)
+    """
+    from django.contrib.auth.hashers import make_password
+    return make_password(raw_password)
+
+
+def verify_password(raw_password: str, hashed_password: str) -> bool:
+    """
+    Verify a password against a hash.
+
+    Args:
+        raw_password: The plaintext password to verify
+        hashed_password: The hashed password to check against
+
+    Returns:
+        True if the password matches, False otherwise
+    """
+    from django.contrib.auth.hashers import check_password
+    return check_password(raw_password, hashed_password)

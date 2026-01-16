@@ -50,7 +50,7 @@ class Participant(models.Model):
     GENDER_CHOICES = AgeGroup.GENDER_CHOICES
 
     username = models.CharField(max_length=150, unique=True)
-    password = models.CharField(max_length=128)
+    password = models.CharField(max_length=255)
     name = models.CharField(max_length=150)
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
@@ -363,6 +363,12 @@ class Rulebook(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def save(self, *args, **kwargs):
+        """Invalidate cache on save."""
+        super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete('rulebook_content')
+
 
 class HelpText(models.Model):
     """Standalone help and support content."""
@@ -378,6 +384,12 @@ class HelpText(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def save(self, *args, **kwargs):
+        """Invalidate cache on save."""
+        super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete('helptext_content')
 
 
 class SubmissionWindow(models.Model):

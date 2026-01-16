@@ -2,6 +2,7 @@ import logging
 from functools import wraps
 from typing import Callable
 
+from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from web_project.settings.config import TIMING
@@ -9,6 +10,7 @@ from web_project.settings.config import TIMING
 from ..forms import PasswordChangeForm
 from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, HelpText, SubmissionWindow
 from ..services import ResultService, ScoringService
+from ..utils import hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +68,13 @@ def participant_dashboard(request: HttpRequest, participant: Participant) -> Htt
 @participant_required
 def participant_support(request: HttpRequest, participant: Participant) -> HttpResponse:
     """Support and help section."""
-    help_text_obj = HelpText.objects.order_by("-updated_at", "-id").first()
-    help_text_content = help_text_obj.content if help_text_obj else ""
+    help_text_content = cache.get('helptext_content')
+    if help_text_content is None:
+        help_text_obj = HelpText.objects.order_by("-updated_at", "-id").first()
+        help_text_content = help_text_obj.content if help_text_obj else ""
+        if help_text_obj:
+            cache.set('helptext_content', help_text_content, TIMING.SETTINGS_CACHE_TIMEOUT)
+            logger.debug("HelpText cached")
 
     return _render_section(
         request,
@@ -86,7 +93,7 @@ def participant_settings(request: HttpRequest, participant: Participant) -> Http
     if request.method == "POST":
         form = PasswordChangeForm(participant, request.POST)
         if form.is_valid():
-            participant.password = form.cleaned_data["new_password"]
+            participant.password = hash_password(form.cleaned_data["new_password"])
             participant.save(update_fields=["password"])
             success_message = "Dein Passwort wurde aktualisiert."
             form = PasswordChangeForm(participant)
@@ -334,9 +341,15 @@ def participant_rulebook(request: HttpRequest, participant: Participant) -> Http
     """Display competition rulebook."""
     settings_obj = ScoringService.get_active_settings()
     grading_system = settings_obj.grading_system if settings_obj else "ifsc"
-    rulebook = Rulebook.objects.order_by("-updated_at", "-id").first()
-    rules_text = rulebook.content if rulebook else ""
-    
+
+    rules_text = cache.get('rulebook_content')
+    if rules_text is None:
+        rulebook = Rulebook.objects.order_by("-updated_at", "-id").first()
+        rules_text = rulebook.content if rulebook else ""
+        if rulebook:
+            cache.set('rulebook_content', rules_text, TIMING.SETTINGS_CACHE_TIMEOUT)
+            logger.debug("Rulebook cached")
+
     return render(
         request,
         "participant_rulebook.html",
