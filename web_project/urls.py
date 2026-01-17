@@ -20,6 +20,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 
 from accounts.views import (
+    get_admin_message,
     health_check,
     health_logs,
     login_view,
@@ -39,6 +40,7 @@ urlpatterns = [
     path('', login_view, name='login'),
     path('health/', health_check, name='health_check'),
     path('health/logs/', health_logs, name='health_logs'),
+    path('api/admin-message/', get_admin_message, name='get_admin_message'),
     path('upload/', upload_participants, name='upload_participants'),
     path('dashboard/', participant_dashboard, name='participant_dashboard'),
     path('dashboard/ergebnisse/', participant_results, name='participant_results'),

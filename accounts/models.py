@@ -392,6 +392,49 @@ class HelpText(models.Model):
         cache.delete('helptext_content')
 
 
+class AdminMessage(models.Model):
+    """Admin broadcast message displayed to all participants."""
+
+    heading = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Überschrift",
+        help_text="Titel der Nachricht (optional)."
+    )
+    content = models.TextField(
+        blank=True,
+        verbose_name="Nachricht",
+        help_text="Nachrichteninhalt (optional)."
+    )
+    background_color = models.CharField(
+        max_length=7,
+        default="#ef4444",
+        verbose_name="Hintergrundfarbe",
+        help_text="Hintergrundfarbe der Nachricht (Hex-Code, z.B. #ef4444)."
+    )
+    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Admin-Nachricht"
+        verbose_name_plural = "Admin-Nachrichten"
+
+    def __str__(self) -> str:
+        if self.heading:
+            return f"Nachricht: {self.heading}"
+        return "Admin-Nachricht"
+
+    def has_content(self) -> bool:
+        """Check if the message has any content to display."""
+        return bool(self.heading or self.content)
+
+    def save(self, *args, **kwargs):
+        """Invalidate cache on save."""
+        super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete('admin_message')
+
+
 class SubmissionWindow(models.Model):
     """Time window during which specific age groups can submit results."""
 

@@ -6,7 +6,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, Rulebook, HelpText, Result, SubmissionWindow
+from .models import AgeGroup, Boulder, Participant, Rulebook, HelpText, AdminMessage, Result, SubmissionWindow
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 logger = logging.getLogger(__name__)
@@ -278,6 +278,58 @@ class HelpTextAdmin(SingletonAdminMixin, admin.ModelAdmin):
         css = {
             "all": ("admin/css/ckeditor5_overrides.css",),
         }
+
+
+class AdminMessageAdminForm(forms.ModelForm):
+    background_color = forms.CharField(
+        widget=forms.TextInput(attrs={"type": "color"}),
+        label="Hintergrundfarbe",
+        help_text="Hintergrundfarbe der Nachricht (Hex-Code).",
+    )
+
+    class Meta:
+        model = AdminMessage
+        fields = ("heading", "content", "background_color")
+
+
+@admin.register(AdminMessage)
+class AdminMessageAdmin(SingletonAdminMixin, admin.ModelAdmin):
+    form = AdminMessageAdminForm
+    list_display = ("heading", "updated_at")
+    fieldsets = (
+        (None, {"fields": ("heading", "content", "background_color")}),
+    )
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        """Customize the change view to hide 'Save and add another' button."""
+        extra_context = extra_context or {}
+        extra_context['show_save_and_add_another'] = False
+        extra_context['show_save_and_continue'] = False  # Only show main Save button
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
+    def response_add(self, request, obj, post_url_continue=None):
+        """Redirect to the change view after adding (instead of changelist)."""
+        from django.http import HttpResponseRedirect
+        from django.urls import reverse
+        return HttpResponseRedirect(
+            reverse(f"admin:{obj._meta.app_label}_{obj._meta.model_name}_change", args=[obj.pk])
+        )
+
+    def response_change(self, request, obj):
+        """Keep user on the same page after saving."""
+        from django.http import HttpResponseRedirect
+        from django.urls import reverse
+        from django.contrib import messages
+
+        # Always redirect back to the change page
+        messages.success(request, "Admin-Nachricht erfolgreich gespeichert.")
+        return HttpResponseRedirect(
+            reverse(f"admin:{obj._meta.app_label}_{obj._meta.model_name}_change", args=[obj.pk])
+        )
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of the singleton."""
+        return False
 
 
 @admin.register(Result)

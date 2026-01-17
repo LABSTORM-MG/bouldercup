@@ -61,6 +61,11 @@ class FrontendConfig:
     TOAST_ERROR_DURATION_MS: int = 3000
     TOAST_SUCCESS_DURATION_MS: int = 1500
 
+    # Admin message polling intervals
+    ADMIN_MESSAGE_POLL_INTERVAL_MS: int = 30000
+    ADMIN_MESSAGE_POLL_JITTER_MIN_MS: int = 5000
+    ADMIN_MESSAGE_POLL_JITTER_MAX_MS: int = 10000
+
 
 @dataclass(frozen=True)
 class BackupConfig:

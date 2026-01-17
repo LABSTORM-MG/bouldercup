@@ -2,6 +2,7 @@ from .admin import upload_participants
 from .auth import login_view
 from .health import health_check, health_logs
 from .participant import (
+    get_admin_message,
     participant_dashboard,
     participant_live_scoreboard,
     participant_results,
@@ -16,6 +17,7 @@ __all__ = [
     "upload_participants",
     "health_check",
     "health_logs",
+    "get_admin_message",
     "participant_dashboard",
     "participant_support",
     "participant_settings",

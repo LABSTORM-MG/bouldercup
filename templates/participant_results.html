@@ -20,7 +20,10 @@
       data-reload-jitter="{{ frontend_config.RELOAD_JITTER_MS }}"
       data-warning-countdown-seconds="{{ frontend_config.WARNING_COUNTDOWN_SECONDS }}"
       data-toast-error-duration="{{ frontend_config.TOAST_ERROR_DURATION_MS }}"
-      data-toast-success-duration="{{ frontend_config.TOAST_SUCCESS_DURATION_MS }}">
+      data-toast-success-duration="{{ frontend_config.TOAST_SUCCESS_DURATION_MS }}"
+      data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
+      data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
+      data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>{{ title }}</h1>
@@ -120,5 +123,6 @@
     </main>
     <div id="autosave-toast" class="toast" aria-live="polite"></div>
     <script src="{% static 'js/participant_results.js' %}" defer></script>
+    <script src="{% static 'js/admin_message_poll.js' %}"></script>
 </body>
 </html>

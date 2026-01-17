@@ -47,7 +47,9 @@
         }
     </style>
 </head>
-<body>
+<body data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
+      data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
+      data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>{{ title }}</h1>
@@ -154,5 +156,6 @@
             setInterval(poll, pollInterval);
         }, jitter);
     </script>
+    <script src="{% static 'js/admin_message_poll.js' %}"></script>
 </body>
 </html>

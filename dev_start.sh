@@ -62,6 +62,7 @@ python3 manage.py migrate
 if [[ "$SEED_PARTICIPANTS" == true ]]; then
     python3 manage.py shell <<'PY'
 from accounts.models import Participant, AgeGroup, Boulder
+from accounts.utils import hash_password
 from datetime import date
 from django.utils.text import slugify
 
@@ -100,10 +101,11 @@ for label, zones, color in boulder_specs:
 print("Seeding demo participants (username / password):")
 for name, dob, gender in seed_data:
     username = slugify(name).replace("-", "")
+    raw_password = dob.strftime("%d%m%Y")
     defaults = {
         "name": name,
         "date_of_birth": dob,
-        "password": dob.strftime("%d%m%Y"),
+        "password": hash_password(raw_password),
         "gender": gender,
         "age_group": default_group,
     }
@@ -111,19 +113,25 @@ for name, dob, gender in seed_data:
     if created:
         obj.assign_age_group(force=True)
         obj.save()
-        print(f"  {username} / {obj.password}")
+        print(f"  {username} / {raw_password}")
     else:
         updated = False
+        # Update all fields except password (to preserve hashed passwords)
         for field, val in defaults.items():
-            if getattr(obj, field) != val:
+            if field == "password":
+                # Only update password if it's not hashed
+                if not obj.password.startswith("pbkdf2_"):
+                    obj.password = val
+                    updated = True
+            elif getattr(obj, field) != val:
                 setattr(obj, field, val)
                 updated = True
         if updated:
             obj.assign_age_group(force=True)
             obj.save()
-            print(f"  updated {username} / {obj.password}")
+            print(f"  updated {username} / {raw_password}")
         else:
-            print(f"  exists {username} / {obj.password}")
+            print(f"  exists {username} / {raw_password}")
 PY
 fi
 

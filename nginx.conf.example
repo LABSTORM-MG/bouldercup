@@ -1,0 +1,42 @@
+# BoulderCup Nginx Configuration
+# Place this in /etc/nginx/sites-available/bouldercup
+# Then: sudo ln -s /etc/nginx/sites-available/bouldercup /etc/nginx/sites-enabled/
+
+upstream bouldercup {
+    server unix:/opt/bouldercup/bouldercup.sock fail_timeout=0;
+}
+
+server {
+    listen 80;
+    server_name bouldercup.labstorm.net;
+
+    # Your reverse proxy should handle SSL termination
+    # If this nginx instance needs to handle SSL, add:
+    # listen 443 ssl;
+    # ssl_certificate /path/to/cert.pem;
+    # ssl_certificate_key /path/to/key.pem;
+
+    client_max_body_size 10M;
+
+    # Static files
+    location /static/ {
+        alias /opt/bouldercup/staticfiles/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Media files
+    location /media/ {
+        alias /opt/bouldercup/media/;
+        expires 7d;
+    }
+
+    # Main application
+    location / {
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $http_host;
+        proxy_redirect off;
+        proxy_pass http://bouldercup;
+    }
+}

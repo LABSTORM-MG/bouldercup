@@ -7,7 +7,9 @@
     <title>Regelwerk – BoulderCup</title>
     <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
 </head>
-<body>
+<body data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
+      data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
+      data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
         <h1>Regelwerk</h1>
@@ -19,5 +21,6 @@
             <p>Das Regelwerk wird hier angezeigt, sobald es vom Admin hinterlegt wurde.</p>
         {% endif %}
     </main>
+    <script src="{% static 'js/admin_message_poll.js' %}"></script>
 </body>
 </html>

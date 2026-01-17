@@ -8,7 +8,7 @@ from django.shortcuts import redirect, render
 from web_project.settings.config import TIMING
 
 from ..forms import PasswordChangeForm
-from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, HelpText, SubmissionWindow
+from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, HelpText, AdminMessage, SubmissionWindow
 from ..services import ResultService, ScoringService
 from ..utils import hash_password
 
@@ -360,3 +360,40 @@ def participant_rulebook(request: HttpRequest, participant: Participant) -> Http
             "rules_text": rules_text,
         },
     )
+
+
+@participant_required
+def get_admin_message(request: HttpRequest, participant: Participant) -> JsonResponse:
+    """
+    API endpoint to fetch active admin broadcast message.
+
+    Returns the current admin message if it has content, or null if empty.
+    Results are cached for 5 minutes (SETTINGS_CACHE_TIMEOUT).
+    """
+    # Check cache first
+    cached_message = cache.get('admin_message')
+
+    if cached_message is not None:
+        # Cache hit - return cached data
+        return JsonResponse({"ok": True, "message": cached_message})
+
+    # Cache miss - query database
+    admin_message = AdminMessage.objects.order_by("-updated_at", "-id").first()
+
+    if not admin_message or not admin_message.has_content():
+        # No message or empty message
+        message_data = None
+    else:
+        # Build message response
+        message_data = {
+            "heading": admin_message.heading,
+            "content": admin_message.content,
+            "background_color": admin_message.background_color,
+            "updated_at": admin_message.updated_at.timestamp(),
+        }
+
+    # Cache the result
+    cache.set('admin_message', message_data, TIMING.SETTINGS_CACHE_TIMEOUT)
+    logger.debug("Admin message cached")
+
+    return JsonResponse({"ok": True, "message": message_data})
