@@ -3,9 +3,10 @@ set -e
 
 echo "=== BoulderCup Deployment Started ==="
 
-# Pull latest changes
+# Stash any local changes and pull latest changes
 echo "Pulling latest changes from deploy branch..."
-git pull origin deploy
+git fetch origin deploy
+git reset --hard origin/deploy
 
 # Activate virtual environment
 echo "Activating virtual environment..."
