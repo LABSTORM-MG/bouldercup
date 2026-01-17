@@ -137,17 +137,34 @@ python3 -c 'from django.core.management.utils import get_random_secret_key; prin
 
 Create the `.env` file:
 ```bash
-cp .env.production.example .env
+cat > .env << 'EOF'
+# Django Secret Key - Generate with command above
+DJANGO_SECRET_KEY=your-secret-key-here
+
+# Allowed hosts (comma-separated, include internal IP and domain)
+DJANGO_ALLOWED_HOSTS=bouldercup.labstorm.net,192.168.178.53
+
+# Database (optional - defaults to SQLite)
+# DATABASE_URL=postgresql://user:password@localhost/bouldercup
+
+# Redis (optional - for production caching)
+# REDIS_URL=redis://127.0.0.1:6379/1
+
+# Email settings (optional - for notifications)
+# EMAIL_HOST=smtp.example.com
+# EMAIL_PORT=587
+# EMAIL_USE_TLS=True
+# EMAIL_HOST_USER=your-email@example.com
+# EMAIL_HOST_PASSWORD=your-password
+EOF
+```
+
+Edit the file to add your generated secret key:
+```bash
 nano .env
 ```
 
-Update `.env` with your values:
-```env
-DJANGO_SECRET_KEY=<paste-generated-secret-key-here>
-DJANGO_ALLOWED_HOSTS=bouldercup.labstorm.net
-```
-
-Save and exit (Ctrl+X, Y, Enter).
+Replace `your-secret-key-here` with the generated key, then save and exit (Ctrl+X, Y, Enter).
 
 ### A8. Initialize Database
 
@@ -172,9 +189,42 @@ exit  # Return to labstorm-ssh user
 
 ### A9. Setup systemd Service
 
-As admin user (`labstorm-ssh`):
+As admin user (`labstorm-ssh`), create the systemd service file:
 ```bash
-sudo cp /opt/bouldercup/bouldercup.service /etc/systemd/system/
+sudo tee /etc/systemd/system/bouldercup.service > /dev/null << 'EOF'
+[Unit]
+Description=BoulderCup Django Application
+After=network.target
+
+[Service]
+Type=notify
+User=bouldercup-deploy
+Group=bouldercup-deploy
+WorkingDirectory=/opt/bouldercup
+Environment="DJANGO_SETTINGS_MODULE=web_project.settings.prod"
+ExecStart=/opt/bouldercup/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:/opt/bouldercup/bouldercup.sock \
+    --timeout 60 \
+    --access-logfile /var/log/bouldercup/access.log \
+    --error-logfile /var/log/bouldercup/error.log \
+    web_project.wsgi:application
+
+# Restart policy
+Restart=on-failure
+RestartSec=5s
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+Enable and start the service:
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable bouldercup
 sudo systemctl start bouldercup
@@ -185,9 +235,48 @@ You should see "active (running)".
 
 ### A10. Configure Nginx
 
-Setup nginx to serve the application:
+Create the nginx configuration:
 ```bash
-sudo cp /opt/bouldercup/nginx.conf.example /etc/nginx/sites-available/bouldercup
+sudo tee /etc/nginx/sites-available/bouldercup > /dev/null << 'EOF'
+# BoulderCup Nginx Configuration
+upstream bouldercup {
+    server unix:/opt/bouldercup/bouldercup.sock fail_timeout=0;
+}
+
+server {
+    listen 80;
+    server_name bouldercup.labstorm.net;
+
+    client_max_body_size 10M;
+
+    # Static files
+    location /static/ {
+        alias /opt/bouldercup/staticfiles/;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Media files
+    location /media/ {
+        alias /opt/bouldercup/media/;
+        expires 7d;
+    }
+
+    # Main application
+    location / {
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host $http_host;
+        proxy_redirect off;
+        proxy_pass http://bouldercup;
+    }
+}
+EOF
+```
+
+Enable the site and remove the default:
+```bash
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo ln -s /etc/nginx/sites-available/bouldercup /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
@@ -578,16 +667,21 @@ sudo -u bouldercup-deploy crontab -e
 
 ## Updating Deployment Configuration
 
-If you need to modify the deployment process (e.g., update `deploy.sh`, `bouldercup.service`):
+If you need to modify the deployment process:
 
-1. Update files locally
+**For code and deployment script changes:**
+1. Update files locally (e.g., `deploy.sh`, Django code)
 2. Commit and push to `master` branch
 3. Merge `master` into `deploy` branch and push (triggers deployment)
-4. If systemd service file changed, update manually on VM:
+
+**For infrastructure changes (systemd, nginx):**
+- These configs are created directly on the VM during initial setup
+- To modify: SSH to VM, edit `/etc/systemd/system/bouldercup.service` or `/etc/nginx/sites-available/bouldercup`
+- After changes, reload and restart:
    ```bash
-   sudo cp /opt/bouldercup/bouldercup.service /etc/systemd/system/
    sudo systemctl daemon-reload
    sudo systemctl restart bouldercup
+   sudo systemctl restart nginx
    ```
 
 ---

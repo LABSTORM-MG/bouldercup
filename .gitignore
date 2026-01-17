@@ -290,11 +290,11 @@ pyrightconfig.json
 
 tmp.sh
 
-#Claude
-CLAUDE.md
-
 # BoulderCup - Logs and Backups
 logs/
 backups/
 *.before_restore
+
+# Plans and documentation
+plans/
 screenshot.png
