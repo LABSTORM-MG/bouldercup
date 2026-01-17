@@ -20,6 +20,11 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "bouldercup.labstorm.net").split(",")
 
+# CSRF trusted origins - required for reverse proxy setup
+# The Origin header from the browser is https://bouldercup.labstorm.net
+# even though the internal connection to Django is HTTP
+CSRF_TRUSTED_ORIGINS = [f"https://{host.strip()}" for host in ALLOWED_HOSTS]
+
 # Security settings
 # SECURE_SSL_REDIRECT, SESSION_COOKIE_SECURE, and CSRF_COOKIE_SECURE are disabled
 # because the external reverse proxy handles SSL termination and forwards HTTP
