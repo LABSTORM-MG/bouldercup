@@ -210,8 +210,12 @@ sudo visudo -f /etc/sudoers.d/bouldercup-deploy
 Add these lines:
 ```
 # Allow bouldercup-deploy to restart and check service status only
-bouldercup-deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart bouldercup, /bin/systemctl status bouldercup
+bouldercup-deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bouldercup, /usr/bin/systemctl status bouldercup*
 ```
+
+**Important notes:**
+- Use `/usr/bin/systemctl` (not `/bin/systemctl`) - this is the correct path on Ubuntu 24.04
+- The `*` after `bouldercup` allows systemctl flags like `--no-pager`
 
 Save and exit (Ctrl+X, Y, Enter).
 
