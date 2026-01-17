@@ -297,3 +297,4 @@ CLAUDE.md
 logs/
 backups/
 *.before_restore
+screenshot.png
