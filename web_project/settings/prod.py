@@ -21,7 +21,8 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "bouldercup.labstorm.net").split(",")
 
 # Security settings
-SECURE_SSL_REDIRECT = True
+# SECURE_SSL_REDIRECT disabled because external reverse proxy handles SSL
+SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
