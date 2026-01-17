@@ -11,6 +11,9 @@ git pull origin deploy
 echo "Activating virtual environment..."
 source .venv/bin/activate
 
+# Set Django settings for production
+export DJANGO_SETTINGS_MODULE=web_project.settings.prod
+
 # Install/update dependencies
 echo "Installing dependencies..."
 pip install -r requirements.txt
