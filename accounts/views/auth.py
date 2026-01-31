@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 def login_view(request: HttpRequest) -> HttpResponse:
     """Handle participant login with username/password."""
     message = ""
+    message_type = "error"  # default, "locked" for locked accounts
     form = LoginForm(request.POST or None)
 
     def _normalize_username(value: str) -> list[str]:
@@ -46,6 +47,10 @@ def login_view(request: HttpRequest) -> HttpResponse:
         if not participant:
             message = "Unbekannter Teilnehmer."
             logger.warning(f"Login failed: unknown user '{username}'")
+        elif participant.is_locked:
+            message = "Dein Zugang wurde gesperrt. Bitte wende dich an das Personal oder die Organisatoren."
+            message_type = "locked"
+            logger.warning(f"Login blocked: locked user '{participant.username}' (ID: {participant.id})")
         elif verify_password(password, participant.password):
             request.session["participant_id"] = participant.id
             logger.info(f"Login successful: {participant.username} (ID: {participant.id})")
@@ -60,5 +65,6 @@ def login_view(request: HttpRequest) -> HttpResponse:
         {
             "form": form,
             "message": message,
+            "message_type": message_type,
         },
     )

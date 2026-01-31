@@ -62,6 +62,11 @@ class Participant(models.Model):
         blank=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    is_locked = models.BooleanField(
+        default=False,
+        verbose_name="Gesperrt",
+        help_text="Gesperrte Teilnehmer können sich nicht anmelden und werden nicht auf Ranglisten angezeigt."
+    )
 
     class Meta:
         ordering = ["name"]
@@ -76,6 +81,7 @@ class Participant(models.Model):
         indexes = [
             models.Index(fields=["age_group", "name"]),
             models.Index(fields=["username"]),
+            models.Index(fields=["is_locked"]),
         ]
 
     def __str__(self) -> str:

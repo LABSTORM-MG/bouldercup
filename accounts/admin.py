@@ -44,9 +44,10 @@ class ParticipantAdmin(admin.ModelAdmin):
         "display_age",
         "gender",
         "age_group",
+        "display_lock_status",
         "created_at",
     )
-    list_filter = ("gender", "age_group")
+    list_filter = ("gender", "age_group", "is_locked")
     search_fields = ("name", "username")
     fields = (
         "name",
@@ -55,12 +56,79 @@ class ParticipantAdmin(admin.ModelAdmin):
         "username",
         "password",
         "age_group",
+        "is_locked",
     )
     form = ParticipantAdminForm
+    actions = ["lock_participants", "unlock_participants"]
 
     @admin.display(description="Alter")
     def display_age(self, obj):
         return obj.age
+
+    @admin.display(description="Status", boolean=True)
+    def display_lock_status(self, obj):
+        """Display lock status (green checkmark = unlocked, red X = locked)."""
+        return not obj.is_locked
+
+    @admin.action(description="Ausgewählte Teilnehmer sperren")
+    def lock_participants(self, request, queryset):
+        """Lock selected participants and invalidate their sessions."""
+        from django.contrib.sessions.models import Session
+        from django.core.cache import cache
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Get participant IDs before update
+        participant_ids = list(queryset.values_list('id', flat=True))
+
+        # Update lock status
+        count = queryset.update(is_locked=True)
+
+        # Invalidate sessions for locked participants
+        sessions_deleted = 0
+        for session in Session.objects.all():
+            session_data = session.get_decoded()
+            participant_id = session_data.get('participant_id')
+            if participant_id in participant_ids:
+                session.delete()
+                sessions_deleted += 1
+
+        # Invalidate all caches (scoreboards will update immediately)
+        cache.clear()
+
+        self.message_user(
+            request,
+            f"{count} Teilnehmer gesperrt. {sessions_deleted} Sitzungen beendet.",
+            level="WARNING"
+        )
+        logger.warning(
+            f"Admin {request.user.username} locked {count} participants: "
+            f"IDs {participant_ids}. {sessions_deleted} sessions invalidated."
+        )
+
+    @admin.action(description="Ausgewählte Teilnehmer entsperren")
+    def unlock_participants(self, request, queryset):
+        """Unlock selected participants."""
+        from django.core.cache import cache
+        import logging
+
+        logger = logging.getLogger(__name__)
+        participant_ids = list(queryset.values_list('id', flat=True))
+        count = queryset.update(is_locked=False)
+
+        # Invalidate all caches
+        cache.clear()
+
+        self.message_user(
+            request,
+            f"{count} Teilnehmer entsperrt.",
+            level="SUCCESS"
+        )
+        logger.info(
+            f"Admin {request.user.username} unlocked {count} participants: "
+            f"IDs {participant_ids}"
+        )
 
 
 admin.site.site_title = "BoulderCup Verwaltung"

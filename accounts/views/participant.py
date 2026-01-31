@@ -29,13 +29,21 @@ def _get_participant_from_session(request: HttpRequest) -> Participant | None:
 def participant_required(
     view_func: Callable[[HttpRequest, Participant, ...], HttpResponse]
 ):
-    """Redirect to login when no participant session is present."""
+    """Redirect to login when no participant session is present or participant is locked."""
 
     @wraps(view_func)
     def wrapper(request: HttpRequest, *args, **kwargs):
         participant = _get_participant_from_session(request)
         if not participant:
             return redirect("login")
+
+        # Check if participant is locked
+        if participant.is_locked:
+            # Clear session and redirect to login
+            request.session.flush()
+            logger.warning(f"Locked participant attempted access: {participant.username} (ID: {participant.id})")
+            return redirect("login")
+
         return view_func(request, participant, *args, **kwargs)
 
     return wrapper
@@ -272,6 +280,7 @@ def participant_live_scoreboard(request: HttpRequest, participant: Participant) 
         participants_qs = (
             Participant.objects
             .filter(age_group__in=[selected_group] if selected_group else age_groups)
+            .filter(is_locked=False)
             .select_related('age_group')
             .order_by("name")
         )

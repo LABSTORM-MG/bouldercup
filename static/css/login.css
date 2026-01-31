@@ -73,6 +73,17 @@ button {
     text-align: center;
     color: #1f7a8c;
 }
+
+.message-locked {
+    background: #dc2626;
+    color: #fff;
+    padding: 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.05rem;
+    border: 2px solid #991b1b;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
 form {
     width: 100%;
     display: flex;
