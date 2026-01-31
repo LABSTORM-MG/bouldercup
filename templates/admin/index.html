@@ -1,0 +1,20 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block sidebar %}
+<div id="content-related">
+    <div class="module" id="recent-actions-module">
+        <h2>{% translate 'System' %}</h2>
+        <ul>
+            <li>
+                <a href="{% url 'system_status' %}">
+                    <strong>{% translate 'System Status' %}</strong>
+                </a>
+                <br>
+                <span class="mini quiet">{% translate 'View system metrics and logs' %}</span>
+            </li>
+        </ul>
+    </div>
+    {{ block.super }}
+</div>
+{% endblock %}

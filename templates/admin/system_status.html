@@ -1,0 +1,192 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>System Status - BoulderCup</title>
+    <link rel="stylesheet" href="{% static 'css/admin_status.css' %}">
+</head>
+<body>
+    <div class="status-container">
+        <header>
+            <h1>System Status</h1>
+            <div class="header-actions">
+                <button id="pauseBtn" onclick="toggleAutoRefresh()">Pause</button>
+                <a href="/admin/" class="btn-link">Back to Admin</a>
+            </div>
+        </header>
+
+        <!-- System Metrics Section -->
+        <section class="metrics-section">
+            <div class="metric-card" id="health-status">
+                <h3>Health</h3>
+                <div class="status-indicator">-</div>
+                <div class="status-details">
+                    <div>Database: <span id="db-status">-</span></div>
+                    <div>Cache: <span id="cache-status">-</span></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <h3>CPU</h3>
+                <div class="metric-value" id="cpu-value">-%</div>
+                <div class="metric-bar">
+                    <div class="metric-fill" id="cpu-bar"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <h3>RAM</h3>
+                <div class="metric-value" id="ram-value">-%</div>
+                <div class="metric-bar">
+                    <div class="metric-fill" id="ram-bar"></div>
+                </div>
+                <div class="metric-detail" id="ram-detail">- / - GB</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Disk</h3>
+                <div class="metric-value" id="disk-value">-%</div>
+                <div class="metric-bar">
+                    <div class="metric-fill" id="disk-bar"></div>
+                </div>
+                <div class="metric-detail" id="disk-detail">- / - GB</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Network</h3>
+                <div class="metric-detail" id="network-sent">↑ - MB</div>
+                <div class="metric-detail" id="network-recv">↓ - MB</div>
+            </div>
+        </section>
+
+        <!-- Logs Section -->
+        <section class="logs-section">
+            <div class="logs-header">
+                <h2>Important Logs (WARNING+)</h2>
+                <span class="log-count" id="log-count">0 entries</span>
+            </div>
+            <div class="logs-container" id="logs-container">
+                <div class="loading">Loading logs...</div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let autoRefresh = true;
+        let refreshInterval;
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const btn = document.getElementById('pauseBtn');
+            btn.textContent = autoRefresh ? 'Pause' : 'Resume';
+
+            if (autoRefresh) {
+                startAutoRefresh();
+            } else {
+                clearInterval(refreshInterval);
+            }
+        }
+
+        function updateStatus() {
+            fetch('/admin/status/api/')
+                .then(res => res.json())
+                .then(data => {
+                    // Update health status
+                    const healthCard = document.getElementById('health-status');
+                    const statusIndicator = healthCard.querySelector('.status-indicator');
+                    statusIndicator.textContent = data.health.status;
+                    statusIndicator.className = 'status-indicator ' +
+                        (data.health.status === 'OK' ? 'status-ok' : 'status-error');
+
+                    document.getElementById('db-status').textContent = data.health.database;
+                    document.getElementById('cache-status').textContent = data.health.cache;
+
+                    // Update CPU
+                    const cpu = data.metrics.cpu_percent.toFixed(1);
+                    document.getElementById('cpu-value').textContent = cpu + '%';
+                    document.getElementById('cpu-bar').style.width = cpu + '%';
+                    document.getElementById('cpu-bar').className =
+                        'metric-fill ' + getMetricClass(cpu);
+
+                    // Update RAM
+                    const ram = data.metrics.memory_percent.toFixed(1);
+                    document.getElementById('ram-value').textContent = ram + '%';
+                    document.getElementById('ram-bar').style.width = ram + '%';
+                    document.getElementById('ram-bar').className =
+                        'metric-fill ' + getMetricClass(ram);
+                    document.getElementById('ram-detail').textContent =
+                        data.metrics.memory_used_gb.toFixed(1) + ' / ' +
+                        data.metrics.memory_total_gb.toFixed(1) + ' GB';
+
+                    // Update Disk
+                    const disk = data.metrics.disk_percent.toFixed(1);
+                    document.getElementById('disk-value').textContent = disk + '%';
+                    document.getElementById('disk-bar').style.width = disk + '%';
+                    document.getElementById('disk-bar').className =
+                        'metric-fill ' + getMetricClass(disk);
+                    document.getElementById('disk-detail').textContent =
+                        data.metrics.disk_used_gb.toFixed(1) + ' / ' +
+                        data.metrics.disk_total_gb.toFixed(1) + ' GB';
+
+                    // Update Network
+                    document.getElementById('network-sent').textContent =
+                        '↑ ' + data.metrics.network_sent_mb.toFixed(1) + ' MB';
+                    document.getElementById('network-recv').textContent =
+                        '↓ ' + data.metrics.network_recv_mb.toFixed(1) + ' MB';
+
+                    // Update logs
+                    updateLogs(data.logs);
+                    document.getElementById('log-count').textContent =
+                        data.log_count + ' entries';
+                })
+                .catch(err => console.error('Status update failed:', err));
+        }
+
+        function getMetricClass(value) {
+            if (value < 70) return 'level-ok';
+            if (value < 85) return 'level-warning';
+            return 'level-critical';
+        }
+
+        function updateLogs(logs) {
+            const container = document.getElementById('logs-container');
+            const wasScrolledToBottom =
+                container.scrollHeight - container.scrollTop === container.clientHeight;
+
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="no-logs">No important logs (all quiet!)</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(log => {
+                const time = log.timestamp ?
+                    new Date(log.timestamp).toLocaleTimeString('de-DE') : '-';
+                const levelClass = 'log-' + (log.levelname || 'info').toLowerCase();
+
+                return `
+                    <div class="log-entry ${levelClass}">
+                        <span class="log-time">${time}</span>
+                        <span class="log-level">${log.levelname}</span>
+                        <span class="log-message">${log.message}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Auto-scroll to bottom if was already at bottom
+            if (wasScrolledToBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function startAutoRefresh() {
+            updateStatus(); // Initial load
+            refreshInterval = setInterval(updateStatus, 5000); // 5 seconds
+        }
+
+        // Start on page load
+        startAutoRefresh();
+    </script>
+</body>
+</html>

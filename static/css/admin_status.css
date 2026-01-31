@@ -1,0 +1,239 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 0;
+}
+
+.status-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+button, .btn-link {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-block;
+}
+
+button {
+    background: #1f7a8c;
+    color: white;
+}
+
+button:hover {
+    background: #166470;
+}
+
+.btn-link {
+    background: #e5e7eb;
+    color: #333;
+}
+
+/* Metrics Section */
+.metrics-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.metric-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.metric-card h3 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #666;
+    font-weight: 600;
+}
+
+.metric-value {
+    font-size: 32px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.metric-bar {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.metric-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.metric-fill.level-ok {
+    background: #10b981;
+}
+
+.metric-fill.level-warning {
+    background: #f59e0b;
+}
+
+.metric-fill.level-critical {
+    background: #ef4444;
+}
+
+.metric-detail {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #666;
+}
+
+.status-indicator {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.status-indicator.status-ok {
+    color: #10b981;
+}
+
+.status-indicator.status-error {
+    color: #ef4444;
+}
+
+.status-details {
+    font-size: 13px;
+    color: #666;
+}
+
+.status-details div {
+    margin-top: 5px;
+}
+
+/* Logs Section */
+.logs-section {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.logs-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.log-count {
+    font-size: 13px;
+    color: #666;
+    background: #f3f4f6;
+    padding: 5px 10px;
+    border-radius: 4px;
+}
+
+.logs-container {
+    height: 400px;
+    overflow-y: auto;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+}
+
+.log-entry {
+    padding: 8px 10px;
+    border-left: 3px solid transparent;
+    margin-bottom: 2px;
+    display: grid;
+    grid-template-columns: 80px 80px 1fr;
+    gap: 10px;
+}
+
+.log-entry:hover {
+    background: #f9fafb;
+}
+
+.log-warning {
+    border-left-color: #f59e0b;
+    background: #fffbeb;
+}
+
+.log-error {
+    border-left-color: #ef4444;
+    background: #fef2f2;
+}
+
+.log-critical {
+    border-left-color: #dc2626;
+    background: #fee;
+    font-weight: 600;
+}
+
+.log-time {
+    color: #6b7280;
+}
+
+.log-level {
+    font-weight: 600;
+}
+
+.log-warning .log-level {
+    color: #f59e0b;
+}
+
+.log-error .log-level {
+    color: #ef4444;
+}
+
+.log-critical .log-level {
+    color: #dc2626;
+}
+
+.log-message {
+    word-break: break-word;
+}
+
+.loading, .no-logs {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}

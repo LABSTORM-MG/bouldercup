@@ -1,122 +1,115 @@
 """
-Health check and monitoring endpoints for BoulderCup.
+Unified system status and monitoring for BoulderCup.
+
+Admin-only views for monitoring system health, metrics, and logs.
 """
+import psutil
 import json
 import logging
-import os
 from datetime import datetime
+from pathlib import Path
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.core.cache import cache
-from django.db import connection
+from django.shortcuts import render
 from django.http import JsonResponse
+from django.db import connection
+from django.core.cache import cache
 
 from web_project.settings.config import HEALTH
 
 logger = logging.getLogger(__name__)
 
 
-def health_check(request):
-    """
-    Public health check endpoint - basic system status.
-
-    Returns JSON with overall status and individual component checks.
-    """
-    status = "OK"
-    checks = {}
-
-    # Database connectivity
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        checks['database'] = 'OK'
-    except Exception as e:
-        checks['database'] = f'ERROR: {str(e)}'
-        status = "ERROR"
-        logger.error(f"Health check: database error - {str(e)}")
-
-    # Cache connectivity
-    try:
-        cache.set('health_check', 'ok', 10)
-        if cache.get('health_check') == 'ok':
-            checks['cache'] = 'OK'
-        else:
-            checks['cache'] = 'WARNING: Set/Get mismatch'
-            status = "WARNING" if status == "OK" else status
-    except Exception as e:
-        checks['cache'] = f'ERROR: {str(e)}'
-        status = "ERROR"
-        logger.error(f"Health check: cache error - {str(e)}")
-
-    # Disk space
-    try:
-        stat = os.statvfs('.')
-        free_gb = (stat.f_bavail * stat.f_frsize) / (1024**3)
-        checks['disk_space_gb'] = round(free_gb, 2)
-        if free_gb < 1:
-            checks['disk_warning'] = 'Low disk space'
-            status = "WARNING" if status == "OK" else status
-            logger.warning(f"Health check: low disk space ({free_gb:.2f} GB)")
-    except Exception as e:
-        checks['disk_space'] = f'ERROR: {str(e)}'
-        logger.error(f"Health check: disk space check error - {str(e)}")
-
-    # Active participants and submission windows
-    try:
-        from accounts.models import Participant, SubmissionWindow
-        checks['total_participants'] = Participant.objects.count()
-        checks['submission_windows'] = SubmissionWindow.objects.count()
-    except Exception as e:
-        checks['participants'] = f'ERROR: {str(e)}'
-        logger.error(f"Health check: participants query error - {str(e)}")
-
-    return JsonResponse({
-        'status': status,
-        'timestamp': datetime.now().isoformat(),
-        'checks': checks
-    })
+@staff_member_required
+def system_status(request):
+    """Admin-only unified status page."""
+    return render(request, 'admin/system_status.html')
 
 
 @staff_member_required
-def health_logs(request):
-    """
-    Staff-only endpoint for viewing application logs.
+def status_api(request):
+    """JSON API for status data (health + logs + metrics)."""
 
-    Returns the most recent log entries in JSON format.
-    Requires Django admin authentication.
-    """
-    log_file = os.path.join(HEALTH.LOG_DIR, 'bouldercup.log')
-    entries = []
+    # System metrics using psutil
+    cpu_percent = psutil.cpu_percent(interval=0.1)
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage('/')
+    network = psutil.net_io_counters()
 
-    if os.path.exists(log_file):
+    # Health checks
+    health = {
+        'database': 'OK',
+        'cache': 'OK',
+        'status': 'OK'
+    }
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except Exception as e:
+        health['database'] = f'ERROR: {e}'
+        health['status'] = 'ERROR'
+        logger.error(f"Status API: database error - {e}")
+
+    try:
+        cache.set('health_check', 'ok', 1)
+        if cache.get('health_check') != 'ok':
+            raise Exception("Cache verification failed")
+    except Exception as e:
+        health['cache'] = f'ERROR: {e}'
+        health['status'] = 'ERROR'
+        logger.error(f"Status API: cache error - {e}")
+
+    # System metrics
+    metrics = {
+        'cpu_percent': cpu_percent,
+        'memory_percent': memory.percent,
+        'memory_used_gb': memory.used / (1024**3),
+        'memory_total_gb': memory.total / (1024**3),
+        'disk_percent': disk.percent,
+        'disk_used_gb': disk.used / (1024**3),
+        'disk_total_gb': disk.total / (1024**3),
+        'network_sent_mb': network.bytes_sent / (1024**2),
+        'network_recv_mb': network.bytes_recv / (1024**2),
+    }
+
+    # Read filtered logs (WARNING and above only)
+    logs = []
+    log_file = Path(HEALTH.LOG_DIR) / "bouldercup.log"
+
+    if log_file.exists():
         try:
             with open(log_file, 'r') as f:
-                lines = f.readlines()
-                # Get last N entries
-                for line in lines[-HEALTH.HEALTH_LOG_ENTRIES:]:
-                    line = line.strip()
-                    if not line:
-                        continue
+                # Read last 200 lines, filter to WARNING+, return last 100
+                all_lines = f.readlines()
+                recent_lines = all_lines[-200:] if len(all_lines) > 200 else all_lines
+
+                for line in recent_lines:
                     try:
-                        entry = json.loads(line)
-                        entries.append(entry)
+                        entry = json.loads(line.strip())
+                        level = entry.get('levelname', 'INFO')
+                        # Filter: Only WARNING, ERROR, CRITICAL
+                        if level in ['WARNING', 'ERROR', 'CRITICAL']:
+                            logs.append(entry)
                     except json.JSONDecodeError:
-                        # Plain text log entry (fallback)
-                        entries.append({'message': line})
+                        # Plain text log line - include if it looks important
+                        if any(keyword in line.lower() for keyword in ['error', 'warning', 'critical', 'failed']):
+                            logs.append({
+                                'message': line.strip(),
+                                'levelname': 'UNKNOWN',
+                                'timestamp': None
+                            })
+
+                # Keep last 100 important logs
+                logs = logs[-100:]
         except Exception as e:
-            logger.error(f"Error reading log file: {str(e)}")
-            return JsonResponse({
-                'error': f'Failed to read logs: {str(e)}'
-            }, status=500)
-    else:
-        return JsonResponse({
-            'entries': [],
-            'count': 0,
-            'message': 'Log file does not exist yet'
-        })
+            logger.error(f"Error reading log file: {e}")
+            logs = [{'message': f'Error reading logs: {e}', 'levelname': 'ERROR'}]
 
     return JsonResponse({
-        'entries': entries,
-        'count': len(entries),
-        'log_file': log_file
+        'timestamp': datetime.now().isoformat(),
+        'health': health,
+        'metrics': metrics,
+        'logs': logs,
+        'log_count': len(logs)
     })
