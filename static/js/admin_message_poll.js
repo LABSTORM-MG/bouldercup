@@ -17,6 +17,52 @@
 
     let pollTimer = null;
 
+    // Inject CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.95) translateY(-20px);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    /**
+     * Adjust color brightness
+     */
+    function adjustBrightness(color, percent) {
+        // Simple brightness adjustment for hex colors
+        const num = parseInt(color.replace('#', ''), 16);
+        const r = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + percent));
+        const g = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + percent));
+        const b = Math.max(0, Math.min(255, (num & 0xff) + percent));
+        return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+    }
+
     /**
      * Get random jitter value between min and max
      */
@@ -51,97 +97,134 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.6);
+            background-color: rgba(0, 0, 0, 0.75);
             z-index: 9998;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            animation: fadeIn 0.2s ease-out;
         `;
 
         // Create modal box
         const modal = document.createElement('div');
         modal.style.cssText = `
-            background-color: ${message.background_color};
+            background: linear-gradient(135deg, ${message.background_color} 0%, ${adjustBrightness(message.background_color, -15)} 100%);
             max-width: 90%;
-            width: 500px;
-            max-height: 80vh;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            padding: 24px;
+            width: 600px;
+            max-height: 85vh;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            padding: 0;
             position: relative;
             z-index: 9999;
-            overflow-y: auto;
+            overflow: hidden;
             color: #fff;
+            animation: slideIn 0.3s ease-out;
+        `;
+
+        // Create header section
+        const header = document.createElement('div');
+        header.style.cssText = `
+            padding: 28px 32px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(0, 0, 0, 0.1);
         `;
 
         // Create close button
         const closeButton = document.createElement('button');
-        closeButton.textContent = '×';
+        closeButton.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+        `;
         closeButton.style.cssText = `
             position: absolute;
-            top: 8px;
-            right: 12px;
-            background: none;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.2);
             border: none;
             color: #fff;
-            font-size: 32px;
-            line-height: 1;
             cursor: pointer;
-            padding: 0;
-            width: 32px;
-            height: 32px;
+            padding: 8px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0.8;
-            transition: opacity 0.2s;
+            border-radius: 50%;
+            transition: all 0.2s;
+            backdrop-filter: blur(10px);
         `;
-        closeButton.onmouseover = function() { this.style.opacity = '1'; };
-        closeButton.onmouseout = function() { this.style.opacity = '0.8'; };
+        closeButton.onmouseover = function() {
+            this.style.background = 'rgba(255, 255, 255, 0.2)';
+            this.style.transform = 'scale(1.1)';
+        };
+        closeButton.onmouseout = function() {
+            this.style.background = 'rgba(0, 0, 0, 0.2)';
+            this.style.transform = 'scale(1)';
+        };
 
         // Create heading (if exists)
         if (message.heading) {
             const heading = document.createElement('h2');
             heading.textContent = message.heading;
             heading.style.cssText = `
-                margin: 0 0 16px 0;
-                font-size: 24px;
-                font-weight: bold;
-                padding-right: 32px;
+                margin: 0;
+                font-size: 28px;
+                font-weight: 700;
                 color: #fff;
+                letter-spacing: -0.5px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             `;
-            modal.appendChild(heading);
+            header.appendChild(heading);
         }
 
-        // Create content (if exists)
+        modal.appendChild(header);
+
+        // Create content section (if exists)
         if (message.content) {
+            const contentWrapper = document.createElement('div');
+            contentWrapper.style.cssText = `
+                padding: 32px;
+                overflow-y: auto;
+                max-height: calc(85vh - 120px);
+            `;
+
             const content = document.createElement('div');
             content.textContent = message.content;
             content.style.cssText = `
                 white-space: pre-wrap;
-                font-size: 16px;
-                line-height: 1.5;
-                color: #fff;
-                margin-top: ${message.heading ? '0' : '20px'};
+                font-size: 17px;
+                line-height: 1.6;
+                color: rgba(255, 255, 255, 0.95);
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             `;
-            modal.appendChild(content);
+            contentWrapper.appendChild(content);
+            modal.appendChild(contentWrapper);
+        } else {
+            // If no content, adjust header padding
+            header.style.borderBottom = 'none';
         }
 
         modal.appendChild(closeButton);
 
+        // Prevent clicks on modal from closing it
+        modal.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
         // Close handlers
         function closeModal() {
-            backdrop.remove();
-            updateLastSeenTimestamp(message.updated_at);
+            backdrop.style.animation = 'fadeOut 0.2s ease-out';
+            modal.style.animation = 'slideOut 0.2s ease-out';
+            setTimeout(() => {
+                backdrop.remove();
+                updateLastSeenTimestamp(message.updated_at);
+            }, 200);
         }
 
         closeButton.addEventListener('click', closeModal);
-        backdrop.addEventListener('click', function(e) {
-            if (e.target === backdrop) {
-                closeModal();
-            }
-        });
 
         // Add to page
         backdrop.appendChild(modal);
