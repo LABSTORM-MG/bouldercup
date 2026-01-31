@@ -314,6 +314,7 @@ def participant_live_scoreboard(request: HttpRequest, participant: Participant) 
                 {
                     "rank": entry["rank"],
                     "name": entry["participant"].name,
+                    "participant_id": entry["participant"].id,
                     "tops": entry.get("tops", 0),
                     "top_attempts": entry.get("top_attempts", 0),
                     "zones": entry.get("zones", 0),
