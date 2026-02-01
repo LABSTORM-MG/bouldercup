@@ -28,6 +28,7 @@ jobs:
           script: |
             cd /opt/bouldercup
             source .venv/bin/activate
+            export DJANGO_ENV=production
 
             # Reset the database (deletes db.sqlite3 and recreates from migrations)
             echo "Resetting database (ALL DATA WILL BE DELETED)..."
