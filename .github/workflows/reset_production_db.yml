@@ -2,15 +2,6 @@ name: Reset Production Database
 
 on:
   workflow_dispatch:
-    inputs:
-      admin_username:
-        description: 'Admin username'
-        required: true
-        type: string
-      admin_password:
-        description: 'Admin password'
-        required: true
-        type: string
 
 jobs:
   reset-database:
@@ -18,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Verify admin credentials and reset database
+      - name: Reset database
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: labstorm.net
@@ -29,35 +20,12 @@ jobs:
             cd /opt/bouldercup
             source .venv/bin/activate
 
-            # Verify admin credentials using Django shell
-            python manage.py shell <<EOF
-            import sys
-            from django.contrib.auth import authenticate
-            from django.contrib.auth.models import User
-
-            username = "${{ github.event.inputs.admin_username }}"
-            password = "${{ github.event.inputs.admin_password }}"
-
-            # Try to authenticate as Django superuser
-            user = authenticate(username=username, password=password)
-            if user is None or not user.is_superuser:
-                print("ERROR: Invalid admin credentials or user is not a superuser")
-                sys.exit(1)
-
-            print(f"Admin credentials verified for user: {username}")
-            EOF
-
-            if [ $? -ne 0 ]; then
-              echo "Authentication failed. Aborting database reset."
-              exit 1
-            fi
-
             # Create backup before reset
-            echo "Creating backup before complete database reset..."
+            echo "Creating backup before database reset..."
             python manage.py backup_database
 
-            # Completely reset the database (deletes db.sqlite3 and recreates from migrations)
-            echo "Completely resetting database (ALL DATA WILL BE DELETED)..."
+            # Reset the database (deletes db.sqlite3 and recreates from migrations)
+            echo "Resetting database (ALL DATA WILL BE DELETED)..."
             python manage.py reset_participants --confirm
 
-            echo "Database completely reset. Fresh database created from migrations."
+            echo "Database reset complete. Fresh database created from migrations."
