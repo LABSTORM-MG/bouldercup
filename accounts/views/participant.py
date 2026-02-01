@@ -534,7 +534,7 @@ def participant_detail_results(request: HttpRequest, participant: Participant, p
                 'points': points,
                 'top_display': f"✓ ({res.attempts_top or res.attempts})" if res.top else "-",
                 'zone2_display': f"✓ ({res.attempts_zone2 or res.attempts})" if res.zone2 else ("-" if boulder.zone_count >= 2 else "N/A"),
-                'zone1_display': f"✓ ({res.attempts_zone1 or res.attempts})" if res.zone1 else "-",
+                'zone1_display': f"✓ ({res.attempts_zone1 or res.attempts})" if res.zone1 else ("-" if boulder.zone_count >= 1 else "N/A"),
                 'updated_display': res.updated_at.strftime("%d.%m. %H:%M") if res.updated_at else "",
             })
         else:
