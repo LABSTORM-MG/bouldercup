@@ -260,7 +260,6 @@
                                 {% if is_point_based %}
                                     <th>Punkte</th>
                                 {% endif %}
-                                <th>Aktualisiert</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -282,7 +281,6 @@
                                     {% if is_point_based %}
                                         <td><strong>{{ item.points }}</strong></td>
                                     {% endif %}
-                                    <td class="muted">{{ item.updated_display }}</td>
                                 </tr>
                             {% endfor %}
                         </tbody>
