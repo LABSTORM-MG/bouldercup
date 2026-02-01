@@ -3,8 +3,9 @@ from functools import wraps
 from typing import Callable
 
 from django.core.cache import cache
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from web_project.settings.config import TIMING
 
 from ..forms import PasswordChangeForm
@@ -42,7 +43,7 @@ def participant_required(
             # Clear session and redirect to login with locked message
             request.session.flush()
             logger.warning(f"Locked participant attempted access: {participant.username} (ID: {participant.id})")
-            return redirect("login?locked=1")
+            return HttpResponseRedirect(reverse("login") + "?locked=1")
 
         return view_func(request, participant, *args, **kwargs)
 
