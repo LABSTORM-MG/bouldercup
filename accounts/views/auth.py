@@ -50,7 +50,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
                 continue
 
         if not participant:
-            message = "Unbekannter Teilnehmer."
+            message = "Unbekannte*r Teilnehmer*in."
             logger.warning(f"Login failed: unknown user '{username}'")
         elif participant.is_locked:
             message = "Dein Zugang wurde gesperrt. Bitte wende dich an das Personal oder die Organisatoren."
