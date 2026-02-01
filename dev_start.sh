@@ -61,9 +61,10 @@ python3 manage.py migrate
 
 if [[ "$SEED_PARTICIPANTS" == true ]]; then
     python3 manage.py shell <<'PY'
-from accounts.models import Participant, AgeGroup, Boulder
+from accounts.models import Participant, AgeGroup, Boulder, SubmissionWindow
 from accounts.utils import hash_password
-from datetime import date
+from datetime import date, timedelta
+from django.utils import timezone
 from django.utils.text import slugify
 
 seed_data = [
@@ -132,6 +133,26 @@ for name, dob, gender in seed_data:
             print(f"  updated {username} / {raw_password}")
         else:
             print(f"  exists {username} / {raw_password}")
+
+# Create default submission window (current time + 10 minutes)
+now = timezone.now()
+end_time = now + timedelta(minutes=10)
+
+# Delete existing windows to avoid clutter in dev environment
+SubmissionWindow.objects.all().delete()
+
+window = SubmissionWindow.objects.create(
+    name="Dev Window (10 min)",
+    submission_start=now,
+    submission_end=end_time,
+    note="Auto-created by dev_start.sh"
+)
+window.age_groups.add(default_group)
+
+print(f"\nSubmission window created:")
+print(f"  Start: {now.strftime('%H:%M:%S')}")
+print(f"  End: {end_time.strftime('%H:%M:%S')} (10 minutes)")
+print(f"  Age groups: {default_group.name}")
 PY
 fi
 
