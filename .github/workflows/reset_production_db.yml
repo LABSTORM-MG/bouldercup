@@ -4,15 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       admin_username:
-        description: 'Admin username for verification'
+        description: 'Admin username'
         required: true
         type: string
       admin_password:
-        description: 'Admin password for verification'
-        required: true
-        type: string
-      password_confirmation:
-        description: 'Repeat your password to confirm'
+        description: 'Admin password'
         required: true
         type: string
 
@@ -22,13 +18,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Validate password confirmation
-        run: |
-          if [ "${{ github.event.inputs.admin_password }}" != "${{ github.event.inputs.password_confirmation }}" ]; then
-            echo "Error: Password confirmation does not match"
-            exit 1
-          fi
-
       - name: Verify admin credentials and reset database
         uses: appleboy/ssh-action@v1.0.3
         with:
