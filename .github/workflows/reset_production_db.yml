@@ -64,11 +64,11 @@ jobs:
             fi
 
             # Create backup before reset
-            echo "Creating backup before database reset..."
+            echo "Creating backup before complete database reset..."
             python manage.py backup_database
 
-            # Reset the database
-            echo "Resetting participant data..."
+            # Completely reset the database (deletes db.sqlite3 and recreates from migrations)
+            echo "Completely resetting database (ALL DATA WILL BE DELETED)..."
             python manage.py reset_participants --confirm
 
-            echo "Database reset complete."
+            echo "Database completely reset. Fresh database created from migrations."

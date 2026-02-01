@@ -1,65 +1,63 @@
 """
-Django management command to reset all participant data from the database.
+Django management command to completely reset the database.
 
-This command removes:
-- All participants
-- All results
-- All admin messages (broadcast messages)
-- All submission windows
-
-It preserves:
+This command deletes the entire database file and recreates it from scratch.
+All data is wiped including:
+- All participants and results
+- All admin messages and submission windows
 - Competition settings
-- Age groups
-- Boulders
+- Age groups and boulders
 - Rulebook and help text
+- Everything
+
+This is equivalent to what dev_start.sh does when it deletes db.sqlite3.
 """
 
+import os
+from pathlib import Path
 from django.core.management.base import BaseCommand
-from django.db import transaction
-from accounts.models import Participant, Result, AdminMessage, SubmissionWindow
+from django.core.management import call_command
+from django.conf import settings
 
 
 class Command(BaseCommand):
-    help = "Reset all participant data (participants, results, admin messages, submission windows)"
+    help = "Completely reset the database (deletes db.sqlite3 and recreates from migrations)"
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--confirm",
             action="store_true",
-            help="Confirm that you want to reset all participant data",
+            help="Confirm that you want to completely reset the database",
         )
 
     def handle(self, *args, **options):
         if not options["confirm"]:
             self.stdout.write(
                 self.style.ERROR(
-                    "This command will delete all participants, results, admin messages, and submission windows.\n"
+                    "This command will COMPLETELY DELETE the database and recreate it from scratch.\n"
+                    "ALL DATA WILL BE LOST including settings, age groups, boulders, and participants.\n"
                     "To confirm, run: python manage.py reset_participants --confirm"
                 )
             )
             return
 
-        self.stdout.write("Resetting participant data...")
+        # Get database path from settings
+        db_path = settings.DATABASES['default']['NAME']
 
-        with transaction.atomic():
-            # Count before deletion
-            participant_count = Participant.objects.count()
-            result_count = Result.objects.count()
-            admin_message_count = AdminMessage.objects.count()
-            submission_window_count = SubmissionWindow.objects.count()
+        if not os.path.exists(db_path):
+            self.stdout.write(self.style.WARNING(f"Database file not found: {db_path}"))
+            self.stdout.write("Creating fresh database...")
+        else:
+            self.stdout.write(self.style.WARNING(f"Deleting database file: {db_path}"))
+            os.remove(db_path)
+            self.stdout.write(self.style.SUCCESS("Database file deleted"))
 
-            # Delete all participant-related data
-            Result.objects.all().delete()
-            Participant.objects.all().delete()
-            AdminMessage.objects.all().delete()
-            SubmissionWindow.objects.all().delete()
+        # Run migrations to create fresh database
+        self.stdout.write("Running migrations to create fresh database...")
+        call_command('migrate', verbosity=1)
 
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Successfully deleted:\n"
-                    f"  - {participant_count} participants\n"
-                    f"  - {result_count} results\n"
-                    f"  - {admin_message_count} admin messages\n"
-                    f"  - {submission_window_count} submission windows"
-                )
+        self.stdout.write(
+            self.style.SUCCESS(
+                "\nDatabase completely reset! Fresh database created from migrations."
             )
+        )
