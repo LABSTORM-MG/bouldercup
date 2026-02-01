@@ -11,8 +11,8 @@ on:
         description: 'Admin password for verification'
         required: true
         type: string
-      confirmation:
-        description: 'Type "RESET DATABASE" to confirm'
+      password_confirmation:
+        description: 'Repeat your password to confirm'
         required: true
         type: string
 
@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Validate confirmation
+      - name: Validate password confirmation
         run: |
-          if [ "${{ github.event.inputs.confirmation }}" != "RESET DATABASE" ]; then
-            echo "Error: Confirmation string does not match. Expected 'RESET DATABASE'"
+          if [ "${{ github.event.inputs.admin_password }}" != "${{ github.event.inputs.password_confirmation }}" ]; then
+            echo "Error: Password confirmation does not match"
             exit 1
           fi
 
