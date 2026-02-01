@@ -7,10 +7,6 @@ on:
         description: 'New superuser username'
         required: true
         type: string
-      superuser_email:
-        description: 'New superuser email'
-        required: true
-        type: string
       superuser_password:
         description: 'New superuser password'
         required: true
@@ -43,7 +39,7 @@ jobs:
             from django.contrib.auth.models import User
             User.objects.create_superuser(
                 username='${{ github.event.inputs.superuser_username }}',
-                email='${{ github.event.inputs.superuser_email }}',
+                email='',
                 password='${{ github.event.inputs.superuser_password }}'
             )
             print("Superuser created successfully")
