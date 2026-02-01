@@ -6,7 +6,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, Rulebook, HelpText, AdminMessage, SiteSettings, Result, SubmissionWindow
+from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, Result, SubmissionWindow
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 logger = logging.getLogger(__name__)
@@ -302,52 +302,6 @@ class SubmissionWindowAdmin(admin.ModelAdmin):
         return "Inaktiv"
 
 
-class RulebookAdminForm(forms.ModelForm):
-    content = forms.CharField(
-        widget=CKEditor5Widget(config_name="default"), required=False, label="Regelwerk"
-    )
-
-    class Meta:
-        model = Rulebook
-        fields = ("name", "content")
-
-
-class RulebookAdmin(SingletonAdminMixin, admin.ModelAdmin):
-    form = RulebookAdminForm
-    list_display = ("name", "updated_at")
-    fieldsets = (
-        (None, {"fields": ("name", "content")}),
-    )
-
-    class Media:
-        css = {
-            "all": ("admin/css/ckeditor5_overrides.css",),
-        }
-
-
-class HelpTextAdminForm(forms.ModelForm):
-    content = forms.CharField(
-        widget=CKEditor5Widget(config_name="default"), required=False, label="Hilfetext"
-    )
-
-    class Meta:
-        model = HelpText
-        fields = ("name", "content")
-
-
-class HelpTextAdmin(SingletonAdminMixin, admin.ModelAdmin):
-    form = HelpTextAdminForm
-    list_display = ("name", "updated_at")
-    fieldsets = (
-        (None, {"fields": ("name", "content")}),
-    )
-
-    class Media:
-        css = {
-            "all": ("admin/css/ckeditor5_overrides.css",),
-        }
-
-
 class AdminMessageAdminForm(forms.ModelForm):
     background_color = forms.CharField(
         widget=forms.TextInput(attrs={"type": "color"}),
@@ -400,10 +354,33 @@ class AdminMessageAdmin(SingletonAdminMixin, admin.ModelAdmin):
         return False
 
 
+class SiteSettingsAdminForm(forms.ModelForm):
+    class Meta:
+        model = SiteSettings
+        fields = ("dashboard_heading", "greeting_enabled", "greeting_heading", "greeting_message", "help_text_content", "rulebook_content")
+        widgets = {
+            "greeting_message": CKEditor5Widget(config_name="default"),
+            "help_text_content": CKEditor5Widget(config_name="default"),
+            "rulebook_content": CKEditor5Widget(config_name="default"),
+        }
+
+
 @admin.register(SiteSettings)
 class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
-    list_display = ("name", "dashboard_heading", "updated_at")
-    fields = ("dashboard_heading",)
+    form = SiteSettingsAdminForm
+    list_display = ("name", "updated_at")
+    fieldsets = (
+        ("Dashboard", {"fields": ("dashboard_heading",)}),
+        ("Begrüßungsnachricht", {"fields": ("greeting_enabled", "greeting_heading", "greeting_message", "greeting_version")}),
+        ("Hilfe & Support", {"fields": ("help_text_content",)}),
+        ("Regelwerk", {"fields": ("rulebook_content",)}),
+    )
+    readonly_fields = ("greeting_version",)
+
+    class Media:
+        css = {
+            "all": ("admin/css/ckeditor5_overrides.css",),
+        }
 
     def has_delete_permission(self, request, obj=None):
         """Prevent deletion of the singleton."""

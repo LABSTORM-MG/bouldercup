@@ -9,7 +9,7 @@ from django.urls import reverse
 from web_project.settings.config import TIMING
 
 from ..forms import PasswordChangeForm
-from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, HelpText, AdminMessage, SiteSettings, SubmissionWindow
+from ..models import AgeGroup, Boulder, Participant, Result, AdminMessage, SiteSettings, SubmissionWindow
 from ..services import ResultService, ScoringService
 from ..utils import hash_password
 
@@ -71,12 +71,34 @@ def participant_dashboard(request: HttpRequest, participant: Participant) -> Htt
     site_settings = SiteSettings.objects.first()
     dashboard_heading = site_settings.dashboard_heading if site_settings else "Willkommen beim BoulderCup"
 
+    # Check if user needs to acknowledge greeting message
+    show_greeting = False
+    greeting_heading = ""
+    greeting_message = ""
+    if site_settings and site_settings.greeting_enabled:
+        # Get user's acknowledged version
+        try:
+            from ..models import GreetingAcknowledgment
+            acknowledgment = GreetingAcknowledgment.objects.get(participant=participant)
+            acknowledged_version = acknowledgment.acknowledged_version
+        except GreetingAcknowledgment.DoesNotExist:
+            acknowledged_version = 0
+
+        # Show greeting if current version is newer
+        if site_settings.greeting_version > acknowledged_version:
+            show_greeting = True
+            greeting_heading = site_settings.greeting_heading
+            greeting_message = site_settings.greeting_message
+
     return render(
         request,
         "participant_dashboard.html",
         {
             "participant": participant,
             "dashboard_heading": dashboard_heading,
+            "show_greeting": show_greeting,
+            "greeting_heading": greeting_heading,
+            "greeting_message": greeting_message,
         },
     )
 
@@ -84,13 +106,8 @@ def participant_dashboard(request: HttpRequest, participant: Participant) -> Htt
 @participant_required
 def participant_support(request: HttpRequest, participant: Participant) -> HttpResponse:
     """Support and help section."""
-    help_text_content = cache.get('helptext_content')
-    if help_text_content is None:
-        help_text_obj = HelpText.objects.order_by("-updated_at", "-id").first()
-        help_text_content = help_text_obj.content if help_text_obj else ""
-        if help_text_obj:
-            cache.set('helptext_content', help_text_content, TIMING.SETTINGS_CACHE_TIMEOUT)
-            logger.debug("HelpText cached")
+    site_settings = SiteSettings.objects.first()
+    help_text_content = site_settings.help_text_content if site_settings else ""
 
     return _render_section(
         request,
@@ -360,13 +377,8 @@ def participant_rulebook(request: HttpRequest, participant: Participant) -> Http
     settings_obj = ScoringService.get_active_settings()
     grading_system = settings_obj.grading_system if settings_obj else "ifsc"
 
-    rules_text = cache.get('rulebook_content')
-    if rules_text is None:
-        rulebook = Rulebook.objects.order_by("-updated_at", "-id").first()
-        rules_text = rulebook.content if rulebook else ""
-        if rulebook:
-            cache.set('rulebook_content', rules_text, TIMING.SETTINGS_CACHE_TIMEOUT)
-            logger.debug("Rulebook cached")
+    site_settings = SiteSettings.objects.first()
+    rules_text = site_settings.rulebook_content if site_settings else ""
 
     return render(
         request,
@@ -378,6 +390,37 @@ def participant_rulebook(request: HttpRequest, participant: Participant) -> Http
             "rules_text": rules_text,
         },
     )
+
+
+@participant_required
+def acknowledge_greeting(request: HttpRequest, participant: Participant) -> JsonResponse:
+    """API endpoint to record greeting message acknowledgment."""
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        from ..models import GreetingAcknowledgment
+        site_settings = SiteSettings.objects.first()
+
+        if not site_settings:
+            return JsonResponse({"error": "No site settings found"}, status=404)
+
+        # Create or update acknowledgment
+        acknowledgment, created = GreetingAcknowledgment.objects.update_or_create(
+            participant=participant,
+            defaults={"acknowledged_version": site_settings.greeting_version}
+        )
+
+        logger.info(
+            f"Greeting acknowledged: {participant.username} (ID: {participant.id}), "
+            f"version {site_settings.greeting_version}"
+        )
+
+        return JsonResponse({"success": True})
+
+    except Exception as e:
+        logger.error(f"Error acknowledging greeting for {participant.username}: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @participant_required

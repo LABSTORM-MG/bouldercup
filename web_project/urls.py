@@ -20,6 +20,7 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 
 from accounts.views import (
+    acknowledge_greeting,
     get_admin_message,
     login_view,
     participant_dashboard,
@@ -40,6 +41,7 @@ urlpatterns = [
     path("ckeditor5/", include('django_ckeditor_5.urls')),
     path('', login_view, name='login'),
     path('api/admin-message/', get_admin_message, name='get_admin_message'),
+    path('api/acknowledge-greeting/', acknowledge_greeting, name='acknowledge_greeting'),
     path('upload/', upload_participants, name='upload_participants'),
     path('dashboard/', participant_dashboard, name='participant_dashboard'),
     path('dashboard/ergebnisse/', participant_results, name='participant_results'),

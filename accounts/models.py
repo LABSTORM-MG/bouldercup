@@ -354,50 +354,6 @@ class CompetitionSettings(models.Model):
         cache.delete('competition_settings')
 
 
-class Rulebook(models.Model):
-    """Standalone rulebook content."""
-
-    name = models.CharField(max_length=150, default="Regelwerk")
-    content = CKEditor5Field("Regelwerk", config_name="default", blank=True)
-    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Regelwerk"
-        verbose_name_plural = "Regelwerke"
-
-    def __str__(self) -> str:
-        return self.name
-
-    def save(self, *args, **kwargs):
-        """Invalidate cache on save."""
-        super().save(*args, **kwargs)
-        from django.core.cache import cache
-        cache.delete('rulebook_content')
-
-
-class HelpText(models.Model):
-    """Standalone help and support content."""
-
-    name = models.CharField(max_length=150, default="Hilfe & Support")
-    content = CKEditor5Field("Hilfetext", config_name="default", blank=True)
-    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Hilfetext"
-        verbose_name_plural = "Hilfetexte"
-
-    def __str__(self) -> str:
-        return self.name
-
-    def save(self, *args, **kwargs):
-        """Invalidate cache on save."""
-        super().save(*args, **kwargs)
-        from django.core.cache import cache
-        cache.delete('helptext_content')
-
-
 class AdminMessage(models.Model):
     """Admin broadcast message displayed to all participants."""
 
@@ -442,15 +398,77 @@ class AdminMessage(models.Model):
 
 
 class SiteSettings(models.Model):
-    """Site-wide UI customization settings."""
+    """Site-wide UI customization settings and content."""
 
     name = models.CharField(max_length=150, default="Site-Einstellungen", editable=False)
+
+    # Dashboard
     dashboard_heading = models.CharField(
         max_length=200,
         default="Willkommen beim BoulderCup",
         verbose_name="Dashboard-Überschrift",
         help_text="Überschrift auf der Startseite für Teilnehmer.",
     )
+
+    # Greeting message
+    greeting_enabled = models.BooleanField(
+        default=False,
+        verbose_name="Begrüßung aktivieren",
+        help_text="Begrüßungsnachricht beim Login anzeigen.",
+    )
+    greeting_heading = models.CharField(
+        max_length=200,
+        default="Willkommen!",
+        verbose_name="Begrüßungs-Überschrift",
+        help_text="Überschrift im Begrüßungsdialog.",
+    )
+    greeting_message = CKEditor5Field(
+        "Begrüßungsnachricht",
+        config_name="default",
+        blank=True,
+        help_text="Nachricht, die Teilnehmer beim Login bestätigen müssen.",
+    )
+    greeting_version = models.IntegerField(
+        default=1,
+        verbose_name="Nachrichtenversion",
+        editable=False,
+        help_text="Wird automatisch erhöht, wenn die Begrüßungsnachricht geändert wird.",
+    )
+
+    # Help text
+    help_text_content = CKEditor5Field(
+        "Hilfe & Support Inhalt",
+        config_name="default",
+        blank=True,
+        help_text="Inhalt der Hilfe-Seite für Teilnehmer.",
+    )
+
+    # Rulebook
+    rulebook_content = CKEditor5Field(
+        "Regelwerk Inhalt",
+        config_name="default",
+        blank=True,
+        default="""<h2>Sicherheitsregeln</h2>
+<ul>
+<li>Achte auf andere Kletterer und halte ausreichend Abstand</li>
+<li>Klettere nicht unter anderen Teilnehmern</li>
+<li>Springe kontrolliert ab und achte auf die Landezone</li>
+<li>Nutze die Matten ordnungsgemäß</li>
+<li>Bei Verletzungen oder Problemen wende dich sofort an das Personal</li>
+</ul>
+
+<h2>Verhaltensregeln</h2>
+<ul>
+<li>Respektiere andere Teilnehmer und das Personal</li>
+<li>Halte den Wettkampfbereich sauber</li>
+<li>Folge den Anweisungen des Personals</li>
+</ul>
+
+<h2>Wertungssystem</h2>
+<p><em>Die spezifischen Regeln zum Wertungssystem werden vom Veranstalter bekanntgegeben.</em></p>""",
+        help_text="Inhalt des Regelwerks für Teilnehmer.",
+    )
+
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -460,6 +478,44 @@ class SiteSettings(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def save(self, *args, **kwargs):
+        """Auto-increment greeting version if greeting message changed."""
+        if self.pk:
+            try:
+                old_instance = SiteSettings.objects.get(pk=self.pk)
+                if old_instance.greeting_message != self.greeting_message:
+                    self.greeting_version += 1
+            except SiteSettings.DoesNotExist:
+                pass
+        super().save(*args, **kwargs)
+
+
+class GreetingAcknowledgment(models.Model):
+    """Tracks which participants have acknowledged the greeting message."""
+
+    participant = models.OneToOneField(
+        Participant,
+        on_delete=models.CASCADE,
+        related_name="greeting_acknowledgment",
+        verbose_name="Teilnehmer",
+    )
+    acknowledged_version = models.IntegerField(
+        default=0,
+        verbose_name="Bestätigte Version",
+        help_text="Version der Begrüßungsnachricht, die der Teilnehmer bestätigt hat.",
+    )
+    acknowledged_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Bestätigt am",
+    )
+
+    class Meta:
+        verbose_name = "Begrüßungsbestätigung"
+        verbose_name_plural = "Begrüßungsbestätigungen"
+
+    def __str__(self) -> str:
+        return f"{self.participant.username} - Version {self.acknowledged_version}"
 
 
 class SubmissionWindow(models.Model):
