@@ -52,8 +52,25 @@
         }
         .muted { color: #64748b; font-size: 0.95rem; }
         .attempt-col { min-width: clamp(56px, 12vw, 70px); padding-left: 0.25rem; padding-right: 0.25rem; white-space: nowrap; text-align: left; }
+        header h1 {
+            position: relative;
+            display: inline-block;
+        }
+        .live-indicator {
+            width: clamp(70px, 12vw, 80px);
+            height: clamp(70px, 12vw, 80px);
+            position: absolute;
+            right: calc(100% + 1rem);
+            top: 50%;
+            transform: translateY(-48%);
+        }
         @media (max-width: 640px) {
             .name { min-width: 0; }
+            .live-indicator {
+                width: clamp(50px, 10vw, 60px);
+                height: clamp(50px, 10vw, 60px);
+                right: calc(100% + 0.75rem);
+            }
         }
     </style>
 </head>
@@ -62,7 +79,9 @@
       data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
     <header>
         <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
-        <h1>{{ title }}</h1>
+        <h1><video class="live-indicator" autoplay loop muted playsinline>
+            <source src="{% static 'img/live-indicator.webm' %}" type="video/webm">
+        </video>{{ title }}</h1>
     </header>
     <main>
         {% if entries %}
