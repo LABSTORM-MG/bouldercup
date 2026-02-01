@@ -2,6 +2,19 @@ name: Reset Production Database
 
 on:
   workflow_dispatch:
+    inputs:
+      superuser_username:
+        description: 'New superuser username'
+        required: true
+        type: string
+      superuser_email:
+        description: 'New superuser email'
+        required: true
+        type: string
+      superuser_password:
+        description: 'New superuser password'
+        required: true
+        type: string
 
 jobs:
   reset-database:
@@ -20,12 +33,20 @@ jobs:
             cd /opt/bouldercup
             source .venv/bin/activate
 
-            # Create backup before reset
-            echo "Creating backup before database reset..."
-            python manage.py backup_database
-
             # Reset the database (deletes db.sqlite3 and recreates from migrations)
             echo "Resetting database (ALL DATA WILL BE DELETED)..."
             python manage.py reset_participants --confirm
 
-            echo "Database reset complete. Fresh database created from migrations."
+            # Create new superuser
+            echo "Creating new superuser..."
+            python manage.py shell <<EOF
+            from django.contrib.auth.models import User
+            User.objects.create_superuser(
+                username='${{ github.event.inputs.superuser_username }}',
+                email='${{ github.event.inputs.superuser_email }}',
+                password='${{ github.event.inputs.superuser_password }}'
+            )
+            print("Superuser created successfully")
+            EOF
+
+            echo "Database reset complete. Superuser created."
