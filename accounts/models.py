@@ -441,6 +441,27 @@ class AdminMessage(models.Model):
         cache.delete('admin_message')
 
 
+class SiteSettings(models.Model):
+    """Site-wide UI customization settings."""
+
+    name = models.CharField(max_length=150, default="Site-Einstellungen", editable=False)
+    dashboard_heading = models.CharField(
+        max_length=200,
+        default="Willkommen beim BoulderCup",
+        verbose_name="Dashboard-Überschrift",
+        help_text="Überschrift auf der Startseite für Teilnehmer.",
+    )
+    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Site-Einstellung"
+        verbose_name_plural = "Site-Einstellungen"
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class SubmissionWindow(models.Model):
     """Time window during which specific age groups can submit results."""
 

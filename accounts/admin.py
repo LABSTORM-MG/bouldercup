@@ -6,7 +6,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, Rulebook, HelpText, AdminMessage, Result, SubmissionWindow
+from .models import AgeGroup, Boulder, Participant, Rulebook, HelpText, AdminMessage, SiteSettings, Result, SubmissionWindow
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 logger = logging.getLogger(__name__)
@@ -394,6 +394,16 @@ class AdminMessageAdmin(SingletonAdminMixin, admin.ModelAdmin):
         return HttpResponseRedirect(
             reverse(f"admin:{obj._meta.app_label}_{obj._meta.model_name}_change", args=[obj.pk])
         )
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of the singleton."""
+        return False
+
+
+@admin.register(SiteSettings)
+class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
+    list_display = ("name", "dashboard_heading", "updated_at")
+    fields = ("dashboard_heading",)
 
     def has_delete_permission(self, request, obj=None):
         """Prevent deletion of the singleton."""

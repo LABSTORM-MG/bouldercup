@@ -153,7 +153,7 @@
       data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
       data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
     <header>
-        <h1>Willkommen beim BoulderCup</h1>
+        <h1>{{ dashboard_heading }}</h1>
         <p class="welcome">
             {{ participant.name }}
             {% if participant.age_group %} – {{ participant.age_group.name }}{% endif %}

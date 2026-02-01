@@ -8,7 +8,7 @@ from django.shortcuts import redirect, render
 from web_project.settings.config import TIMING
 
 from ..forms import PasswordChangeForm
-from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, HelpText, AdminMessage, SubmissionWindow
+from ..models import AgeGroup, Boulder, Participant, Result, Rulebook, HelpText, AdminMessage, SiteSettings, SubmissionWindow
 from ..services import ResultService, ScoringService
 from ..utils import hash_password
 
@@ -66,10 +66,17 @@ def _render_section(
 @participant_required
 def participant_dashboard(request: HttpRequest, participant: Participant) -> HttpResponse:
     """Main dashboard for participants."""
+    # Get dashboard heading from site settings
+    site_settings = SiteSettings.objects.first()
+    dashboard_heading = site_settings.dashboard_heading if site_settings else "Willkommen beim BoulderCup"
+
     return render(
         request,
         "participant_dashboard.html",
-        {"participant": participant},
+        {
+            "participant": participant,
+            "dashboard_heading": dashboard_heading,
+        },
     )
 
 
