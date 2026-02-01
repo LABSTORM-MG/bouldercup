@@ -39,10 +39,10 @@ def participant_required(
 
         # Check if participant is locked
         if participant.is_locked:
-            # Clear session and redirect to login
+            # Clear session and redirect to login with locked message
             request.session.flush()
             logger.warning(f"Locked participant attempted access: {participant.username} (ID: {participant.id})")
-            return redirect("login")
+            return redirect("login?locked=1")
 
         return view_func(request, participant, *args, **kwargs)
 

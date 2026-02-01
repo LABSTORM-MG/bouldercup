@@ -17,6 +17,11 @@ def login_view(request: HttpRequest) -> HttpResponse:
     message_type = "error"  # default, "locked" for locked accounts
     form = LoginForm(request.POST or None)
 
+    # Check if user was redirected due to being locked
+    if request.GET.get("locked") == "1":
+        message = "Dein Zugang wurde gesperrt. Bitte wende dich an das Personal oder die Organisatoren."
+        message_type = "locked"
+
     def _normalize_username(value: str) -> list[str]:
         """Generate username variants for flexible login."""
         raw = value.strip().lower()
