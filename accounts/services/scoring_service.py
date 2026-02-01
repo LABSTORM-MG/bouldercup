@@ -61,6 +61,86 @@ class ScoringService:
         }
     
     @staticmethod
+    def calculate_boulder_points(
+        result: Result,
+        grading_system: str,
+        settings: CompetitionSettings,
+        top_counts: Mapping[int, int] | None = None,
+        participant_count: int | None = None,
+    ) -> int:
+        """
+        Calculate points for a single boulder result.
+
+        Args:
+            result: The result to calculate points for
+            grading_system: 'ifsc', 'point_based', 'point_based_dynamic', or 'point_based_dynamic_attempts'
+            settings: Competition settings
+            top_counts: For dynamic scoring - dict mapping boulder_id to number of tops
+            participant_count: For dynamic scoring - total number of participants
+
+        Returns:
+            Points for this specific boulder (0 for IFSC mode)
+        """
+        # IFSC mode doesn't use points
+        if grading_system == "ifsc":
+            return 0
+
+        achieved_zone = result.zone2 or result.zone1
+
+        if result.top:
+            attempts_used = result.attempts_top or result.attempts
+
+            # Flash always gets flash points
+            if attempts_used == 1:
+                return settings.flash_points
+
+            # Dynamic scoring modes
+            if grading_system in ScoringService.DYNAMIC_SYSTEMS:
+                if top_counts is None or participant_count is None:
+                    return 0
+
+                boulder_tops = top_counts.get(result.boulder_id, 0)
+                top_percentage = (boulder_tops / participant_count * 100) if participant_count > 0 else 0
+                base = ScoringService.get_dynamic_top_points(settings, top_percentage)
+
+                # dynamic_attempts applies penalty, dynamic does not
+                if grading_system == "point_based_dynamic_attempts":
+                    penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
+                    return max(base - penalty, settings.min_top_points)
+                else:
+                    return base
+
+            # Standard point_based mode
+            base = settings.top_points
+            penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
+            return max(base - penalty, settings.min_top_points)
+
+        elif achieved_zone:
+            is_two_zone = getattr(result.boulder, "zone_count", 0) >= 2
+
+            # Determine base and minimum points
+            if result.zone2:
+                base = settings.zone2_points
+                min_zone = settings.min_zone2_points if grading_system == "point_based_dynamic_attempts" or grading_system == "point_based" else settings.zone2_points
+            elif is_two_zone:
+                base = settings.zone1_points
+                min_zone = settings.min_zone1_points if grading_system == "point_based_dynamic_attempts" or grading_system == "point_based" else settings.zone1_points
+            else:
+                base = settings.zone_points
+                min_zone = settings.min_zone_points if grading_system == "point_based_dynamic_attempts" or grading_system == "point_based" else settings.zone_points
+
+            # Apply attempt penalty for point_based and point_based_dynamic_attempts
+            if grading_system == "point_based" or grading_system == "point_based_dynamic_attempts":
+                attempts_used = result.attempts_zone2 if result.zone2 else result.attempts_zone1 or result.attempts
+                penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
+                return max(base - penalty, min_zone)
+
+            # point_based_dynamic has no penalty for zones
+            return base
+
+        return 0
+
+    @staticmethod
     def score_point_based(results: Iterable[Result], settings: CompetitionSettings) -> dict:
         """
         Compute points for point-based scoring.

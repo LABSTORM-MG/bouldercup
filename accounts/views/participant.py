@@ -424,6 +424,145 @@ def acknowledge_greeting(request: HttpRequest, participant: Participant) -> Json
 
 
 @participant_required
+def participant_detail_results(request: HttpRequest, participant: Participant, participant_id: int) -> HttpResponse:
+    """
+    Display detailed boulder-by-boulder results for a specific participant.
+
+    Shows individual performance on each boulder with tops, zones, attempts,
+    and points (for point-based systems). Any authenticated participant can
+    view any other participant's results.
+    """
+    from django.shortcuts import get_object_or_404
+
+    # Get target participant
+    target_participant = get_object_or_404(
+        Participant.objects.select_related('age_group'),
+        id=participant_id
+    )
+
+    # Handle case where participant has no age group
+    if not target_participant.age_group:
+        return render(
+            request,
+            "participant_detail_results.html",
+            {
+                "participant": participant,
+                "target_participant": target_participant,
+                "boulder_results": [],
+                "grading_system": "ifsc",
+                "is_point_based": False,
+                "has_two_zone_boulders": False,
+                "total_points": 0,
+                "total_tops": 0,
+                "total_zones": 0,
+                "boulders_without_results": [],
+                "no_age_group": True,
+            },
+        )
+
+    # Get boulders for their age group
+    boulders = list(
+        Boulder.objects.filter(age_groups=target_participant.age_group)
+        .order_by("label")
+    )
+
+    # Get results with boulder data
+    results = list(
+        Result.objects.filter(
+            participant=target_participant,
+            boulder__in=boulders
+        )
+        .select_related('boulder')
+        .order_by('boulder__label')
+    )
+
+    # Get grading system
+    settings = ScoringService.get_active_settings()
+    grading_system = settings.grading_system if settings else "ifsc"
+    is_point_based = grading_system in ScoringService.POINT_BASED_SYSTEMS
+
+    # For dynamic systems, calculate top counts
+    top_counts = None
+    participant_count = None
+    if grading_system in ScoringService.DYNAMIC_SYSTEMS and settings:
+        # Get all results for the age group to calculate percentages
+        all_results = Result.objects.filter(
+            participant__age_group=target_participant.age_group,
+            boulder__in=boulders
+        ).select_related('participant', 'boulder')
+        top_counts = ScoringService.count_tops_per_boulder(all_results)
+        participant_count = Participant.objects.filter(
+            age_group=target_participant.age_group,
+            is_locked=False
+        ).count()
+
+    # Build boulder results list
+    boulder_results = []
+    boulders_without_results = []
+    has_two_zone_boulders = False
+    total_points = 0
+    total_tops = 0
+    total_zones = 0
+
+    result_map = {r.boulder_id: r for r in results}
+
+    for boulder in boulders:
+        res = result_map.get(boulder.id)
+
+        if res:
+            # Calculate points for this boulder
+            points = 0
+            if is_point_based and settings:
+                points = ScoringService.calculate_boulder_points(
+                    res, grading_system, settings, top_counts, participant_count
+                )
+                total_points += points
+
+            # Track totals
+            if res.top:
+                total_tops += 1
+            if res.zone2 or res.zone1:
+                total_zones += 1
+
+            # Check if this boulder has 2 zones
+            if boulder.zone_count >= 2:
+                has_two_zone_boulders = True
+
+            boulder_results.append({
+                'boulder': boulder,
+                'result': res,
+                'points': points,
+                'top_display': f"✓ ({res.attempts_top or res.attempts})" if res.top else "-",
+                'zone2_display': f"✓ ({res.attempts_zone2 or res.attempts})" if res.zone2 else ("-" if boulder.zone_count >= 2 else "N/A"),
+                'zone1_display': f"✓ ({res.attempts_zone1 or res.attempts})" if res.zone1 else "-",
+                'updated_display': res.updated_at.strftime("%d.%m. %H:%M") if res.updated_at else "",
+            })
+        else:
+            # Boulder not attempted
+            if boulder.zone_count >= 2:
+                has_two_zone_boulders = True
+            boulders_without_results.append(boulder)
+
+    return render(
+        request,
+        "participant_detail_results.html",
+        {
+            "participant": participant,
+            "target_participant": target_participant,
+            "boulder_results": boulder_results,
+            "grading_system": grading_system,
+            "is_point_based": is_point_based,
+            "has_two_zone_boulders": has_two_zone_boulders,
+            "total_points": total_points,
+            "total_tops": total_tops,
+            "total_zones": total_zones,
+            "boulders_without_results": boulders_without_results,
+            "no_age_group": False,
+        },
+    )
+
+
+@participant_required
 def get_admin_message(request: HttpRequest, participant: Participant) -> JsonResponse:
     """
     API endpoint to fetch active admin broadcast message.

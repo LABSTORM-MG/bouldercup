@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ergebnisse – {{ target_participant.name }} – BoulderCup</title>
+    <link rel="stylesheet" href="{% static 'css/participant_results.css' %}">
+    <style>
+        /* Additional styles for detail view */
+        body { overflow-x: hidden; }
+        main { overflow-x: hidden; max-width: 1200px; margin: 0 auto; }
+
+        .participant-info {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .participant-info h2 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.5rem;
+            color: #0f172a;
+        }
+
+        .participant-info .meta {
+            color: #64748b;
+            font-size: 0.95rem;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            min-width: 120px;
+        }
+
+        .stat-box .label {
+            color: #64748b;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-box .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            padding: 0;
+            box-sizing: border-box;
+            margin-bottom: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+            background: #fff;
+        }
+
+        th, td {
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        thead th {
+            background: #f8fafc;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .boulder-label {
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .color-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            display: inline-block;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .muted {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #64748b;
+        }
+
+        .not-attempted {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+        }
+
+        .not-attempted h3 {
+            margin: 0 0 0.75rem 0;
+            font-size: 1rem;
+            color: #475569;
+        }
+
+        .boulder-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .boulder-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.65rem;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.35rem;
+            font-size: 0.9rem;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .locked-indicator {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 0.25rem;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-left: 0.5rem;
+        }
+
+        @media (max-width: 640px) {
+            .summary-stats {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .stat-box {
+                min-width: 100%;
+            }
+
+            th, td {
+                padding: 0.5rem 0.35rem;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
+      data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
+      data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
+    <header>
+        <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
+        <h1>Detaillierte Ergebnisse</h1>
+    </header>
+    <main>
+        <a href="{% url 'participant_live_scoreboard' %}" class="back-link">← Zurück zur Rangliste</a>
+
+        <div class="participant-info">
+            <h2>
+                {{ target_participant.name }}
+                {% if target_participant.is_locked %}
+                    <span class="locked-indicator">Gesperrt</span>
+                {% endif %}
+            </h2>
+            <div class="meta">
+                {% if target_participant.age_group %}
+                    {{ target_participant.age_group.name }} · {{ target_participant.age }} Jahre
+                {% else %}
+                    {{ target_participant.age }} Jahre
+                {% endif %}
+            </div>
+        </div>
+
+        {% if no_age_group %}
+            <div class="empty-state">
+                <p class="muted">Keine Altersgruppe zugewiesen.</p>
+            </div>
+        {% elif not boulder_results and not boulders_without_results %}
+            <div class="empty-state">
+                <p class="muted">Noch keine Ergebnisse vorhanden.</p>
+            </div>
+        {% else %}
+            <div class="summary-stats">
+                {% if is_point_based %}
+                    <div class="stat-box">
+                        <div class="label">Gesamtpunkte</div>
+                        <div class="value">{{ total_points }}</div>
+                    </div>
+                {% endif %}
+                <div class="stat-box">
+                    <div class="label">Tops</div>
+                    <div class="value">{{ total_tops }}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Zonen</div>
+                    <div class="value">{{ total_zones }}</div>
+                </div>
+            </div>
+
+            {% if boulder_results %}
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Boulder</th>
+                                <th>Top</th>
+                                {% if has_two_zone_boulders %}
+                                    <th>Zone 2</th>
+                                {% endif %}
+                                <th>Zone 1</th>
+                                {% if is_point_based %}
+                                    <th>Punkte</th>
+                                {% endif %}
+                                <th>Aktualisiert</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in boulder_results %}
+                                <tr>
+                                    <td>
+                                        <span class="boulder-label">
+                                            {% if item.boulder.color %}
+                                                <span class="color-indicator" style="background-color: {{ item.boulder.color }};"></span>
+                                            {% endif %}
+                                            {{ item.boulder.label }}
+                                        </span>
+                                    </td>
+                                    <td>{{ item.top_display }}</td>
+                                    {% if has_two_zone_boulders %}
+                                        <td>{{ item.zone2_display }}</td>
+                                    {% endif %}
+                                    <td>{{ item.zone1_display }}</td>
+                                    {% if is_point_based %}
+                                        <td><strong>{{ item.points }}</strong></td>
+                                    {% endif %}
+                                    <td class="muted">{{ item.updated_display }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+
+            {% if boulders_without_results %}
+                <div class="not-attempted">
+                    <h3>Noch nicht versucht ({{ boulders_without_results|length }})</h3>
+                    <div class="boulder-chips">
+                        {% for boulder in boulders_without_results %}
+                            <div class="boulder-chip">
+                                {% if boulder.color %}
+                                    <span class="color-indicator" style="background-color: {{ boulder.color }};"></span>
+                                {% endif %}
+                                {{ boulder.label }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+    </main>
+    <script src="{% static 'js/admin_message_poll.js' %}"></script>
+</body>
+</html>
