@@ -257,7 +257,7 @@ class CompetitionSettings(models.Model):
 
     name = models.CharField(max_length=150, default="Standard Punkte-Setup", editable=False)
     grading_system = models.CharField(
-        max_length=30, choices=GRADING_CHOICES, default="ifsc"
+        max_length=30, choices=GRADING_CHOICES, default="point_based"
     )
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
     top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top.")

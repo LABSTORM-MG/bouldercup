@@ -365,7 +365,6 @@ class SiteSettingsAdminForm(forms.ModelForm):
         }
 
 
-@admin.register(SiteSettings)
 class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
     form = SiteSettingsAdminForm
     list_display = ("name", "updated_at")
