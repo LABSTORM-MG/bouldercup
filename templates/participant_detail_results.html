@@ -9,7 +9,6 @@
     <style>
         /* Additional styles for detail view */
         body { overflow-x: hidden; }
-        main { overflow-x: hidden; max-width: 1200px; }
 
         .participant-info {
             background: #f8fafc;
@@ -59,59 +58,6 @@
             color: #0f172a;
         }
 
-        .table-wrap {
-            width: 100%;
-            overflow-x: auto;
-            padding: 0;
-            box-sizing: border-box;
-            margin-bottom: 1.5rem;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: auto;
-            background: #fff;
-        }
-
-        th, td {
-            padding: 0.75rem 0.5rem;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.95rem;
-        }
-
-        thead th {
-            background: #f8fafc;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.05em;
-            color: #64748b;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        tbody tr:hover {
-            background: #f8fafc;
-        }
-
-        .boulder-label {
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .color-indicator {
-            width: 16px;
-            height: 16px;
-            border-radius: 3px;
-            display: inline-block;
-            border: 1px solid rgba(0,0,0,0.1);
-        }
-
         .muted {
             color: #64748b;
             font-size: 0.9rem;
@@ -124,7 +70,7 @@
         }
 
         .not-attempted {
-            margin-top: 2rem;
+            margin-top: 1rem;
             padding: 1rem;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -154,6 +100,14 @@
             font-size: 0.9rem;
         }
 
+        .color-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            display: inline-block;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
         .back-link {
             display: inline-block;
             margin-bottom: 1rem;
@@ -177,6 +131,73 @@
             margin-left: 0.5rem;
         }
 
+        /* Compact read-only boulder cards */
+        .boulder-list {
+            margin-top: 0;
+        }
+
+        .boulder-card {
+            margin-bottom: 0.85rem;
+        }
+
+        /* Compact tier rows for detail view */
+        .tier-row {
+            grid-template-columns: 1fr 80px 100px !important;
+            padding: 0.7rem 1rem !important;
+        }
+
+        /* Read-only status indicator */
+        .status-indicator {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 1px solid #d9e3f0;
+            background: #f8fafc;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 0 5px #f3f4f6;
+        }
+
+        .status-indicator.achieved {
+            background: #22c55e;
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+        }
+
+        .status-indicator.not-achieved {
+            background: #e5e7eb;
+            box-shadow: inset 0 0 0 5px #f3f4f6;
+        }
+
+        /* Attempt display */
+        .attempt-display {
+            font-weight: 600;
+            color: #334155;
+            text-align: center;
+            font-size: 0.95rem;
+        }
+
+        .attempt-display.zero {
+            color: #94a3b8;
+        }
+
+        @media (max-width: 780px) {
+            .tier-row {
+                grid-template-columns: 1fr 60px 70px !important;
+                padding: 0.6rem 0.5rem !important;
+            }
+
+            .status-indicator {
+                width: 24px;
+                height: 24px;
+            }
+
+            .attempt-display {
+                font-size: 0.9rem;
+            }
+        }
+
         @media (max-width: 640px) {
             .summary-stats {
                 flex-direction: column;
@@ -185,11 +206,6 @@
 
             .stat-box {
                 min-width: 100%;
-            }
-
-            th, td {
-                padding: 0.5rem 0.35rem;
-                font-size: 0.85rem;
             }
         }
     </style>
@@ -247,44 +263,50 @@
             </div>
 
             {% if boulder_results %}
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Boulder</th>
-                                <th>Top</th>
-                                {% if has_two_zone_boulders %}
-                                    <th>Zone 2</th>
-                                {% endif %}
-                                <th>Zone 1</th>
+                <div class="boulder-list">
+                    {% for item in boulder_results %}
+                        <div class="boulder-card" style="--accent: {{ item.boulder.color|default:'#f9fafb' }};">
+                            <div class="boulder-header">
+                                <span class="boulder-label-text">{{ item.boulder.label }}</span>
                                 {% if is_point_based %}
-                                    <th>Punkte</th>
+                                    <span style="font-weight: 700; color: #0f172a;">{{ item.points }} Punkte</span>
                                 {% endif %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in boulder_results %}
-                                <tr>
-                                    <td>
-                                        <span class="boulder-label">
-                                            {% if item.boulder.color %}
-                                                <span class="color-indicator" style="background-color: {{ item.boulder.color }};"></span>
-                                            {% endif %}
-                                            {{ item.boulder.label }}
-                                        </span>
-                                    </td>
-                                    <td>{{ item.top_display }}</td>
-                                    {% if has_two_zone_boulders %}
-                                        <td>{{ item.zone2_display }}</td>
-                                    {% endif %}
-                                    <td>{{ item.zone1_display }}</td>
-                                    {% if is_point_based %}
-                                        <td><strong>{{ item.points }}</strong></td>
-                                    {% endif %}
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                            </div>
+                            <div class="tier-list">
+                                <div class="tier-row">
+                                    <div class="tier-label">Top</div>
+                                    <div style="text-align: center;">
+                                        <span class="status-indicator {% if item.top %}achieved{% else %}not-achieved{% endif %}"></span>
+                                    </div>
+                                    <div class="attempt-display {% if item.attempts_top == 0 %}zero{% endif %}">
+                                        {{ item.attempts_top }}
+                                    </div>
+                                </div>
+                                {% if item.boulder.zone_count == 2 %}
+                                    <div class="tier-row">
+                                        <div class="tier-label">Obere Zone</div>
+                                        <div style="text-align: center;">
+                                            <span class="status-indicator {% if item.zone2 %}achieved{% else %}not-achieved{% endif %}"></span>
+                                        </div>
+                                        <div class="attempt-display {% if item.attempts_zone2 == 0 %}zero{% endif %}">
+                                            {{ item.attempts_zone2 }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                {% if item.boulder.zone_count >= 1 %}
+                                    <div class="tier-row">
+                                        <div class="tier-label">{% if item.boulder.zone_count == 2 %}Untere Zone{% else %}Zone{% endif %}</div>
+                                        <div style="text-align: center;">
+                                            <span class="status-indicator {% if item.zone1 %}achieved{% else %}not-achieved{% endif %}"></span>
+                                        </div>
+                                        <div class="attempt-display {% if item.attempts_zone1 == 0 %}zero{% endif %}">
+                                            {{ item.attempts_zone1 }}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
                 </div>
             {% endif %}
 
