@@ -8,6 +8,13 @@ class CompetitionSettingsProxy(CompetitionSettings):
         verbose_name_plural = "Punktesystem"
 
 
+class CompetitionMetadataProxy(CompetitionSettings):
+    class Meta:
+        proxy = True
+        verbose_name = "Wettkampfdatum"
+        verbose_name_plural = "Wettkampfdatum"
+
+
 class SubmissionWindowProxy(SubmissionWindow):
     class Meta:
         proxy = True

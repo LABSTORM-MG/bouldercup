@@ -165,6 +165,21 @@ class SingletonAdminMixin:
         return super().changelist_view(request, extra_context=extra_context)
 
 
+class CompetitionMetadataAdmin(SingletonAdminMixin, admin.ModelAdmin):
+    """Admin for competition-wide metadata (date, etc.)."""
+    list_display = ("competition_date", "updated_at")
+    fieldsets = (
+        (
+            None,
+            {"fields": ("competition_date",)},
+        ),
+    )
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of the singleton."""
+        return False
+
+
 class CompetitionSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
     list_display = (
         "grading_system",
@@ -279,6 +294,26 @@ class SubmissionWindowAdmin(admin.ModelAdmin):
 
     class Media:
         js = ("admin/js/submission_window_time.js",)
+
+    def get_changeform_initial_data(self, request):
+        """Pre-fill dates with competition date if set."""
+        initial = super().get_changeform_initial_data(request)
+
+        # Get competition date from settings
+        from accounts.models import CompetitionSettings
+        from django.utils import timezone
+        from datetime import datetime
+
+        settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
+        if settings and settings.competition_date:
+            # Create datetime at 9:00 AM on competition date
+            competition_datetime = timezone.make_aware(
+                datetime.combine(settings.competition_date, datetime.min.time().replace(hour=9, minute=0))
+            )
+            initial['submission_start'] = competition_datetime
+            initial['submission_end'] = competition_datetime.replace(hour=17, minute=0)  # 5:00 PM
+
+        return initial
 
     @admin.display(description="Altersgruppen")
     def display_age_groups(self, obj):

@@ -55,7 +55,7 @@ def reassign_participants_after_group_change(sender, instance, **kwargs):
             from web_project.settings.config import TIMING
             cache.set('competition_settings', settings, TIMING.SETTINGS_CACHE_TIMEOUT)
 
-    reference_date = settings.competition_date if (settings and hasattr(settings, 'competition_date') and settings.competition_date) else date.today()
+    reference_date = settings.competition_date if (settings and settings.competition_date) else date.today()
 
     # Calculate birth date range for this age group
     # Someone is min_age on the competition date if born between:

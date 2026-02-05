@@ -99,9 +99,19 @@ class Participant(models.Model):
 
     @property
     def age(self) -> int:
-        today = date.today()
-        return today.year - self.date_of_birth.year - (
-            (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
+        # Use competition date from settings if available, otherwise use today
+        from django.core.cache import cache
+        settings = cache.get('competition_settings')
+        if settings is None:
+            settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
+            if settings:
+                from web_project.settings.config import TIMING
+                cache.set('competition_settings', settings, TIMING.SETTINGS_CACHE_TIMEOUT)
+
+        reference_date = settings.competition_date if (settings and settings.competition_date) else date.today()
+
+        return reference_date.year - self.date_of_birth.year - (
+            (reference_date.month, reference_date.day) < (self.date_of_birth.month, self.date_of_birth.day)
         )
 
 
@@ -259,6 +269,12 @@ class CompetitionSettings(models.Model):
     grading_system = models.CharField(
         max_length=30, choices=GRADING_CHOICES, default="point_based"
     )
+    competition_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Wettkampfdatum",
+        help_text="Datum des Wettkampfes für Altersberechnung. Falls leer, wird das aktuelle Datum verwendet."
+    )
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
     top_points = models.PositiveIntegerField(default=25, help_text="Punkte pro Top.")
     flash_points = models.PositiveIntegerField(
@@ -348,10 +364,25 @@ class CompetitionSettings(models.Model):
         return f"Wertung: {self.get_grading_system_display()}"
     
     def save(self, *args, **kwargs):
-        """Invalidate cache on save."""
+        """Invalidate cache on save and trigger reassignment if competition_date changed."""
+        # Get old value before save
+        competition_date_changed = False
+        if self.pk:
+            old = CompetitionSettings.objects.filter(pk=self.pk).first()
+            if old and old.competition_date != self.competition_date:
+                competition_date_changed = True
+
         super().save(*args, **kwargs)
+
+        # Clear cache
         from django.core.cache import cache
         cache.delete('competition_settings')
+
+        # Trigger reassignment if date changed
+        if competition_date_changed:
+            for participant in Participant.objects.all():
+                participant.assign_age_group(force=True)
+                participant.save(update_fields=['age_group'])
 
 
 class AdminMessage(models.Model):
