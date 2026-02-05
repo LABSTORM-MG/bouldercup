@@ -403,14 +403,14 @@ document.querySelectorAll(".boulder-card").forEach((card) => {
         };
 
         // Clamp all values first
-        const v1 = clampValue(inputs.z1);
-        const v2 = clampValue(inputs.z2);
-        const vt = clampValue(inputs.top);
+        clampValue(inputs.z1);
+        clampValue(inputs.z2);
+        clampValue(inputs.top);
 
         // Ensure minimum attempts of 1 when checked
-        if (state.z1 && inputs.z1 && v1 < 1) inputs.z1.value = 1;
-        if (state.z2 && inputs.z2 && v2 < 1) inputs.z2.value = 1;
-        if (state.top && inputs.top && vt < 1) inputs.top.value = 1;
+        if (state.z1 && inputs.z1 && Number(inputs.z1.value || 0) < 1) inputs.z1.value = 1;
+        if (state.z2 && inputs.z2 && Number(inputs.z2.value || 0) < 1) inputs.z2.value = 1;
+        if (state.top && inputs.top && Number(inputs.top.value || 0) < 1) inputs.top.value = 1;
 
         // Auto-fill zeros when checkboxes are checked
         const valTop = Number(inputs.top?.value || 0);
@@ -420,24 +420,29 @@ document.querySelectorAll(".boulder-card").forEach((card) => {
             inputs.z1.value = inputs.z2 ? Number(inputs.z2.value || 0) || valTop || 1 : valTop || 1;
         }
 
-        // CRITICAL: Enforce hierarchical cascade - higher achievements need at least as many attempts
-        // Get current values after auto-fill
+        // CRITICAL: Enforce hierarchical cascade - higher achievements ALWAYS need at least as many attempts
+        // Read final values after all auto-fills
         let z1Val = Number(inputs.z1?.value || 0);
         let z2Val = Number(inputs.z2?.value || 0);
         let topVal = Number(inputs.top?.value || 0);
 
-        // Zone 2 must have at least as many attempts as Zone 1
-        if (inputs.z2 && z2Val > 0 && z1Val > 0 && z2Val < z1Val) {
-            inputs.z2.value = z1Val;
-            z2Val = z1Val;
+        // ALWAYS cascade upward: if Zone 1 has attempts, Zone 2 and Top must have at least that many
+        if (z1Val > 0) {
+            // Zone 2 must have at least Zone 1 attempts
+            if (inputs.z2 && z2Val < z1Val) {
+                inputs.z2.value = z1Val;
+                z2Val = z1Val;
+            }
+            // Top must have at least Zone 1 attempts
+            if (inputs.top && topVal < z1Val) {
+                inputs.top.value = z1Val;
+                topVal = z1Val;
+            }
         }
 
-        // Top must have at least as many attempts as the highest zone
-        if (inputs.top && topVal > 0) {
-            const maxZoneAttempts = Math.max(z1Val, z2Val);
-            if (maxZoneAttempts > 0 && topVal < maxZoneAttempts) {
-                inputs.top.value = maxZoneAttempts;
-            }
+        // If Zone 2 has attempts, Top must have at least Zone 2 attempts
+        if (z2Val > 0 && inputs.top && topVal < z2Val) {
+            inputs.top.value = z2Val;
         }
 
         syncFlash();
