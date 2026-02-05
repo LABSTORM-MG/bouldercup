@@ -1,15 +1,67 @@
 import logging
+import io
+import zipfile
+from datetime import datetime
 
 from django import forms
 from django.contrib import admin
+from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, Result, SubmissionWindow
+from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, Result, SubmissionWindow, CompetitionSettings
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 logger = logging.getLogger(__name__)
+
+
+def generate_walking_sheet_pdf(participant):
+    """
+    Generate PDF walking sheet for a single participant.
+    Returns PDF content as bytes.
+    """
+    from weasyprint import HTML
+
+    # Query boulders for participant's age group
+    boulders = (
+        Boulder.objects.filter(age_groups=participant.age_group)
+        .order_by("label")
+        if participant.age_group_id
+        else Boulder.objects.none()
+    )
+
+    # Determine maximum zone count for adaptive table layout
+    max_zone_count = max((b.zone_count for b in boulders), default=0)
+
+    # Get competition settings
+    settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
+
+    # Get submission windows for this age group
+    submission_windows = (
+        SubmissionWindow.objects.filter(age_groups=participant.age_group)
+        .order_by('submission_start')
+        if participant.age_group_id
+        else SubmissionWindow.objects.none()
+    )
+
+    context = {
+        'participant': participant,
+        'boulders': boulders,
+        'max_zone_count': max_zone_count,
+        'generation_date': datetime.now(),
+        'settings': settings,
+        'submission_windows': submission_windows,
+    }
+
+    # Render HTML template
+    html_string = render_to_string('participant_walking_sheet.html', context)
+
+    # Generate PDF from HTML
+    pdf_bytes = HTML(string=html_string).write_pdf()
+
+    return pdf_bytes
 
 
 class ParticipantInline(admin.TabularInline):
@@ -59,7 +111,7 @@ class ParticipantAdmin(admin.ModelAdmin):
         "is_locked",
     )
     form = ParticipantAdminForm
-    actions = ["lock_participants", "unlock_participants"]
+    actions = ["lock_participants", "unlock_participants", "generate_walking_sheets"]
 
     @admin.display(description="Alter")
     def display_age(self, obj):
@@ -129,6 +181,41 @@ class ParticipantAdmin(admin.ModelAdmin):
             f"Admin {request.user.username} unlocked {count} participants: "
             f"IDs {participant_ids}"
         )
+
+    @admin.action(description="Laufzettel als PDF generieren")
+    def generate_walking_sheets(self, request, queryset):
+        """
+        Generate walking sheet PDF(s) for selected participants.
+        Single participant: Direct PDF download
+        Multiple participants: ZIP file with all PDFs
+        """
+        participants = list(queryset.select_related('age_group'))
+
+        if len(participants) == 1:
+            # Single participant - direct PDF download
+            participant = participants[0]
+            pdf_bytes = generate_walking_sheet_pdf(participant)
+
+            response = HttpResponse(pdf_bytes, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="laufzettel_{participant.username}.pdf"'
+            return response
+
+        else:
+            # Multiple participants - create ZIP file
+            zip_buffer = io.BytesIO()
+
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for participant in participants:
+                    pdf_bytes = generate_walking_sheet_pdf(participant)
+                    zip_file.writestr(
+                        f"laufzettel_{participant.username}.pdf",
+                        pdf_bytes
+                    )
+
+            zip_buffer.seek(0)
+            response = HttpResponse(zip_buffer.read(), content_type='application/zip')
+            response['Content-Disposition'] = 'attachment; filename="laufzettel.zip"'
+            return response
 
 
 admin.site.site_title = "BoulderCup Verwaltung"

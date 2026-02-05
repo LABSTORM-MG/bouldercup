@@ -4,3 +4,5 @@ python-json-logger>=2.0.0
 gunicorn>=22.0.0
 python-dotenv>=1.0.0
 psutil>=5.9.8
+WeasyPrint>=68.0
+django-weasyprint>=2.3.0

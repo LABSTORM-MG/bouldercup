@@ -191,6 +191,28 @@ class Boulder(models.Model):
         """Get human-readable zone count."""
         return dict(self._meta.get_field('zone_count').choices).get(self.zone_count, str(self.zone_count))
 
+    @property
+    def color_display_name(self) -> str:
+        """Get human-readable German color name from hex code."""
+        if not self.color:
+            return ""
+
+        # If it's already a hex code, try to reverse lookup
+        if self.color.startswith("#"):
+            # Create reverse mapping
+            reverse_map = {v: k for k, v in self.COLOR_ALIASES.items()}
+            color_name = reverse_map.get(self.color.lower())
+
+            if color_name:
+                # Capitalize first letter of German name
+                return color_name.capitalize()
+            else:
+                # If no German name found, return shortened hex (without #)
+                return self.color[1:].upper()
+
+        # Otherwise just capitalize the raw value
+        return self.color.capitalize()
+
     @classmethod
     def normalize_color(cls, value: str) -> str:
         """
