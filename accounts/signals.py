@@ -83,7 +83,8 @@ def reassign_participants_after_group_change(sender, instance, **kwargs):
         )
     ).select_related("age_group")
 
-    reassigned_count = 0
+    # Collect participants that need reassignment
+    to_update = []
 
     for participant in impacted:
         # Calculate what the age group SHOULD be
@@ -96,10 +97,9 @@ def reassign_participants_after_group_change(sender, instance, **kwargs):
         participant.assign_age_group(force=False)
         new_age_group_id = participant.age_group_id
 
-        # Only save if age group actually changed
+        # Only track if age group actually changed
         if old_age_group_id != new_age_group_id:
-            participant.save(update_fields=["age_group"])
-            reassigned_count += 1
+            to_update.append(participant)
             logger.info(
                 f"Participant {participant.username} (ID: {participant.id}) "
                 f"reassigned from {old_age_group.name if old_age_group else 'None'} "
@@ -110,6 +110,12 @@ def reassign_participants_after_group_change(sender, instance, **kwargs):
             # Restore original age group (no change needed)
             participant.age_group = old_age_group
             participant.age_group_id = old_age_group_id
+
+    # Bulk update all participants that need reassignment (single query)
+    reassigned_count = 0
+    if to_update:
+        Participant.objects.bulk_update(to_update, ['age_group'])
+        reassigned_count = len(to_update)
 
     # Invalidate ALL caches if any participants were reassigned
     # This ensures scoreboard and other cached data reflects new assignments
