@@ -146,8 +146,9 @@ class ParticipantAdmin(admin.ModelAdmin):
                 session.delete()
                 sessions_deleted += 1
 
-        # Invalidate all caches (scoreboards will update immediately)
-        cache.clear()
+        # Invalidate scoreboard caches (locked participants should disappear from scoreboards)
+        from .services.scoring_service import ScoringService
+        ScoringService.invalidate_all_scoreboards()
 
         self.message_user(
             request,
@@ -169,8 +170,9 @@ class ParticipantAdmin(admin.ModelAdmin):
         participant_ids = list(queryset.values_list('id', flat=True))
         count = queryset.update(is_locked=False)
 
-        # Invalidate all caches
-        cache.clear()
+        # Invalidate scoreboard caches (unlocked participants should appear on scoreboards)
+        from .services.scoring_service import ScoringService
+        ScoringService.invalidate_all_scoreboards()
 
         self.message_user(
             request,

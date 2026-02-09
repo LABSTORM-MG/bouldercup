@@ -510,3 +510,32 @@ class ScoringService:
         """Cache scoreboard data."""
         cache_key = f"scoreboard_{age_group_id}_{grading_system}"
         cache.set(cache_key, data, timeout=TIMING.SCOREBOARD_CACHE_TIMEOUT)
+
+    @staticmethod
+    def invalidate_all_scoreboards() -> None:
+        """
+        Invalidate all scoreboard caches.
+
+        This uses cache key pattern matching to delete only scoreboard-related caches,
+        preserving other caches like competition_settings and admin_message.
+
+        Uses Django's cache.delete_many() which is more efficient than clearing all caches.
+        """
+        from ..models import AgeGroup, CompetitionSettings
+
+        # Get all possible grading systems
+        grading_systems = [choice[0] for choice in CompetitionSettings.GRADING_CHOICES]
+
+        # Get all age group IDs
+        age_group_ids = list(AgeGroup.objects.values_list('id', flat=True))
+        age_group_ids.append('all')  # Include the "all participants" scoreboard
+
+        # Build list of all possible scoreboard cache keys
+        keys_to_delete = []
+        for age_group_id in age_group_ids:
+            for grading in grading_systems:
+                keys_to_delete.append(f"scoreboard_{age_group_id}_{grading}")
+
+        # Delete all scoreboard caches in one operation
+        cache.delete_many(keys_to_delete)
+        logger.info(f"Invalidated {len(keys_to_delete)} scoreboard cache keys")

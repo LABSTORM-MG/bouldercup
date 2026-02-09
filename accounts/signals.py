@@ -117,11 +117,12 @@ def reassign_participants_after_group_change(sender, instance, **kwargs):
         Participant.objects.bulk_update(to_update, ['age_group'])
         reassigned_count = len(to_update)
 
-    # Invalidate ALL caches if any participants were reassigned
-    # This ensures scoreboard and other cached data reflects new assignments
+    # Invalidate scoreboard caches if any participants were reassigned
+    # This ensures scoreboards reflect new age group assignments
     if reassigned_count > 0:
-        cache.clear()
+        from .services.scoring_service import ScoringService
+        ScoringService.invalidate_all_scoreboards()
         logger.info(
             f"Age group '{instance.name}' (ID: {instance.id}) boundary changed: "
-            f"{reassigned_count} participants reassigned, all caches cleared"
+            f"{reassigned_count} participants reassigned, scoreboard caches invalidated"
         )
