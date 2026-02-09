@@ -290,7 +290,7 @@ logs/
 backups/
 *.before_restore
 
-# Plans and documentation
-plans/
-CLAUDE.md
+# AI assistant documentation and analysis
+claude/
+.claude/
 screenshot.png
