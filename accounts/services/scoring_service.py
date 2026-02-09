@@ -97,9 +97,21 @@ class ScoringService:
             # Dynamic scoring modes
             if grading_system in ScoringService.DYNAMIC_SYSTEMS:
                 if top_counts is None or participant_count is None:
+                    logger.warning(
+                        f"Dynamic scoring data missing for result {result.id} "
+                        f"(participant={result.participant_id}, boulder={result.boulder_id}): "
+                        f"top_counts={'None' if top_counts is None else 'provided'}, "
+                        f"participant_count={participant_count}. Returning 0 points."
+                    )
                     return 0
 
                 boulder_tops = top_counts.get(result.boulder_id, 0)
+                if participant_count == 0:
+                    logger.warning(
+                        f"Dynamic scoring with zero participants for result {result.id} "
+                        f"(participant={result.participant_id}, boulder={result.boulder_id}). "
+                        f"Using 0% top rate."
+                    )
                 top_percentage = (boulder_tops / participant_count * 100) if participant_count > 0 else 0
                 base = ScoringService.get_dynamic_top_points(settings, top_percentage)
 

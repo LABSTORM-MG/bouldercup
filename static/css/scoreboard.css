@@ -1,0 +1,146 @@
+/* Live Scoreboard Styles */
+
+/* Layout */
+body {
+    overflow-x: hidden;
+}
+
+main {
+    overflow-x: hidden;
+}
+
+.table-wrap {
+    width: 100%;
+    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Table Styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+}
+
+th,
+td {
+    padding: clamp(0.35rem, 1vw, 0.45rem) clamp(0.35rem, 1vw, 0.45rem);
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fff;
+    font-size: clamp(0.9rem, 2.5vw, 0.95rem);
+}
+
+/* Header */
+thead th {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    background: #fff;
+    height: clamp(40px, 8vw, 48px);
+    padding: clamp(0.2rem, 1vw, 0.35rem);
+    vertical-align: bottom;
+    overflow: visible;
+    text-transform: uppercase;
+    font-size: clamp(0.85rem, 2.4vw, 0.9rem);
+    letter-spacing: 0.02em;
+    color: #64748b;
+}
+
+tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* Sticky Columns */
+.rank,
+.name {
+    position: sticky;
+    left: 0;
+    top: 0;
+    z-index: 5;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.rank {
+    font-weight: 700;
+    color: #0f172a;
+    width: clamp(42px, 9vw, 48px);
+    text-align: left;
+}
+
+.name {
+    left: clamp(42px, 9vw, 48px);
+    min-width: 0;
+    white-space: normal;
+    word-break: break-word;
+    font-weight: 400;
+    text-align: left;
+    width: auto;
+    border-right: 1px solid #e2e8f0;
+}
+
+/* Participant Links */
+.participant-link {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    transition: color 0.2s ease;
+}
+
+.participant-link:hover {
+    color: #3b82f6;
+    text-decoration: underline;
+}
+
+/* Attempt Column */
+.attempt-col {
+    min-width: clamp(56px, 12vw, 70px);
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    white-space: nowrap;
+    text-align: left;
+}
+
+/* Live Indicator */
+header h1 {
+    position: relative;
+    display: inline-block;
+}
+
+.live-indicator {
+    width: clamp(70px, 12vw, 80px);
+    height: clamp(70px, 12vw, 80px);
+    position: absolute;
+    right: calc(100% + 1rem);
+    top: 50%;
+    transform: translateY(-48%);
+}
+
+/* Age Group Filter */
+.age-group-filter {
+    margin-bottom: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Muted Text */
+.muted {
+    color: #64748b;
+    font-size: 0.95rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+    .name {
+        min-width: 0;
+    }
+
+    .live-indicator {
+        width: clamp(50px, 10vw, 60px);
+        height: clamp(50px, 10vw, 60px);
+        right: calc(100% + 0.75rem);
+    }
+}
