@@ -1,7 +1,8 @@
 from django import forms
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 
-from .models import Participant
+from .models import Boulder, Participant
+from .services.result_service import SubmittedResult
 from .utils import verify_password, hash_password
 
 
@@ -74,3 +75,80 @@ class ParticipantAdminForm(forms.ModelForm):
         # This is done here, rather than on the field, because the
         # field does not have access to the initial value
         return self.initial.get("password")
+
+
+class ResultSubmissionForm(forms.Form):
+    """
+    Form for validating result submission data from POST.
+
+    Validates checkbox states and attempt counts for a single boulder result.
+    Returns a SubmittedResult dataclass from cleaned_data['submitted_result'].
+    """
+    zone1 = forms.BooleanField(required=False)
+    zone2 = forms.BooleanField(required=False)
+    top = forms.BooleanField(required=False)
+    attempts_zone1 = forms.IntegerField(required=False)
+    attempts_zone2 = forms.IntegerField(required=False)
+    attempts_top = forms.IntegerField(required=False)
+    timestamp = forms.FloatField(required=False)
+
+    def __init__(self, boulder_id: int, *args, **kwargs):
+        """
+        Initialize form with boulder-specific field names.
+
+        Args:
+            boulder_id: ID of the boulder this result is for
+        """
+        self.boulder_id = boulder_id
+        self._validated = False
+        super().__init__(*args, **kwargs)
+
+    def is_valid(self):
+        """Mark form as validated when is_valid is called."""
+        result = super().is_valid()
+        self._validated = True
+        return result
+
+    def clean_attempts_zone1(self):
+        """Ensure attempts_zone1 is non-negative."""
+        value = self.cleaned_data.get('attempts_zone1')
+        return max(0, value) if value is not None else 0
+
+    def clean_attempts_zone2(self):
+        """Ensure attempts_zone2 is non-negative."""
+        value = self.cleaned_data.get('attempts_zone2')
+        return max(0, value) if value is not None else 0
+
+    def clean_attempts_top(self):
+        """Ensure attempts_top is non-negative."""
+        value = self.cleaned_data.get('attempts_top')
+        return max(0, value) if value is not None else 0
+
+    def clean_timestamp(self):
+        """Parse timestamp, returning None if invalid."""
+        value = self.cleaned_data.get('timestamp')
+        if value is None or value == '':
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def get_submitted_result(self) -> SubmittedResult:
+        """
+        Return SubmittedResult dataclass from cleaned data.
+
+        Must be called after is_valid() returns True.
+        """
+        if not self._validated:
+            raise ValueError("Form must be validated (call is_valid()) before getting submitted result")
+
+        return SubmittedResult(
+            zone1=self.cleaned_data.get('zone1', False),
+            zone2=self.cleaned_data.get('zone2', False),
+            top=self.cleaned_data.get('top', False),
+            attempts_zone1=self.cleaned_data.get('attempts_zone1', 0),
+            attempts_zone2=self.cleaned_data.get('attempts_zone2', 0),
+            attempts_top=self.cleaned_data.get('attempts_top', 0),
+            timestamp=self.cleaned_data.get('timestamp'),
+        )

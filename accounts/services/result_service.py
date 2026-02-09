@@ -26,32 +26,46 @@ class SubmittedResult:
 
 class ResultService:
     @staticmethod
-    def safe_int(value: str | None) -> int:
-        """Convert string to int, returning 0 if conversion fails."""
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return 0
-    
-    @staticmethod
-    def parse_timestamp(raw_value: str | None) -> float | None:
-        """Parse timestamp from string, returning None if invalid."""
-        try:
-            return float(raw_value) if raw_value not in (None, "") else None
-        except (TypeError, ValueError):
-            return None
-    
-    @staticmethod
     def extract_from_post(post_data, boulder_id: int) -> SubmittedResult:
-        """Extract submitted result data from POST data."""
+        """
+        Extract submitted result data from POST data using ResultSubmissionForm.
+
+        Args:
+            post_data: POST data dict (request.POST)
+            boulder_id: ID of the boulder
+
+        Returns:
+            SubmittedResult dataclass with validated data
+        """
+        from ..forms import ResultSubmissionForm
+
+        # Extract boulder-specific fields from POST data
+        form_data = {
+            'zone1': post_data.get(f"zone1_{boulder_id}"),
+            'zone2': post_data.get(f"zone2_{boulder_id}"),
+            'top': post_data.get(f"sent_{boulder_id}"),
+            'attempts_zone1': post_data.get(f"attempts_zone1_{boulder_id}"),
+            'attempts_zone2': post_data.get(f"attempts_zone2_{boulder_id}"),
+            'attempts_top': post_data.get(f"attempts_top_{boulder_id}"),
+            'timestamp': post_data.get(f"ts_{boulder_id}"),
+        }
+
+        form = ResultSubmissionForm(boulder_id=boulder_id, data=form_data)
+
+        # Form validation is lenient - it will clean invalid data rather than rejecting it
+        if form.is_valid():
+            return form.get_submitted_result()
+
+        # Fallback to safe defaults if form is invalid (shouldn't happen with current validation)
+        logger.warning(f"ResultSubmissionForm validation failed for boulder {boulder_id}: {form.errors}")
         return SubmittedResult(
-            zone1=bool(post_data.get(f"zone1_{boulder_id}", False)),
-            zone2=bool(post_data.get(f"zone2_{boulder_id}", False)),
-            top=bool(post_data.get(f"sent_{boulder_id}", False)),
-            attempts_zone1=ResultService.safe_int(post_data.get(f"attempts_zone1_{boulder_id}")),
-            attempts_zone2=ResultService.safe_int(post_data.get(f"attempts_zone2_{boulder_id}")),
-            attempts_top=ResultService.safe_int(post_data.get(f"attempts_top_{boulder_id}")),
-            timestamp=ResultService.parse_timestamp(post_data.get(f"ts_{boulder_id}")),
+            zone1=False,
+            zone2=False,
+            top=False,
+            attempts_zone1=0,
+            attempts_zone2=0,
+            attempts_top=0,
+            timestamp=None,
         )
     
     @staticmethod
