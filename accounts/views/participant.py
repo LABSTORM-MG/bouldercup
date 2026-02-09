@@ -11,6 +11,7 @@ from web_project.settings.config import TIMING
 from ..forms import PasswordChangeForm
 from ..models import AgeGroup, Boulder, Participant, Result, AdminMessage, SiteSettings, SubmissionWindow
 from ..services import ResultService, ScoringService
+from ..services.window_service import WindowService
 from ..utils import hash_password
 
 logger = logging.getLogger(__name__)
@@ -165,42 +166,14 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
     for boulder in boulders:
         boulder.existing_result = existing_results.get(boulder.id)
 
-    # Check if submission is allowed for this participant's age group
-    can_submit = SubmissionWindow.is_submission_allowed(participant.age_group)
-    has_windows = SubmissionWindow.has_windows_for_age_group(participant.age_group)
-    active_window = SubmissionWindow.get_active_for_age_group(participant.age_group)
-    next_window = None
-    next_window_timestamp = None
-    active_window_end_timestamp = None
-
-    if can_submit and active_window and active_window.submission_end:
-        # Pass the active window end timestamp for countdown display
-        active_window_end_timestamp = active_window.submission_end.timestamp()
-
-    # Always check for next window, regardless of current submission state
-    if participant.age_group:
-        next_window = SubmissionWindow.get_next_upcoming_for_age_group(participant.age_group)
-        if next_window and next_window.submission_start:
-            next_window_timestamp = next_window.submission_start.timestamp()
+    # Get submission window status (initial check without grace period)
+    window_status = WindowService.get_submission_status(participant.age_group)
 
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
 
     if request.method == "GET" and is_ajax:
         # Re-check submission status for AJAX (countdown may have expired or windows changed)
-        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group)
-        has_windows = SubmissionWindow.has_windows_for_age_group(participant.age_group)
-        active_window = SubmissionWindow.get_active_for_age_group(participant.age_group)
-        next_window = None
-        next_window_timestamp = None
-        active_window_end_timestamp = None
-
-        if can_submit and active_window and active_window.submission_end:
-            active_window_end_timestamp = active_window.submission_end.timestamp()
-
-        if participant.age_group:
-            next_window = SubmissionWindow.get_next_upcoming_for_age_group(participant.age_group)
-            if next_window and next_window.submission_start:
-                next_window_timestamp = next_window.submission_start.timestamp()
+        window_status = WindowService.get_submission_status(participant.age_group)
 
         payload = {
             boulder.id: ResultService.result_to_payload(res)
@@ -210,24 +183,32 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
         return JsonResponse({
             "ok": True,
             "results": payload,
-            "can_submit": can_submit,
-            "has_windows": has_windows,
-            "next_window_timestamp": next_window_timestamp,
-            "active_window_end_timestamp": active_window_end_timestamp,
+            **WindowService.to_json_dict(window_status),
         })
 
     if request.method == "POST":
-        # Re-check submission status with 30-second grace period
+        # Re-check submission status with grace period
         # Grace period prevents data loss due to network latency and clock differences
-        can_submit = SubmissionWindow.is_submission_allowed(participant.age_group, grace_period_seconds=TIMING.GRACE_PERIOD_SECONDS)
-        if not can_submit:
-            logger.warning(f"Result submission rejected: participant {participant.username} (ID: {participant.id}) outside time window")
+        window_status = WindowService.get_submission_status(
+            participant.age_group,
+            grace_period_seconds=TIMING.GRACE_PERIOD_SECONDS
+        )
+
+        if not window_status.can_submit:
+            logger.warning(
+                f"Result submission rejected: participant {participant.username} "
+                f"(ID: {participant.id}) outside time window"
+            )
             return JsonResponse({
                 "ok": False,
                 "error": "Ergebniseintragung ist außerhalb des Zeitfensters nicht möglich."
             }, status=403)
+
         payload = ResultService.handle_submission(request.POST, participant, boulders)
-        logger.info(f"Results submitted: participant {participant.username} (ID: {participant.id}), {len(payload)} boulders")
+        logger.info(
+            f"Results submitted: participant {participant.username} "
+            f"(ID: {participant.id}), {len(payload)} boulders"
+        )
         return JsonResponse({"ok": True, "results": payload})
 
     return render(
@@ -237,12 +218,7 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
             "participant": participant,
             "title": "Ergebnisse eintragen",
             "boulders": boulders,
-            "can_submit": can_submit,
-            "has_windows": has_windows,
-            "active_window": active_window,
-            "next_window": next_window,
-            "next_window_timestamp": next_window_timestamp,
-            "active_window_end_timestamp": active_window_end_timestamp,
+            **WindowService.to_context_dict(window_status),
         },
     )
 
