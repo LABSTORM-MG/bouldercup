@@ -445,6 +445,7 @@ class SubmissionWindowAdmin(admin.ModelAdmin):
     ordering = ("submission_start",)
     filter_horizontal = ("age_groups",)
     fields = ("name", "age_groups", "submission_start", "submission_end", "note")
+    actions = ["bulk_create_windows"]
 
     class Media:
         js = ("admin/js/submission_window_time.js",)
@@ -489,6 +490,62 @@ class SubmissionWindowAdmin(admin.ModelAdmin):
         if obj.is_active():
             return "Aktiv"
         return "Inaktiv"
+
+    @admin.action(description="Zeitfenster für alle Altersgruppen erstellen")
+    def bulk_create_windows(self, request, queryset):
+        """
+        Create submission windows for all age groups at once.
+
+        Uses competition date from settings if available, otherwise defaults
+        to current date with 9:00-17:00 timeframe.
+        """
+        from accounts.models import AgeGroup, CompetitionSettings, SubmissionWindow
+        from django.contrib import messages
+        from django.utils import timezone
+        from datetime import datetime
+
+        # Get competition date from settings
+        settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
+        if settings and settings.competition_date:
+            competition_datetime = timezone.make_aware(
+                datetime.combine(settings.competition_date, datetime.min.time().replace(hour=9, minute=0))
+            )
+            submission_start = competition_datetime
+            submission_end = competition_datetime.replace(hour=17, minute=0)
+        else:
+            # Fallback to today if no competition date set
+            now = timezone.now()
+            submission_start = now.replace(hour=9, minute=0, second=0, microsecond=0)
+            submission_end = now.replace(hour=17, minute=0, second=0, microsecond=0)
+
+        # Get all age groups
+        age_groups = list(AgeGroup.objects.all().order_by('name'))
+
+        if not age_groups:
+            self.message_user(
+                request,
+                "Keine Altersgruppen vorhanden. Bitte zuerst Altersgruppen erstellen.",
+                level=messages.WARNING
+            )
+            return
+
+        # Create one window per age group
+        created_count = 0
+        for age_group in age_groups:
+            window = SubmissionWindow.objects.create(
+                name=f"Zeitfenster {age_group.name}",
+                submission_start=submission_start,
+                submission_end=submission_end,
+                note=f"Automatisch erstellt für {age_group.name}"
+            )
+            window.age_groups.add(age_group)
+            created_count += 1
+
+        self.message_user(
+            request,
+            f"{created_count} Zeitfenster erfolgreich erstellt (9:00-17:00).",
+            level=messages.SUCCESS
+        )
 
 
 class AdminMessageAdminForm(forms.ModelForm):
