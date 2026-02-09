@@ -111,7 +111,7 @@
                                         </div>
                                     </div>
                                 {% endif %}
-                                <input type="hidden" name="ts_{{ boulder.id }}" value="{% if boulder.existing_result %}{{ boulder.existing_result.updated_at|date:'U.u' }}{% endif %}">
+                                <input type="hidden" name="ver_{{ boulder.id }}" value="{% if boulder.existing_result %}{{ boulder.existing_result.version }}{% endif %}">
                             </div>
                         </div>
                     {% endfor %}

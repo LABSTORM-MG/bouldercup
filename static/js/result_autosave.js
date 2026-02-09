@@ -24,7 +24,7 @@ export const isFlashState = (checkboxes, inputs) => {
 
 /**
  * Apply server results to form inputs.
- * Uses timestamp-based optimistic locking to prevent overwriting newer local changes.
+ * Uses version-based optimistic locking to prevent overwriting newer local changes.
  *
  * @param {Object} results - Server results object (boulder_id -> result data)
  */
@@ -45,13 +45,13 @@ export const applyServerResults = (results) => {
             z2: card.querySelector(`input[name='zone2_${bid}']`),
             top: card.querySelector(`input[name='sent_${bid}']`),
         };
-        const ts = card.querySelector(`input[name='ts_${bid}']`);
+        const ver = card.querySelector(`input[name='ver_${bid}']`);
         const badge = card.querySelector(".flash-badge");
 
-        // Optimistic locking: only apply if server timestamp is newer
-        const incomingTs = typeof vals.updated_at === "number" ? vals.updated_at : null;
-        const localTs = ts ? parseFloat(ts.value || "0") : 0;
-        if (incomingTs && incomingTs <= localTs + 1e-4) return;
+        // Version-based optimistic locking: only apply if server version is newer
+        const incomingVersion = typeof vals.version === "number" ? vals.version : null;
+        const localVersion = ver ? parseInt(ver.value || "0") : 0;
+        if (incomingVersion !== null && incomingVersion <= localVersion) return;
 
         // Apply server values
         if (inputs.z1 && typeof vals.attempts_zone1 === "number") inputs.z1.value = vals.attempts_zone1;
@@ -60,7 +60,7 @@ export const applyServerResults = (results) => {
         if (checkboxes.z1 && typeof vals.zone1 === "boolean") checkboxes.z1.checked = vals.zone1;
         if (checkboxes.z2 && typeof vals.zone2 === "boolean") checkboxes.z2.checked = vals.zone2;
         if (checkboxes.top && typeof vals.top === "boolean") checkboxes.top.checked = vals.top;
-        if (ts && incomingTs !== null) ts.value = incomingTs;
+        if (ver && incomingVersion !== null) ver.value = incomingVersion;
 
         // Update flash badge
         if (badge) {

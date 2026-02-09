@@ -21,7 +21,7 @@ class SubmittedResult:
     attempts_zone1: int
     attempts_zone2: int
     attempts_top: int
-    timestamp: float | None = None
+    version: int | None = None
 
 
 class ResultService:
@@ -47,7 +47,7 @@ class ResultService:
             'attempts_zone1': post_data.get(f"attempts_zone1_{boulder_id}"),
             'attempts_zone2': post_data.get(f"attempts_zone2_{boulder_id}"),
             'attempts_top': post_data.get(f"attempts_top_{boulder_id}"),
-            'timestamp': post_data.get(f"ts_{boulder_id}"),
+            'version': post_data.get(f"ver_{boulder_id}"),
         }
 
         form = ResultSubmissionForm(boulder_id=boulder_id, data=form_data)
@@ -65,7 +65,7 @@ class ResultService:
             attempts_zone1=0,
             attempts_zone2=0,
             attempts_top=0,
-            timestamp=None,
+            version=None,
         )
     
     @staticmethod
@@ -92,7 +92,7 @@ class ResultService:
         attempts_top = max(submission.attempts_top, 0)
         if submission.top and attempts_top < 1:
             attempts_top = 1
-        
+
         return SubmittedResult(
             zone1=False,
             zone2=False,
@@ -100,7 +100,7 @@ class ResultService:
             attempts_zone1=0,
             attempts_zone2=0,
             attempts_top=attempts_top,
-            timestamp=submission.timestamp,
+            version=submission.version,
         )
     
     @staticmethod
@@ -108,15 +108,15 @@ class ResultService:
         """Normalize submission for boulder with one zone."""
         zone1 = submission.zone1
         top = submission.top
-        
+
         if top:
             zone1 = True
         if not zone1:
             top = False
-        
+
         attempts_z1 = max(submission.attempts_zone1, 0)
         attempts_top = max(submission.attempts_top, 0)
-        
+
         if zone1 and attempts_z1 < 1:
             attempts_z1 = 1
         if top and attempts_top < 1:
@@ -125,7 +125,7 @@ class ResultService:
             attempts_z1 = attempts_top
         if top and attempts_top and attempts_top < attempts_z1:
             attempts_top = attempts_z1
-        
+
         return SubmittedResult(
             zone1=zone1,
             zone2=False,
@@ -133,7 +133,7 @@ class ResultService:
             attempts_zone1=attempts_z1,
             attempts_zone2=0,
             attempts_top=attempts_top,
-            timestamp=submission.timestamp,
+            version=submission.version,
         )
     
     @staticmethod
@@ -142,7 +142,7 @@ class ResultService:
         zone1 = submission.zone1
         zone2 = submission.zone2
         top = submission.top
-        
+
         if top:
             zone2 = True
             zone1 = True
@@ -151,32 +151,32 @@ class ResultService:
         if not zone1:
             zone2 = False
             top = False
-        
+
         attempts_z1 = max(submission.attempts_zone1, 0)
         attempts_z2 = max(submission.attempts_zone2, 0)
         attempts_top = max(submission.attempts_top, 0)
-        
+
         if zone1 and attempts_z1 < 1:
             attempts_z1 = 1
         if zone2 and attempts_z2 < 1:
             attempts_z2 = 1
         if top and attempts_top < 1:
             attempts_top = 1
-        
+
         if top and attempts_top and attempts_z2 == 0:
             attempts_z2 = attempts_top
         if top and attempts_top and attempts_z1 == 0:
             attempts_z1 = attempts_top
         if zone2 and attempts_z2 and attempts_z1 == 0:
             attempts_z1 = attempts_z2
-        
+
         if zone2 and attempts_z2 and attempts_z2 < attempts_z1:
             attempts_z2 = attempts_z1
         if top and attempts_top:
             baseline = attempts_z2 if zone2 else attempts_z1
             if attempts_top < baseline:
                 attempts_top = baseline
-        
+
         return SubmittedResult(
             zone1=zone1,
             zone2=zone2,
@@ -184,7 +184,7 @@ class ResultService:
             attempts_zone1=attempts_z1,
             attempts_zone2=attempts_z2,
             attempts_top=attempts_top,
-            timestamp=submission.timestamp,
+            version=submission.version,
         )
     
     @staticmethod
@@ -197,7 +197,8 @@ class ResultService:
             "attempts_top": result.attempts_top,
             "attempts_zone2": result.attempts_zone2,
             "attempts_zone1": result.attempts_zone1,
-            "updated_at": result.updated_at.timestamp(),
+            "version": result.version,
+            "updated_at": result.updated_at.timestamp(),  # Keep for backward compatibility
         }
     
     @staticmethod
@@ -232,13 +233,20 @@ class ResultService:
                     .filter(participant=participant, boulder=boulder)
                     .first()
                 )
-                
-                if current_result and submission.timestamp is not None:
-                    time_diff = current_result.updated_at.timestamp() - submission.timestamp
-                    if time_diff > TIMING.TIMESTAMP_EPSILON:
+
+                # Version-based optimistic locking conflict detection
+                if current_result and submission.version is not None:
+                    if current_result.version != submission.version:
+                        # Version mismatch: someone else modified this result
+                        # Return current server state to client
+                        logger.info(
+                            f"Version conflict detected for result {current_result.id}: "
+                            f"client version={submission.version}, server version={current_result.version}. "
+                            f"Rejecting update."
+                        )
                         payload[boulder.id] = ResultService.result_to_payload(current_result)
                         continue
-                
+
                 if not current_result:
                     current_result = Result(participant=participant, boulder=boulder)
                 

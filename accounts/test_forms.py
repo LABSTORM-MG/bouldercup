@@ -24,7 +24,7 @@ class ResultSubmissionFormTestCase(TestCase):
             'attempts_zone1': 3,
             'attempts_zone2': 5,
             'attempts_top': 7,
-            'timestamp': 1234567890.123,
+            'version': 5,
         }
         form = ResultSubmissionForm(boulder_id=1, data=data)
 
@@ -38,7 +38,7 @@ class ResultSubmissionFormTestCase(TestCase):
         self.assertEqual(result.attempts_zone1, 3)
         self.assertEqual(result.attempts_zone2, 5)
         self.assertEqual(result.attempts_top, 7)
-        self.assertEqual(result.timestamp, 1234567890.123)
+        self.assertEqual(result.version, 5)
 
     def test_valid_partial_result(self):
         """Form accepts partial result with only some fields."""
@@ -57,7 +57,7 @@ class ResultSubmissionFormTestCase(TestCase):
         self.assertEqual(result.attempts_zone1, 2)
         self.assertEqual(result.attempts_zone2, 0)
         self.assertEqual(result.attempts_top, 0)
-        self.assertIsNone(result.timestamp)
+        self.assertIsNone(result.version)
 
     def test_empty_data(self):
         """Form accepts empty data and returns default values."""
@@ -72,7 +72,7 @@ class ResultSubmissionFormTestCase(TestCase):
         self.assertEqual(result.attempts_zone1, 0)
         self.assertEqual(result.attempts_zone2, 0)
         self.assertEqual(result.attempts_top, 0)
-        self.assertIsNone(result.timestamp)
+        self.assertIsNone(result.version)
 
     def test_negative_attempts_clamped_to_zero(self):
         """Negative attempt counts are clamped to zero."""
@@ -134,24 +134,24 @@ class ResultSubmissionFormTestCase(TestCase):
         self.assertEqual(result.zone2, True)
         self.assertEqual(result.top, True)
 
-    def test_timestamp_conversion(self):
-        """Timestamp is properly converted from string to float."""
+    def test_version_conversion(self):
+        """Version is properly converted from string to int."""
         data = {
-            'timestamp': '1234567890.123456',
+            'version': '42',
         }
         form = ResultSubmissionForm(boulder_id=8, data=data)
 
         self.assertTrue(form.is_valid())
         result = form.get_submitted_result()
 
-        self.assertAlmostEqual(result.timestamp, 1234567890.123456, places=6)
+        self.assertEqual(result.version, 42)
 
-    def test_invalid_timestamp_returns_none(self):
-        """Invalid timestamp values return None."""
+    def test_invalid_version_returns_none(self):
+        """Invalid version values return None."""
         test_cases = [
-            {'timestamp': 'invalid'},
-            {'timestamp': ''},
-            {'timestamp': None},
+            {'version': 'invalid'},
+            {'version': ''},
+            {'version': None},
         ]
 
         for i, data in enumerate(test_cases):
@@ -160,12 +160,12 @@ class ResultSubmissionFormTestCase(TestCase):
 
                 # Empty string or None are valid (required=False)
                 # Invalid strings will fail validation
-                if data['timestamp'] == 'invalid':
+                if data['version'] == 'invalid':
                     self.assertFalse(form.is_valid())
                 else:
                     self.assertTrue(form.is_valid())
                     result = form.get_submitted_result()
-                    self.assertIsNone(result.timestamp)
+                    self.assertIsNone(result.version)
 
     def test_get_submitted_result_without_validation_raises_error(self):
         """Calling get_submitted_result() before is_valid() raises error."""
@@ -193,7 +193,7 @@ class ResultSubmissionFormTestCase(TestCase):
             'attempts_zone1': '2',
             'attempts_zone2': '0',
             'attempts_top': '3',
-            'timestamp': '1640000000.5',
+            'version': '7',
         }
         form = ResultSubmissionForm(boulder_id=42, data=post_data)
 
@@ -206,7 +206,7 @@ class ResultSubmissionFormTestCase(TestCase):
         self.assertEqual(result.attempts_zone1, 2)
         self.assertEqual(result.attempts_zone2, 0)
         self.assertEqual(result.attempts_top, 3)
-        self.assertAlmostEqual(result.timestamp, 1640000000.5, places=1)
+        self.assertEqual(result.version, 7)
 
     def test_zero_attempts_allowed(self):
         """Zero attempts are explicitly allowed (different from negative)."""
@@ -235,7 +235,7 @@ class ResultServiceIntegrationTestCase(TestCase):
             'attempts_zone1_42': '3',
             'attempts_zone2_42': '0',
             'attempts_top_42': '5',
-            'ts_42': '1234567890.5',
+            'ver_42': '8',
         }
 
         result = ResultService.extract_from_post(post_data, boulder_id=42)
@@ -247,7 +247,7 @@ class ResultServiceIntegrationTestCase(TestCase):
         self.assertEqual(result.attempts_zone1, 3)
         self.assertEqual(result.attempts_zone2, 0)
         self.assertEqual(result.attempts_top, 5)
-        self.assertAlmostEqual(result.timestamp, 1234567890.5, places=1)
+        self.assertEqual(result.version, 8)
 
     def test_extract_from_post_handles_missing_fields(self):
         """ResultService.extract_from_post() handles missing POST fields gracefully."""
@@ -262,14 +262,14 @@ class ResultServiceIntegrationTestCase(TestCase):
         self.assertEqual(result.attempts_zone1, 0)
         self.assertEqual(result.attempts_zone2, 0)
         self.assertEqual(result.attempts_top, 0)
-        self.assertIsNone(result.timestamp)
+        self.assertIsNone(result.version)
 
     def test_extract_from_post_handles_invalid_data(self):
         """ResultService.extract_from_post() logs warning for invalid data."""
         post_data = {
             'attempts_zone1_10': 'not_a_number',
             'attempts_top_10': 'also_invalid',
-            'ts_10': 'invalid_timestamp',
+            'ver_10': 'invalid_version',
         }
 
         # Should not raise exception, but log warning and return safe defaults
@@ -279,4 +279,4 @@ class ResultServiceIntegrationTestCase(TestCase):
         # Invalid data should result in fallback to safe defaults
         self.assertEqual(result.attempts_zone1, 0)
         self.assertEqual(result.attempts_top, 0)
-        self.assertIsNone(result.timestamp)
+        self.assertIsNone(result.version)

@@ -90,7 +90,7 @@ class ResultSubmissionForm(forms.Form):
     attempts_zone1 = forms.IntegerField(required=False)
     attempts_zone2 = forms.IntegerField(required=False)
     attempts_top = forms.IntegerField(required=False)
-    timestamp = forms.FloatField(required=False)
+    version = forms.IntegerField(required=False)
 
     def __init__(self, boulder_id: int, *args, **kwargs):
         """
@@ -124,13 +124,13 @@ class ResultSubmissionForm(forms.Form):
         value = self.cleaned_data.get('attempts_top')
         return max(0, value) if value is not None else 0
 
-    def clean_timestamp(self):
-        """Parse timestamp, returning None if invalid."""
-        value = self.cleaned_data.get('timestamp')
+    def clean_version(self):
+        """Parse version number, returning None if invalid."""
+        value = self.cleaned_data.get('version')
         if value is None or value == '':
             return None
         try:
-            return float(value)
+            return int(value)
         except (TypeError, ValueError):
             return None
 
@@ -150,5 +150,5 @@ class ResultSubmissionForm(forms.Form):
             attempts_zone1=self.cleaned_data.get('attempts_zone1', 0),
             attempts_zone2=self.cleaned_data.get('attempts_zone2', 0),
             attempts_top=self.cleaned_data.get('attempts_top', 0),
-            timestamp=self.cleaned_data.get('timestamp'),
+            version=self.cleaned_data.get('version'),
         )

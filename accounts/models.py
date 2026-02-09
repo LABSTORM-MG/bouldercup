@@ -348,6 +348,10 @@ class Result(models.Model):
     zone1 = models.BooleanField(default=False)
     zone2 = models.BooleanField(default=False)
     top = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(
+        default=0,
+        help_text="Version number for optimistic locking (incremented on each save)"
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -358,6 +362,12 @@ class Result(models.Model):
             models.Index(fields=["boulder", "-updated_at"]),
             models.Index(fields=["participant", "boulder"]),
         ]
+
+    def save(self, *args, **kwargs):
+        """Override save to increment version on each update."""
+        if self.pk:  # Only increment for updates, not new records
+            self.version += 1
+        super().save(*args, **kwargs)
 
     def clean(self):
         """
