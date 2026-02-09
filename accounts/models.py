@@ -115,6 +115,42 @@ class Participant(models.Model):
         )
 
 
+def find_closest_css_color(hex_color: str) -> str:
+    """
+    Find the closest CSS3 color name to a given hex color using Euclidean distance in RGB space.
+
+    Args:
+        hex_color: Hex color string (e.g., "#f97316")
+
+    Returns:
+        Closest CSS3 color name (e.g., "darkorange")
+    """
+    import webcolors
+
+    # Convert input hex to RGB
+    try:
+        input_rgb = webcolors.hex_to_rgb(hex_color)
+    except ValueError:
+        return None
+
+    # Find closest color by calculating Euclidean distance
+    min_distance = float('inf')
+    closest_name = None
+
+    for css_name in webcolors.names('css3'):
+        css_hex = webcolors.name_to_hex(css_name)
+        css_rgb = webcolors.hex_to_rgb(css_hex)
+
+        # Calculate Euclidean distance in RGB space
+        distance = sum((input_rgb[i] - css_rgb[i]) ** 2 for i in range(3)) ** 0.5
+
+        if distance < min_distance:
+            min_distance = distance
+            closest_name = css_name
+
+    return closest_name
+
+
 class Boulder(models.Model):
     """Represents a single boulder in the competition."""
 
@@ -162,7 +198,7 @@ class Boulder(models.Model):
     )
     color = models.CharField(
         max_length=50,
-        help_text="Griff-/Tape-Farbe zur einfachen Zuordnung.",
+        help_text="Griff-/Tape-Farbe zur einfachen Zuordnung. Eingabe möglich als: Deutsche Namen (rot, blau, grün, türkis), Englische CSS-Namen (red, blue, hotpink), oder Hex-Codes (#ff0000, f00). Nicht-Standard-Farben werden automatisch auf die nächste CSS-Standardfarbe normalisiert.",
     )
     age_groups = models.ManyToManyField(
         AgeGroup,
@@ -193,21 +229,35 @@ class Boulder(models.Model):
 
     @property
     def color_display_name(self) -> str:
-        """Get human-readable German color name from hex code."""
+        """Get human-readable German color name from hex code using webcolors with fuzzy matching."""
         if not self.color:
             return ""
 
-        # If it's already a hex code, try to reverse lookup
-        if self.color.startswith("#"):
-            # Create reverse mapping
-            reverse_map = {v: k for k, v in self.COLOR_ALIASES.items()}
-            color_name = reverse_map.get(self.color.lower())
+        # Import here to avoid circular imports
+        import webcolors
+        from .color_translations import EN_TO_DE_COLORS
 
-            if color_name:
-                # Capitalize first letter of German name
-                return color_name.capitalize()
-            else:
-                # If no German name found, return shortened hex (without #)
+        # If it's a hex code, convert to German name
+        if self.color.startswith("#"):
+            try:
+                # Get English CSS color name (exact match)
+                english_name = webcolors.hex_to_name(self.color.lower())
+                # Translate to German
+                german_name = EN_TO_DE_COLORS.get(english_name)
+                if german_name:
+                    return german_name
+                # Fallback: capitalize English name if no German translation
+                return english_name.capitalize()
+            except ValueError:
+                # No exact match - use fuzzy matching to find closest color
+                closest_name = find_closest_css_color(self.color)
+                if closest_name:
+                    # Translate to German
+                    german_name = EN_TO_DE_COLORS.get(closest_name)
+                    if german_name:
+                        return german_name
+                    return closest_name.capitalize()
+                # Final fallback: return hex code without #
                 return self.color[1:].upper()
 
         # Otherwise just capitalize the raw value
@@ -216,29 +266,65 @@ class Boulder(models.Model):
     @classmethod
     def normalize_color(cls, value: str) -> str:
         """
-        Map free-text color input to a CSS-friendly value.
+        Map free-text color input to standard CSS hex values using webcolors with fuzzy matching.
 
-        Accepts hex values (with/without #) and German color names with
-        common variants such as "grün", "gruen", "hellblau".
+        Accepts:
+        - Hex values (with/without #): "#ff0000", "f00"
+        - English CSS color names: "red", "blue", "hotpink"
+        - German color names: "rot", "blau", "grün", "hellblau"
+
+        Non-standard hex codes are automatically mapped to the nearest CSS color.
         """
         if not value:
             return value
 
+        import webcolors
+        from .color_translations import DE_TO_EN_COLORS
+
         raw = value.strip()
+
+        # If it's already a hex code, normalize and find closest CSS color
         if cls.HEX_PATTERN.match(raw):
             normalized = raw.lower()
             if not normalized.startswith("#"):
                 normalized = f"#{normalized}"
-            # Expand shorthand hex (e.g. #f00 -> #ff0000) to keep it predictable.
+            # Expand shorthand hex (e.g. #f00 -> #ff0000)
             if len(normalized) == 4:
                 normalized = "#" + "".join(char * 2 for char in normalized[1:])
-            return normalized
 
-        # slugify handles umlauts, spaces and punctuation (e.g. "Grün" -> "grun")
-        alias_key = slugify(raw).replace("-", "")
-        if alias_key in cls.COLOR_ALIASES:
-            return cls.COLOR_ALIASES[alias_key]
+            # Try exact match first
+            try:
+                webcolors.hex_to_name(normalized)
+                # Exact match found, use it
+                return normalized
+            except ValueError:
+                # No exact match - find closest CSS color using fuzzy matching
+                closest_name = find_closest_css_color(normalized)
+                if closest_name:
+                    # Convert closest color name back to hex
+                    return webcolors.name_to_hex(closest_name)
+                # Fallback: keep the normalized hex
+                return normalized
 
+        # Try to convert color name to hex
+        # First normalize the input (handle umlauts, spaces, etc.)
+        normalized_name = slugify(raw).replace("-", "")
+
+        # Try German name first
+        if normalized_name in DE_TO_EN_COLORS:
+            english_name = DE_TO_EN_COLORS[normalized_name]
+            try:
+                return webcolors.name_to_hex(english_name)
+            except ValueError:
+                pass
+
+        # Try English name directly
+        try:
+            return webcolors.name_to_hex(normalized_name)
+        except ValueError:
+            pass
+
+        # Fallback: return the original value lowercased
         return raw.lower()
 
     def save(self, *args, **kwargs):
