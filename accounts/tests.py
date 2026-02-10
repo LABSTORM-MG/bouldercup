@@ -145,7 +145,7 @@ class ParticipantAuthTestCase(TestCase):
         # Should not redirect (failed login)
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('participant_id', client.session)
-        self.assertContains(response, 'Unbekannter Teilnehmer')
+        self.assertContains(response, 'Unbekannte*r Teilnehmer*in.')
 
 
 class PasswordChangeTestCase(TestCase):
@@ -252,67 +252,54 @@ class PasswordChangeTestCase(TestCase):
 class CachingTestCase(TestCase):
     """Test caching functionality for models."""
 
-    def test_rulebook_cache_invalidation(self):
-        """Test that Rulebook cache is invalidated on save."""
+    def test_competition_settings_cache_invalidation(self):
+        """Test that CompetitionSettings cache is invalidated on save."""
         from django.core.cache import cache
-        from .models import Rulebook
+        from .models import CompetitionSettings, AgeGroup, Participant
 
-        # Clear cache
         cache.clear()
 
-        # Get or create rulebook (singleton)
-        rulebook, _ = Rulebook.objects.get_or_create(
+        settings, _ = CompetitionSettings.objects.get_or_create(
             singleton_guard=True,
-            defaults={
-                "name": "Test Rulebook",
-                "content": "Test content"
-            }
+            defaults={'grading_system': 'ifsc'}
         )
 
-        # Cache should be empty initially
-        self.assertIsNone(cache.get('rulebook_content'))
+        # Prime the cache by accessing Participant.age (which reads competition_settings)
+        age_group = AgeGroup.objects.create(name='CacheTest', min_age=0, max_age=99, gender='mixed')
+        participant = Participant.objects.create(
+            username='cachetest', name='Cache Test',
+            date_of_birth=date(2000, 1, 1), gender='male', age_group=age_group
+        )
+        _ = participant.age  # triggers cache.set('competition_settings', ...)
+        self.assertIsNotNone(cache.get('competition_settings'))
 
-        # Simulate caching
-        cache.set('rulebook_content', rulebook.content, 300)
-        self.assertIsNotNone(cache.get('rulebook_content'))
+        # Save should invalidate cache
+        settings.grading_system = 'point_based'
+        settings.save()
 
-        # Update rulebook
-        rulebook.content = "Updated content"
-        rulebook.save()
+        self.assertIsNone(cache.get('competition_settings'))
 
-        # Cache should be invalidated
-        self.assertIsNone(cache.get('rulebook_content'))
-
-    def test_helptext_cache_invalidation(self):
-        """Test that HelpText cache is invalidated on save."""
+    def test_admin_message_cache_invalidation(self):
+        """Test that AdminMessage cache is invalidated on save."""
         from django.core.cache import cache
-        from .models import HelpText
+        from .models import AdminMessage
 
-        # Clear cache
         cache.clear()
 
-        # Get or create help text (singleton)
-        helptext, _ = HelpText.objects.get_or_create(
+        msg, _ = AdminMessage.objects.get_or_create(
             singleton_guard=True,
-            defaults={
-                "name": "Test Help",
-                "content": "Test help content"
-            }
+            defaults={'heading': 'Test', 'content': 'Hello', 'background_color': '#ffffff'}
         )
 
-        # Cache should be empty initially
-        self.assertIsNone(cache.get('helptext_content'))
+        # Manually prime the cache
+        cache.set('admin_message', {'heading': msg.heading}, 300)
+        self.assertIsNotNone(cache.get('admin_message'))
 
-        # Simulate caching
-        cache.set('helptext_content', helptext.content, 300)
-        self.assertIsNotNone(cache.get('helptext_content'))
+        # Save should invalidate cache
+        msg.heading = 'Updated'
+        msg.save()
 
-        # Update help text
-        helptext.content = "Updated help content"
-        helptext.save()
-
-        # Cache should be invalidated
-        self.assertIsNone(cache.get('helptext_content'))
+        self.assertIsNone(cache.get('admin_message'))
 
 
 class BulkSubmissionWindowTestCase(TestCase):
