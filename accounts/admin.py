@@ -634,10 +634,15 @@ class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
 
 @admin.register(Result)
 class ResultAdmin(admin.ModelAdmin):
-    list_display = ('participant', 'boulder', 'top', 'zone2', 'zone1', 'attempts', 'updated_at')
-    list_filter = ('top', 'zone2', 'zone1', 'boulder', 'participant__age_group')
+    list_display = ('participant', 'boulder', 'top', 'zone2', 'zone1', 'attempts', 'created_at', 'updated_at')
+    list_filter = ('top', 'zone2', 'zone1', 'boulder', 'participant__age_group', 'created_at')
     search_fields = ('participant__name', 'boulder__label')
-    readonly_fields = ('updated_at',)
+    readonly_fields = ('created_at', 'updated_at', 'version')
+    actions = ['export_results_csv', 'export_results_history_csv', 'export_standings_pdf']
+
+    # Enable django-simple-history
+    # Note: We extend ModelAdmin instead of SimpleHistoryAdmin to maintain custom save_model
+    # History is available via the history ForeignKey on each Result instance
 
     def save_model(self, request, obj, form, change):
         """Log admin changes to results."""
@@ -666,3 +671,266 @@ class ResultAdmin(admin.ModelAdmin):
             )
 
         super().save_model(request, obj, form, change)
+
+    @admin.action(description="Ergebnisse als CSV exportieren (aktueller Stand)")
+    def export_results_csv(self, request, queryset):
+        """
+        Export current results to CSV with timestamps.
+
+        Exports selected results (or all if none selected) with participant info,
+        boulder details, all attempt counts, and timestamps.
+        """
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone
+
+        # Use queryset if items selected, otherwise export all
+        results = queryset if queryset.exists() else Result.objects.all()
+        results = results.select_related('participant', 'participant__age_group', 'boulder').order_by(
+            'participant__age_group__name', 'participant__name', 'boulder__label'
+        )
+
+        # Create response with UTF-8 BOM for Excel compatibility
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        timestamp = timezone.now().strftime('%Y-%m-%d_%H%M')
+        response['Content-Disposition'] = f'attachment; filename="ergebnisse_{timestamp}.csv"'
+
+        writer = csv.writer(response)
+
+        # Header row
+        writer.writerow([
+            'Teilnehmer', 'Benutzername', 'Altersgruppe', 'Boulder',
+            'Top', 'Zone 2', 'Zone 1',
+            'Versuche Top', 'Versuche Zone 2', 'Versuche Zone 1',
+            'Flash', 'Version', 'Erstellt am', 'Zuletzt geändert'
+        ])
+
+        # Data rows
+        for result in results:
+            # Flash detection (top in 1 attempt)
+            is_flash = result.top and result.attempts_top == 1
+
+            writer.writerow([
+                result.participant.name,
+                result.participant.username,
+                result.participant.age_group.name if result.participant.age_group else '—',
+                result.boulder.label,
+                'Ja' if result.top else 'Nein',
+                'Ja' if result.zone2 else 'Nein',
+                'Ja' if result.zone1 else 'Nein',
+                result.attempts_top,
+                result.attempts_zone2,
+                result.attempts_zone1,
+                '⚡' if is_flash else '',
+                result.version,
+                result.created_at.strftime('%Y-%m-%d %H:%M:%S') if result.created_at else '—',
+                result.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+            ])
+
+        return response
+
+    @admin.action(description="Ergebnisse mit Änderungsverlauf als CSV exportieren")
+    def export_results_history_csv(self, request, queryset):
+        """
+        Export complete history of results to CSV.
+
+        Shows all historical versions of each result with who changed what and when.
+        """
+        import csv
+        from django.http import HttpResponse
+        from django.utils import timezone
+
+        # Use queryset if items selected, otherwise export all
+        results = queryset if queryset.exists() else Result.objects.all()
+
+        # Create response
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        timestamp = timezone.now().strftime('%Y-%m-%d_%H%M')
+        response['Content-Disposition'] = f'attachment; filename="ergebnisse_verlauf_{timestamp}.csv"'
+
+        writer = csv.writer(response)
+
+        # Header row
+        writer.writerow([
+            'Teilnehmer', 'Benutzername', 'Altersgruppe', 'Boulder',
+            'Top', 'Zone 2', 'Zone 1',
+            'Versuche Top', 'Versuche Zone 2', 'Versuche Zone 1',
+            'Version', 'Änderungszeitpunkt', 'Änderungstyp', 'Geändert von'
+        ])
+
+        # Data rows - iterate through history of each result
+        total_records = 0
+        for result in results:
+            for historical in result.history.all().order_by('history_date'):
+                history_type = {
+                    '+': 'Erstellt',
+                    '~': 'Geändert',
+                    '-': 'Gelöscht'
+                }.get(historical.history_type, historical.history_type)
+
+                writer.writerow([
+                    historical.participant.name if historical.participant else '—',
+                    historical.participant.username if historical.participant else '—',
+                    historical.participant.age_group.name if historical.participant and historical.participant.age_group else '—',
+                    historical.boulder.label if historical.boulder else '—',
+                    'Ja' if historical.top else 'Nein',
+                    'Ja' if historical.zone2 else 'Nein',
+                    'Ja' if historical.zone1 else 'Nein',
+                    historical.attempts_top,
+                    historical.attempts_zone2,
+                    historical.attempts_zone1,
+                    historical.version,
+                    historical.history_date.strftime('%Y-%m-%d %H:%M:%S'),
+                    history_type,
+                    historical.history_user.username if historical.history_user else 'System',
+                ])
+                total_records += 1
+
+        return response
+
+    @admin.action(description="Aktuelle Rangliste als PDF exportieren")
+    def export_standings_pdf(self, request, queryset):
+        """
+        Export current standings as PDF with timestamp for documentation.
+
+        Creates a formatted PDF showing final results, suitable for
+        official documentation and announcements.
+        """
+        from django.http import HttpResponse
+        from django.utils import timezone
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        from accounts.services.scoring_service import ScoringService
+        from accounts.models import CompetitionSettings, AgeGroup
+
+        # Get competition settings
+        settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
+        if not settings:
+            self.message_user(request, "Keine Wettkampfeinstellungen gefunden.", level='ERROR')
+            return
+
+        # Create response
+        response = HttpResponse(content_type='application/pdf')
+        timestamp = timezone.now().strftime('%Y-%m-%d_%H%M')
+        response['Content-Disposition'] = f'attachment; filename="rangliste_{timestamp}.pdf"'
+
+        # Create PDF
+        doc = SimpleDocTemplate(response, pagesize=landscape(A4))
+        elements = []
+        styles = getSampleStyleSheet()
+
+        # Title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=1  # Center
+        )
+
+        current_time = timezone.now().strftime('%d.%m.%Y %H:%M:%S')
+        title_text = f"BoulderCup Rangliste<br/><font size=12>Stand: {current_time}</font>"
+        elements.append(Paragraph(title_text, title_style))
+        elements.append(Spacer(1, 0.5*cm))
+
+        # Get all age groups
+        age_groups = AgeGroup.objects.all().order_by('name')
+
+        for age_group in age_groups:
+            # Age group header
+            group_style = ParagraphStyle(
+                'GroupHeader',
+                parent=styles['Heading2'],
+                fontSize=14,
+                spaceAfter=10
+            )
+            elements.append(Paragraph(f"Altersgruppe: {age_group.name}", group_style))
+
+            # Load participants and boulders for this age group
+            from accounts.models import Participant, Result, Boulder
+            participants = list(
+                Participant.objects.filter(age_group=age_group)
+                .select_related('age_group')
+                .order_by('name')
+            )
+            if not participants:
+                elements.append(Paragraph("Keine Teilnehmer vorhanden", styles['Normal']))
+                elements.append(Spacer(1, 0.5*cm))
+                continue
+
+            boulders = list(Boulder.objects.filter(age_groups=age_group))
+            results_qs = (
+                Result.objects
+                .filter(participant__in=participants, boulder__in=boulders)
+                .select_related('participant', 'boulder')
+            )
+
+            if settings.grading_system in ('point_based_dynamic', 'point_based_dynamic_attempts'):
+                results_list = list(results_qs)
+                result_map = ScoringService.group_results_by_participant(results_list)
+                top_counts = ScoringService.count_tops_per_boulder(results_list)
+                entries = ScoringService.build_scoreboard_entries(
+                    participants, result_map, settings.grading_system, settings,
+                    top_counts=top_counts, participant_count=len(participants)
+                )
+            else:
+                result_map = ScoringService.group_results_by_participant(results_qs)
+                entries = ScoringService.build_scoreboard_entries(
+                    participants, result_map, settings.grading_system, settings
+                )
+
+            if not entries:
+                elements.append(Paragraph("Keine Ergebnisse vorhanden", styles['Normal']))
+                elements.append(Spacer(1, 0.5*cm))
+                continue
+
+            # Create table data
+            if settings.grading_system == 'ifsc':
+                table_data = [['Rang', 'Name', 'Tops', 'Zonen', 'Versuche Top', 'Versuche Zone']]
+                for entry in entries:
+                    table_data.append([
+                        str(entry['rank']),
+                        entry['participant'].name,
+                        str(entry.get('tops', 0)),
+                        str(entry.get('zones', 0)),
+                        str(entry.get('attempts_top', 0)),
+                        str(entry.get('attempts_zone', 0)),
+                    ])
+            else:
+                table_data = [['Rang', 'Name', 'Punkte', 'Tops', 'Zonen']]
+                for entry in entries:
+                    table_data.append([
+                        str(entry['rank']),
+                        entry['participant'].name,
+                        f"{entry.get('total_points', 0):.1f}",
+                        str(entry.get('tops', 0)),
+                        str(entry.get('zones', 0)),
+                    ])
+
+            # Create and style table
+            table = Table(table_data, hAlign='LEFT')
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ]))
+
+            elements.append(table)
+            elements.append(Spacer(1, 1*cm))
+
+        # Build PDF
+        doc.build(elements)
+        return response

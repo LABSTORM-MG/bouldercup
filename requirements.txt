@@ -1,9 +1,11 @@
 Django>=5.2,<5.3
 django-ckeditor-5>=0.2.0
-python-json-logger>=2.0.0
-gunicorn>=22.0.0
-python-dotenv>=1.0.0
-psutil>=5.9.8
-WeasyPrint>=68.0
 django-weasyprint>=2.3.0
+gunicorn>=22.0.0
+psutil>=5.9.8
+python-dotenv>=1.0.0
+python-json-logger>=2.0.0
+reportlab==4.4.9
+WeasyPrint>=68.0
 webcolors>=24.0.0
+django-simple-history==3.11.0

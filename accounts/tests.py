@@ -449,3 +449,214 @@ class BulkSubmissionWindowTestCase(TestCase):
         self.assertIn("Zeitfenster U12", window_names)
         self.assertIn("Zeitfenster U16", window_names)
         self.assertIn("Zeitfenster Open", window_names)
+
+
+class ResultExportTestCase(TestCase):
+    """Test result export functionality (CSV and PDF)."""
+
+    def setUp(self):
+        """Create test data for exports."""
+        from accounts.models import Boulder, CompetitionSettings
+
+        # Create age group
+        self.age_group = AgeGroup.objects.create(
+            name="Test Group",
+            min_age=10,
+            max_age=15,
+            gender="mixed"
+        )
+
+        # Create participants
+        self.participant1 = Participant.objects.create(
+            username="test1",
+            name="Test Teilnehmer 1",
+            password="hashed",
+            date_of_birth=date(2010, 1, 1),
+            gender="male",
+            age_group=self.age_group
+        )
+        self.participant2 = Participant.objects.create(
+            username="test2",
+            name="Test Teilnehmer 2",
+            password="hashed",
+            date_of_birth=date(2011, 6, 15),
+            gender="female",
+            age_group=self.age_group
+        )
+
+        # Create boulders
+        self.boulder1 = Boulder.objects.create(label="B1", zone_count=2, color="#ff0000")
+        self.boulder1.age_groups.add(self.age_group)
+
+        self.boulder2 = Boulder.objects.create(label="B2", zone_count=1, color="#00ff00")
+        self.boulder2.age_groups.add(self.age_group)
+
+        # Create competition settings (use get_or_create – singleton)
+        self.settings, _ = CompetitionSettings.objects.get_or_create(
+            singleton_guard=True,
+            defaults={'grading_system': 'ifsc'}
+        )
+
+    def test_result_has_created_at_field(self):
+        """Result model has created_at field for tracking creation time."""
+        from accounts.models import Result
+
+        result = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            top=True,
+            attempts_top=3
+        )
+
+        # Should have created_at timestamp
+        self.assertIsNotNone(result.created_at)
+        self.assertIsNotNone(result.updated_at)
+
+    def test_result_has_history(self):
+        """Result model has history tracking via django-simple-history."""
+        from accounts.models import Result
+
+        result = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            zone1=True,
+            attempts_zone1=2
+        )
+
+        # Should have history
+        self.assertTrue(hasattr(result, 'history'))
+        self.assertEqual(result.history.count(), 1)
+
+        # Update result
+        result.top = True
+        result.attempts_top = 5
+        result.save()
+
+        # Should have 2 history records now
+        self.assertEqual(result.history.count(), 2)
+
+    def test_csv_export_includes_timestamps(self):
+        """CSV export includes created_at and updated_at timestamps."""
+        from accounts.models import Result
+        from accounts.admin import ResultAdmin
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        # Create results
+        result1 = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            top=True,
+            attempts_top=1  # Flash
+        )
+        result2 = Result.objects.create(
+            participant=self.participant2,
+            boulder=self.boulder2,
+            zone1=True,
+            attempts_zone1=3
+        )
+
+        # Simulate admin export
+        admin_instance = ResultAdmin(Result, AdminSite())
+        factory = RequestFactory()
+        request = factory.post('/admin/accounts/result/')
+
+        # Export CSV
+        response = admin_instance.export_results_csv(request, Result.objects.all())
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8-sig')
+        self.assertIn('attachment', response['Content-Disposition'])
+        self.assertIn('ergebnisse_', response['Content-Disposition'])
+
+        # Decode content
+        content = response.content.decode('utf-8-sig')
+
+        # Check headers
+        self.assertIn('Teilnehmer', content)
+        self.assertIn('Boulder', content)
+        self.assertIn('Flash', content)
+        self.assertIn('Erstellt am', content)
+        self.assertIn('Zuletzt geändert', content)
+
+        # Check flash detection
+        self.assertIn('⚡', content)  # Result1 is a flash
+
+    def test_history_csv_export_tracks_changes(self):
+        """History CSV export shows all changes with timestamps."""
+        from accounts.models import Result
+        from accounts.admin import ResultAdmin
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        # Create and modify result
+        result = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            zone1=True,
+            attempts_zone1=2
+        )
+
+        # Update multiple times
+        result.zone2 = True
+        result.attempts_zone2 = 3
+        result.save()
+
+        result.top = True
+        result.attempts_top = 5
+        result.save()
+
+        # Should have 3 history records (create + 2 updates)
+        self.assertEqual(result.history.count(), 3)
+
+        # Export history
+        admin_instance = ResultAdmin(Result, AdminSite())
+        factory = RequestFactory()
+        request = factory.post('/admin/accounts/result/')
+
+        response = admin_instance.export_results_history_csv(request, Result.objects.filter(id=result.id))
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode('utf-8-sig')
+
+        # Should show all 3 versions
+        self.assertIn('Änderungszeitpunkt', content)
+        self.assertIn('Änderungstyp', content)
+
+    def test_pdf_standings_export(self):
+        """PDF standings export produces a valid PDF file."""
+        from accounts.models import Result
+        from accounts.admin import ResultAdmin
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        # Create some results
+        Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            top=True, zone2=True, zone1=True,
+            attempts_top=2, attempts_zone2=2, attempts_zone1=2
+        )
+        Result.objects.create(
+            participant=self.participant2,
+            boulder=self.boulder1,
+            zone1=True,
+            attempts_zone1=3
+        )
+
+        # Export PDF
+        admin_instance = ResultAdmin(Result, AdminSite())
+        factory = RequestFactory()
+        request = factory.post('/admin/accounts/result/')
+
+        response = admin_instance.export_standings_pdf(request, Result.objects.none())
+
+        # Should be a PDF response
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('rangliste_', response['Content-Disposition'])
+
+        # PDF starts with %PDF header
+        self.assertTrue(response.content.startswith(b'%PDF'))

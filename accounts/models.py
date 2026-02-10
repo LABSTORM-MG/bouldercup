@@ -352,7 +352,17 @@ class Result(models.Model):
         default=0,
         help_text="Version number for optimistic locking (incremented on each save)"
     )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        null=True,
+        blank=True,
+        help_text="Zeitpunkt der ersten Erstellung (null für ältere Einträge)"
+    )
     updated_at = models.DateTimeField(auto_now=True)
+
+    # History tracking
+    from simple_history.models import HistoricalRecords
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ("participant", "boulder")
