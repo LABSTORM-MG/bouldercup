@@ -511,12 +511,12 @@ def participant_detail_results(request: HttpRequest, participant: Participant, p
                 'top': res.top,
                 'zone2': res.zone2,
                 'zone1': res.zone1,
-                'attempts_top': res.attempts_top or res.attempts or 0,
-                'attempts_zone2': res.attempts_zone2 or res.attempts or 0,
-                'attempts_zone1': res.attempts_zone1 or res.attempts or 0,
-                'top_display': f"✓ ({res.attempts_top or res.attempts})" if res.top else "-",
-                'zone2_display': f"✓ ({res.attempts_zone2 or res.attempts})" if res.zone2 else ("-" if boulder.zone_count >= 2 else "N/A"),
-                'zone1_display': f"✓ ({res.attempts_zone1 or res.attempts})" if res.zone1 else ("-" if boulder.zone_count >= 1 else "N/A"),
+                'attempts_top': res.attempts_top,
+                'attempts_zone2': res.attempts_zone2,
+                'attempts_zone1': res.attempts_zone1,
+                'top_display': f"✓ ({res.attempts_top})" if res.top else "-",
+                'zone2_display': f"✓ ({res.attempts_zone2})" if res.zone2 else ("-" if boulder.zone_count >= 2 else "N/A"),
+                'zone1_display': f"✓ ({res.attempts_zone1})" if res.zone1 else ("-" if boulder.zone_count >= 1 else "N/A"),
             })
         else:
             # Boulder not attempted

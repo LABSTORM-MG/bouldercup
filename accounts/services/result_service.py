@@ -256,11 +256,6 @@ class ResultService:
                 current_result.attempts_zone1 = submission.attempts_zone1
                 current_result.attempts_zone2 = submission.attempts_zone2
                 current_result.attempts_top = submission.attempts_top
-                current_result.attempts = (
-                    submission.attempts_top
-                    if submission.top
-                    else (submission.attempts_zone2 if submission.zone2 else submission.attempts_zone1)
-                )
                 current_result.save()
                 payload[boulder.id] = ResultService.result_to_payload(current_result)
         

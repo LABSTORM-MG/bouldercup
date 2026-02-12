@@ -98,7 +98,6 @@ class ScoringServiceTestBase(TestCase):
         defaults = {
             "participant": participant,
             "boulder": boulder,
-            "attempts": 0,
             "attempts_zone1": 0,
             "attempts_zone2": 0,
             "attempts_top": 0,
@@ -131,7 +130,7 @@ class ScoringServiceIFSCTestCase(ScoringServiceTestBase):
         """Flash top should count as 1 top with 1 attempt."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
 
         scored = ScoringService.score_ifsc([result])
@@ -145,7 +144,7 @@ class ScoringServiceIFSCTestCase(ScoringServiceTestBase):
         """Top with multiple attempts should count correctly."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=5, attempts_top=5
+            top=True, attempts_top=5
         )
 
         scored = ScoringService.score_ifsc([result])
@@ -159,7 +158,7 @@ class ScoringServiceIFSCTestCase(ScoringServiceTestBase):
         """Zone2 only should count as 1 zone."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone2=True, attempts=3, attempts_zone2=3
+            zone2=True, attempts_zone2=3
         )
 
         scored = ScoringService.score_ifsc([result])
@@ -173,7 +172,7 @@ class ScoringServiceIFSCTestCase(ScoringServiceTestBase):
         """Zone1 only should count as 1 zone."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone1=True, attempts=2, attempts_zone1=2
+            zone1=True, attempts_zone1=2
         )
 
         scored = ScoringService.score_ifsc([result])
@@ -187,15 +186,15 @@ class ScoringServiceIFSCTestCase(ScoringServiceTestBase):
         """Multiple results should aggregate correctly."""
         r1 = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
         r2 = self.create_result(
             self.alice, self.boulder_1zone,
-            zone1=True, attempts=3, attempts_zone1=3
+            zone1=True, attempts_zone1=3
         )
         r3 = self.create_result(
             self.alice, self.boulder_0zone,
-            top=True, attempts=4, attempts_top=4
+            top=True, attempts_top=4
         )
 
         scored = ScoringService.score_ifsc([r1, r2, r3])
@@ -214,31 +213,6 @@ class ScoringServiceIFSCTestCase(ScoringServiceTestBase):
         self.assertEqual(scored["top_attempts"], 0)
         self.assertEqual(scored["zone_attempts"], 0)
 
-    def test_score_ifsc_top_fallback_to_attempts(self):
-        """Top attempts should fall back to attempts field if attempts_top is 0."""
-        result = self.create_result(
-            self.alice, self.boulder_2zone,
-            top=True, attempts=5, attempts_top=0
-        )
-
-        scored = ScoringService.score_ifsc([result])
-
-        self.assertEqual(scored["tops"], 1)
-        self.assertEqual(scored["top_attempts"], 5)
-
-    def test_score_ifsc_zone_fallback_to_attempts(self):
-        """Zone attempts should fall back to attempts field if specific zone attempts is 0."""
-        result = self.create_result(
-            self.alice, self.boulder_2zone,
-            zone1=True, attempts=4, attempts_zone1=0
-        )
-
-        scored = ScoringService.score_ifsc([result])
-
-        self.assertEqual(scored["zones"], 1)
-        self.assertEqual(scored["zone_attempts"], 4)
-
-
 class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
     """Test point_based scoring with penalties."""
 
@@ -250,7 +224,7 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         """Flash should give flash_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
 
         scored = ScoringService.score_point_based([result], self.settings)
@@ -263,7 +237,7 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         """Top with penalties should reduce points to min_top_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=25, attempts_top=25
+            top=True, attempts_top=25
         )
 
         scored = ScoringService.score_point_based([result], self.settings)
@@ -276,7 +250,7 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         """Zone2 with 1 attempt should give full zone2_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone2=True, attempts=1, attempts_zone2=1
+            zone2=True, attempts_zone2=1
         )
 
         scored = ScoringService.score_point_based([result], self.settings)
@@ -288,7 +262,7 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         """Zone2 with penalties should reduce to min_zone2_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone2=True, attempts=12, attempts_zone2=12
+            zone2=True, attempts_zone2=12
         )
 
         scored = ScoringService.score_point_based([result], self.settings)
@@ -301,7 +275,7 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         """Zone1 on 2-zone boulder should use zone1_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone1=True, attempts=1, attempts_zone1=1
+            zone1=True, attempts_zone1=1
         )
 
         scored = ScoringService.score_point_based([result], self.settings)
@@ -313,7 +287,7 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         """Zone1 on 1-zone boulder should use zone_points."""
         result = self.create_result(
             self.alice, self.boulder_1zone,
-            zone1=True, attempts=1, attempts_zone1=1
+            zone1=True, attempts_zone1=1
         )
 
         scored = ScoringService.score_point_based([result], self.settings)
@@ -322,10 +296,9 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         self.assertEqual(scored["zones"], 1)
 
     def test_score_point_based_no_achievement(self):
-        """No achievement should count attempts only."""
+        """No achievement should return zero attempts."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            attempts=5
         )
 
         scored = ScoringService.score_point_based([result], self.settings)
@@ -333,21 +306,20 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         self.assertEqual(scored["points"], 0)
         self.assertEqual(scored["tops"], 0)
         self.assertEqual(scored["zones"], 0)
-        self.assertEqual(scored["attempts"], 5)
+        self.assertEqual(scored["attempts"], 0)
 
     def test_score_point_based_multiple_boulders(self):
         """Multiple boulders should aggregate correctly."""
         r1 = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
         r2 = self.create_result(
             self.alice, self.boulder_1zone,
-            zone1=True, attempts=2, attempts_zone1=2
+            zone1=True, attempts_zone1=2
         )
         r3 = self.create_result(
             self.alice, self.boulder_0zone,
-            attempts=3
         )
 
         scored = ScoringService.score_point_based([r1, r2, r3], self.settings)
@@ -356,22 +328,7 @@ class ScoringServicePointBasedTestCase(ScoringServiceTestBase):
         self.assertEqual(scored["points"], 39)
         self.assertEqual(scored["tops"], 1)
         self.assertEqual(scored["zones"], 1)
-        self.assertEqual(scored["attempts"], 6)
-
-    def test_score_point_based_zone_fallback_to_attempts(self):
-        """Zone scoring should fall back to attempts field if specific zone attempts is 0."""
-        result = self.create_result(
-            self.alice, self.boulder_2zone,
-            zone1=True, attempts=3, attempts_zone1=0
-        )
-
-        scored = ScoringService.score_point_based([result], self.settings)
-
-        # 8 base - 2 penalty = 6
-        self.assertEqual(scored["points"], 6)
-        self.assertEqual(scored["zones"], 1)
-        self.assertEqual(scored["attempts"], 3)
-
+        self.assertEqual(scored["attempts"], 3)  # 1 (flash top) + 2 (zone1) + 0 (no achievement)
 
 class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
     """Test point_based_dynamic scoring - no penalties."""
@@ -384,7 +341,7 @@ class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
         """Flash should give flash_points regardless of percentage."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
 
         scored = ScoringService.score_point_based_dynamic(
@@ -398,7 +355,7 @@ class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
         """Top at 50% should use top_points_50 with no penalty."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=5, attempts_top=5
+            top=True, attempts_top=5
         )
 
         # 5 out of 10 participants topped = 50%
@@ -414,7 +371,7 @@ class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
         """Zone2 should give full zone2_points with no penalty."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone2=True, attempts=10, attempts_zone2=10
+            zone2=True, attempts_zone2=10
         )
 
         scored = ScoringService.score_point_based_dynamic(
@@ -428,7 +385,7 @@ class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
         """Zone1 should give full zone1_points with no penalty."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone1=True, attempts=8, attempts_zone1=8
+            zone1=True, attempts_zone1=8
         )
 
         scored = ScoringService.score_point_based_dynamic(
@@ -442,7 +399,7 @@ class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
         """Zone on 1-zone boulder should use zone_points."""
         result = self.create_result(
             self.alice, self.boulder_1zone,
-            zone1=True, attempts=5, attempts_zone1=5
+            zone1=True, attempts_zone1=5
         )
 
         scored = ScoringService.score_point_based_dynamic(
@@ -456,11 +413,11 @@ class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
         """Multiple tops should use correct dynamic points."""
         r1 = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
         r2 = self.create_result(
             self.alice, self.boulder_1zone,
-            top=True, attempts=3, attempts_top=3
+            top=True, attempts_top=3
         )
 
         # boulder_2zone: 9/10 topped = 90%
@@ -482,7 +439,7 @@ class ScoringServicePointBasedDynamicTestCase(ScoringServiceTestBase):
         """Zero tops should use top_points_10."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=5, attempts_top=5
+            top=True, attempts_top=5
         )
 
         # No one else topped this boulder
@@ -505,7 +462,7 @@ class ScoringServicePointBasedDynamicAttemptsTestCase(ScoringServiceTestBase):
         """Flash should give flash_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
 
         scored = ScoringService.score_point_based_dynamic_attempts(
@@ -519,7 +476,7 @@ class ScoringServicePointBasedDynamicAttemptsTestCase(ScoringServiceTestBase):
         """Top with penalty should reduce to min_top_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=20, attempts_top=20
+            top=True, attempts_top=20
         )
 
         # 5 out of 10 = 50% = top_points_50 = 35
@@ -536,7 +493,7 @@ class ScoringServicePointBasedDynamicAttemptsTestCase(ScoringServiceTestBase):
         """Top penalty should respect min_top_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=50, attempts_top=50
+            top=True, attempts_top=50
         )
 
         # 5 out of 10 = 50% = top_points_50 = 35
@@ -553,7 +510,7 @@ class ScoringServicePointBasedDynamicAttemptsTestCase(ScoringServiceTestBase):
         """Zone2 with penalty should reduce to min_zone2_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone2=True, attempts=15, attempts_zone2=15
+            zone2=True, attempts_zone2=15
         )
 
         # 12 base - 14 penalty = -2, but min is 3
@@ -568,7 +525,7 @@ class ScoringServicePointBasedDynamicAttemptsTestCase(ScoringServiceTestBase):
         """Zone1 with penalty should reduce to min_zone1_points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            zone1=True, attempts=10, attempts_zone1=10
+            zone1=True, attempts_zone1=10
         )
 
         # 8 base - 9 penalty = -1, but min is 2
@@ -583,11 +540,11 @@ class ScoringServicePointBasedDynamicAttemptsTestCase(ScoringServiceTestBase):
         """Multiple results should aggregate correctly."""
         r1 = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
         r2 = self.create_result(
             self.alice, self.boulder_1zone,
-            zone1=True, attempts=3, attempts_zone1=3
+            zone1=True, attempts_zone1=3
         )
 
         top_counts = {self.boulder_2zone.id: 5}
@@ -613,7 +570,7 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         """IFSC mode should always return 0 points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
 
         points = ScoringService.calculate_boulder_points(
@@ -626,7 +583,7 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         """Flash should give flash_points in all point-based modes."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1, attempts_top=1
+            top=True, attempts_top=1
         )
 
         modes = ["point_based", "point_based_dynamic", "point_based_dynamic_attempts"]
@@ -643,7 +600,6 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         """No achievement should return 0 points."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            attempts=5
         )
 
         points = ScoringService.calculate_boulder_points(
@@ -656,7 +612,7 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         """Dynamic mode with missing top_counts should return 0."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=3, attempts_top=3
+            top=True, attempts_top=3
         )
 
         points = ScoringService.calculate_boulder_points(
@@ -670,7 +626,7 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         """Dynamic mode with missing participant_count should return 0."""
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=3, attempts_top=3
+            top=True, attempts_top=3
         )
 
         points = ScoringService.calculate_boulder_points(
@@ -685,7 +641,7 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         # Zone2 on 2-zone boulder
         r1 = self.create_result(
             self.alice, self.boulder_2zone,
-            zone2=True, attempts=1, attempts_zone2=1
+            zone2=True, attempts_zone2=1
         )
         points1 = ScoringService.calculate_boulder_points(
             r1, "point_based", self.settings
@@ -695,7 +651,7 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         # Zone1 on 2-zone boulder
         r2 = self.create_result(
             self.bob, self.boulder_2zone,
-            zone1=True, attempts=1, attempts_zone1=1
+            zone1=True, attempts_zone1=1
         )
         points2 = ScoringService.calculate_boulder_points(
             r2, "point_based", self.settings
@@ -705,7 +661,7 @@ class ScoringServiceBoulderPointsTestCase(ScoringServiceTestBase):
         # Zone on 1-zone boulder
         r3 = self.create_result(
             self.alice, self.boulder_1zone,
-            zone1=True, attempts=1, attempts_zone1=1
+            zone1=True, attempts_zone1=1
         )
         points3 = ScoringService.calculate_boulder_points(
             r3, "point_based", self.settings
@@ -943,7 +899,7 @@ class ScoringServiceEdgeCasesTestCase(ScoringServiceTestBase):
         settings = self.create_settings("point_based_dynamic")
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=3, attempts_top=3
+            top=True, attempts_top=3
         )
 
         # Should not crash, should use 0% = top_points_10
@@ -953,26 +909,12 @@ class ScoringServiceEdgeCasesTestCase(ScoringServiceTestBase):
 
         self.assertEqual(scored["points"], 55)  # top_points_10
 
-    def test_zero_attempts_fallback(self):
-        """Zero values in attempt fields should fall back to attempts field."""
-        settings = self.create_settings("point_based")
-
-        # Create result with 0 for attempts_top (fallback to attempts)
-        result = self.create_result(
-            self.alice, self.boulder_2zone,
-            top=True, attempts=5, attempts_top=0
-        )
-
-        scored = ScoringService.score_ifsc([result])
-        # Should fall back to attempts field
-        self.assertEqual(scored["top_attempts"], 5)
-
     def test_extreme_attempt_counts(self):
         """Extreme attempt counts should respect minimums."""
         settings = self.create_settings("point_based")
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=1000, attempts_top=1000
+            top=True, attempts_top=1000
         )
 
         scored = ScoringService.score_point_based([result], settings)
@@ -985,7 +927,7 @@ class ScoringServiceEdgeCasesTestCase(ScoringServiceTestBase):
         settings = self.create_settings("point_based_dynamic")
         result = self.create_result(
             self.alice, self.boulder_2zone,
-            top=True, attempts=3, attempts_top=3
+            top=True, attempts_top=3
         )
 
         # top_counts doesn't include this boulder
@@ -1107,12 +1049,12 @@ class ScoringServiceIntegrationTestCase(ScoringServiceTestBase):
         settings = self.create_settings("point_based")
 
         # Alice: 1 flash, 1 zone
-        r1 = self.create_result(self.alice, self.boulder_2zone, top=True, attempts=1, attempts_top=1)
-        r2 = self.create_result(self.alice, self.boulder_1zone, zone1=True, attempts=2, attempts_zone1=2)
+        r1 = self.create_result(self.alice, self.boulder_2zone, top=True, attempts_top=1)
+        r2 = self.create_result(self.alice, self.boulder_1zone, zone1=True, attempts_zone1=2)
 
         # Bob: 1 top (3 attempts), 1 zone2
-        r3 = self.create_result(self.bob, self.boulder_2zone, top=True, attempts=3, attempts_top=3)
-        r4 = self.create_result(self.bob, self.boulder_1zone, zone2=True, attempts=1, attempts_zone2=1)
+        r3 = self.create_result(self.bob, self.boulder_2zone, top=True, attempts_top=3)
+        r4 = self.create_result(self.bob, self.boulder_1zone, zone2=True, attempts_zone2=1)
 
         result_map = ScoringService.group_results_by_participant([r1, r2, r3, r4])
         entries = ScoringService.build_scoreboard_entries(
@@ -1134,14 +1076,14 @@ class ScoringServiceIntegrationTestCase(ScoringServiceTestBase):
     def test_build_scoreboard_entries_ifsc(self):
         """build_scoreboard_entries should work end-to-end for IFSC."""
         # Alice: 2 tops, 1 zone
-        r1 = self.create_result(self.alice, self.boulder_2zone, top=True, attempts=1, attempts_top=1)
-        r2 = self.create_result(self.alice, self.boulder_1zone, top=True, attempts=3, attempts_top=3)
-        r3 = self.create_result(self.alice, self.boulder_0zone, zone1=True, attempts=2, attempts_zone1=2)
+        r1 = self.create_result(self.alice, self.boulder_2zone, top=True, attempts_top=1)
+        r2 = self.create_result(self.alice, self.boulder_1zone, top=True, attempts_top=3)
+        r3 = self.create_result(self.alice, self.boulder_0zone, zone1=True, attempts_zone1=2)
 
         # Bob: 1 top, 2 zones
-        r4 = self.create_result(self.bob, self.boulder_2zone, top=True, attempts=2, attempts_top=2)
-        r5 = self.create_result(self.bob, self.boulder_1zone, zone2=True, attempts=1, attempts_zone2=1)
-        r6 = self.create_result(self.bob, self.boulder_0zone, zone1=True, attempts=1, attempts_zone1=1)
+        r4 = self.create_result(self.bob, self.boulder_2zone, top=True, attempts_top=2)
+        r5 = self.create_result(self.bob, self.boulder_1zone, zone2=True, attempts_zone2=1)
+        r6 = self.create_result(self.bob, self.boulder_0zone, zone1=True, attempts_zone1=1)
 
         result_map = ScoringService.group_results_by_participant([r1, r2, r3, r4, r5, r6])
         entries = ScoringService.build_scoreboard_entries(
@@ -1171,10 +1113,10 @@ class ScoringServiceIntegrationTestCase(ScoringServiceTestBase):
 
         # 5 participants top boulder_2zone (50%)
         for i in range(5):
-            self.create_result(participants[i], self.boulder_2zone, top=True, attempts=2, attempts_top=2)
+            self.create_result(participants[i], self.boulder_2zone, top=True, attempts_top=2)
 
         # 1 participant tops boulder_1zone (10%)
-        self.create_result(participants[0], self.boulder_1zone, top=True, attempts=1, attempts_top=1)
+        self.create_result(participants[0], self.boulder_1zone, top=True, attempts_top=1)
 
         # Count tops
         all_results = Result.objects.all()

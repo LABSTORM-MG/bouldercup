@@ -341,7 +341,6 @@ class Result(models.Model):
     boulder = models.ForeignKey(
         Boulder, on_delete=models.CASCADE, related_name="results"
     )
-    attempts = models.PositiveIntegerField(default=0)
     attempts_zone1 = models.PositiveIntegerField(default=0)
     attempts_zone2 = models.PositiveIntegerField(default=0)
     attempts_top = models.PositiveIntegerField(default=0)
@@ -439,7 +438,7 @@ class Result(models.Model):
             raise ValidationError(errors)
 
     def __str__(self) -> str:
-        return f"{self.participant} – {self.boulder}: top={self.top}, z2={self.zone2}, z1={self.zone1}, tries={self.attempts}"
+        return f"{self.participant} – {self.boulder}: top={self.top}, z2={self.zone2}, z1={self.zone1}"
 
 
 class CompetitionSettings(models.Model):

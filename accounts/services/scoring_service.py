@@ -46,13 +46,13 @@ class ScoringService:
         for res in results:
             if res.top:
                 tops += 1
-                top_attempts += res.attempts_top or res.attempts
+                top_attempts += res.attempts_top
             if res.zone2 or res.zone1:
                 zones += 1
                 if res.zone2:
-                    zone_attempts += res.attempts_zone2 or res.attempts
+                    zone_attempts += res.attempts_zone2
                 elif res.zone1:
-                    zone_attempts += res.attempts_zone1 or res.attempts
+                    zone_attempts += res.attempts_zone1
         return {
             "tops": tops,
             "zones": zones,
@@ -88,7 +88,7 @@ class ScoringService:
         achieved_zone = result.zone2 or result.zone1
 
         if result.top:
-            attempts_used = result.attempts_top or result.attempts
+            attempts_used = result.attempts_top
 
             # Flash always gets flash points
             if attempts_used == 1:
@@ -143,7 +143,7 @@ class ScoringService:
 
             # Apply attempt penalty for point_based and point_based_dynamic_attempts
             if grading_system == "point_based" or grading_system == "point_based_dynamic_attempts":
-                attempts_used = result.attempts_zone2 if result.zone2 else result.attempts_zone1 or result.attempts
+                attempts_used = result.attempts_zone2 if result.zone2 else result.attempts_zone1
                 penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
                 return max(base - penalty, min_zone)
 
@@ -167,7 +167,7 @@ class ScoringService:
             achieved_zone = res.zone2 or res.zone1
             
             if res.top:
-                attempts_used = res.attempts_top or res.attempts
+                attempts_used = res.attempts_top
                 tops += 1
                 base = settings.flash_points if attempts_used == 1 else settings.top_points
                 penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
@@ -175,10 +175,10 @@ class ScoringService:
                 points += pts
                 total_attempts += attempts_used
             elif achieved_zone:
-                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
+                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1
                 zones += 1
                 is_two_zone = getattr(res.boulder, "zone_count", 0) >= 2
-                
+
                 if res.zone2:
                     base = settings.zone2_points
                     min_zone = settings.min_zone2_points
@@ -188,13 +188,13 @@ class ScoringService:
                 else:
                     base = settings.zone_points
                     min_zone = settings.min_zone_points
-                
+
                 penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
                 pts = max(base - penalty, min_zone)
                 points += pts
                 total_attempts += attempts_used
             else:
-                total_attempts += res.attempts
+                total_attempts += 0
         
         return {
             "points": points,
@@ -283,7 +283,7 @@ class ScoringService:
             achieved_zone = res.zone2 or res.zone1
 
             if res.top:
-                attempts_used = res.attempts_top or res.attempts
+                attempts_used = res.attempts_top
                 tops += 1
 
                 # Flash (first attempt) gets flash points, otherwise use percentage-based points
@@ -311,9 +311,7 @@ class ScoringService:
                     pts = settings.zone_points
 
                 points += pts
-                total_attempts += res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
-            else:
-                total_attempts += res.attempts
+                total_attempts += res.attempts_zone2 if res.zone2 else res.attempts_zone1
 
         return {
             "points": points,
@@ -350,7 +348,7 @@ class ScoringService:
             achieved_zone = res.zone2 or res.zone1
 
             if res.top:
-                attempts_used = res.attempts_top or res.attempts
+                attempts_used = res.attempts_top
                 tops += 1
 
                 # Flash (first attempt) gets flash points
@@ -368,7 +366,7 @@ class ScoringService:
                 points += pts
                 total_attempts += attempts_used
             elif achieved_zone:
-                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
+                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1
                 zones += 1
                 is_two_zone = getattr(res.boulder, "zone_count", 0) >= 2
 
@@ -387,8 +385,6 @@ class ScoringService:
                 pts = max(base - penalty, min_zone)
                 points += pts
                 total_attempts += attempts_used
-            else:
-                total_attempts += res.attempts
 
         return {
             "points": points,

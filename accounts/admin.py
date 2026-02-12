@@ -634,7 +634,7 @@ class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
 
 @admin.register(Result)
 class ResultAdmin(admin.ModelAdmin):
-    list_display = ('participant', 'boulder', 'top', 'zone2', 'zone1', 'attempts', 'created_at', 'updated_at')
+    list_display = ('participant', 'boulder', 'top', 'zone2', 'zone1', 'attempts_top', 'created_at', 'updated_at')
     list_filter = ('top', 'zone2', 'zone1', 'boulder', 'participant__age_group', 'created_at')
     search_fields = ('participant__name', 'boulder__label')
     readonly_fields = ('created_at', 'updated_at', 'version')
@@ -650,7 +650,7 @@ class ResultAdmin(admin.ModelAdmin):
             # Get old values for comparison
             old_obj = Result.objects.get(pk=obj.pk)
             changes = []
-            for field in ['top', 'zone2', 'zone1', 'attempts', 'attempts_top', 'attempts_zone2', 'attempts_zone1']:
+            for field in ['top', 'zone2', 'zone1', 'attempts_top', 'attempts_zone2', 'attempts_zone1']:
                 old_val = getattr(old_obj, field)
                 new_val = getattr(obj, field)
                 if old_val != new_val:
