@@ -260,6 +260,9 @@ main {
 .toast.pending {
     background: #0ea5e9;
 }
+.toast.offline {
+    background: #d97706;  /* amber-600: distinct from error (red) and pending (blue) */
+}
 
 /* Submission locked state */
 .submission-locked-notice {

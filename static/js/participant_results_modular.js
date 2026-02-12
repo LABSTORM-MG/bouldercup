@@ -12,6 +12,7 @@ import { initializeAutosave } from "./result_autosave.js";
 import { initializeCountdowns } from "./countdown_timer.js";
 import { initializeWindowPolling } from "./window_poller.js";
 import { initializeCascadeLogic } from "./cascade_logic.js";
+import { initOfflineSync } from "./offline_queue.js";
 
 // Read configuration from data attributes
 const config = {
@@ -52,6 +53,9 @@ const { queueSubmit, flushBeforeUnload, showStatus, applyServerResults } = initi
     config,
     toast
 );
+
+// Initialize offline sync
+initOfflineSync(state, queueSubmit, showStatus);
 
 // Initialize countdowns
 initializeCountdowns(state, showStatus, flushBeforeUnload, config);

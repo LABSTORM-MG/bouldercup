@@ -83,17 +83,20 @@ export const showStatus = (toast, text, state, config, timers) => {
     if (!toast) return;
 
     toast.textContent = text;
-    toast.classList.remove("error", "pending", "show");
+    toast.classList.remove("error", "pending", "offline", "show");
     if (state === "error") toast.classList.add("error");
     if (state === "pending") toast.classList.add("pending");
+    if (state === "offline") toast.classList.add("offline");
 
     requestAnimationFrame(() => toast.classList.add("show"));
 
     clearTimeout(timers.hideToastTimer);
-    const timeout = state === "error" ? config.toastErrorDuration : config.toastSuccessDuration;
-    timers.hideToastTimer = setTimeout(() => {
-        toast.classList.remove("show");
-    }, timeout);
+    if (state !== "offline") {
+        const timeout = state === "error" ? config.toastErrorDuration : config.toastSuccessDuration;
+        timers.hideToastTimer = setTimeout(() => {
+            toast.classList.remove("show");
+        }, timeout);
+    }
 };
 
 /**
@@ -134,7 +137,14 @@ export const submitAjax = (state, showStatusFn, applyServerResults, queueSubmit)
             applyServerResults(data.results || {});
         })
         .catch(() => {
-            showStatusFn("Fehler beim Speichern", "error");
+            if (!navigator.onLine) {
+                showStatusFn(
+                    "Offline \u2013 wird gesendet sobald Verbindung besteht",
+                    "offline"
+                );
+            } else {
+                showStatusFn("Fehler beim Speichern", "error");
+            }
             state.dirty = true; // retry next change if we hit an error
         })
         .finally(() => {
