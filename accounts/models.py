@@ -341,14 +341,27 @@ class Result(models.Model):
     boulder = models.ForeignKey(
         Boulder, on_delete=models.CASCADE, related_name="results"
     )
-    attempts = models.PositiveIntegerField(default=0)
     attempts_zone1 = models.PositiveIntegerField(default=0)
     attempts_zone2 = models.PositiveIntegerField(default=0)
     attempts_top = models.PositiveIntegerField(default=0)
     zone1 = models.BooleanField(default=False)
     zone2 = models.BooleanField(default=False)
     top = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(
+        default=0,
+        help_text="Version number for optimistic locking (incremented on each save)"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        null=True,
+        blank=True,
+        help_text="Zeitpunkt der ersten Erstellung (null für ältere Einträge)"
+    )
     updated_at = models.DateTimeField(auto_now=True)
+
+    # History tracking
+    from simple_history.models import HistoricalRecords
+    history = HistoricalRecords()
 
     class Meta:
         unique_together = ("participant", "boulder")
@@ -359,8 +372,73 @@ class Result(models.Model):
             models.Index(fields=["participant", "boulder"]),
         ]
 
+    def save(self, *args, **kwargs):
+        """Override save to increment version on each update."""
+        if self.pk:  # Only increment for updates, not new records
+            self.version += 1
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        """
+        Validate attempt cascade and zone hierarchy.
+
+        Enforces the same rules as ResultService.normalize_submission():
+        - Top implies zone (either zone1 or zone2 depending on boulder.zone_count)
+        - Zone2 implies zone1 (for 2-zone boulders)
+        - Achievements require non-zero attempt counts
+        """
+        from django.core.exceptions import ValidationError
+
+        errors = {}
+
+        # Get boulder zone count (handle case where boulder might not be set yet)
+        zone_count = getattr(self.boulder, 'zone_count', 0) if self.boulder_id else 0
+
+        # Rule 1: Top implies zone
+        if self.top:
+            if zone_count == 0:
+                # No zones: top is valid without zones
+                pass
+            elif zone_count == 1:
+                # One zone: top requires zone1
+                if not self.zone1:
+                    errors['zone1'] = 'Top auf 1-Zonen-Boulder erfordert Zone1=True'
+            else:  # zone_count >= 2
+                # Two zones: top requires zone2 (which implies zone1)
+                if not self.zone2:
+                    errors['zone2'] = 'Top auf 2-Zonen-Boulder erfordert Zone2=True'
+                if not self.zone1:
+                    errors['zone1'] = 'Top auf 2-Zonen-Boulder erfordert Zone1=True'
+
+        # Rule 2: Zone2 implies zone1 (for 2-zone boulders)
+        if self.zone2 and not self.zone1:
+            errors['zone1'] = 'Zone2 erfordert Zone1=True'
+
+        # Rule 3: Achievements require non-zero attempts
+        if self.top and self.attempts_top == 0:
+            errors['attempts_top'] = 'Top erfordert attempts_top > 0'
+
+        if self.zone1:
+            if zone_count == 1 and self.attempts_zone1 == 0:
+                errors['attempts_zone1'] = 'Zone1 erfordert attempts_zone1 > 0'
+            elif zone_count >= 2 and not self.zone2 and self.attempts_zone1 == 0:
+                errors['attempts_zone1'] = 'Zone1 erfordert attempts_zone1 > 0'
+
+        if self.zone2 and self.attempts_zone2 == 0:
+            errors['attempts_zone2'] = 'Zone2 erfordert attempts_zone2 > 0'
+
+        # Rule 4: Zone flags should match boulder configuration
+        if zone_count == 0 and (self.zone1 or self.zone2):
+            errors['zone1'] = 'Boulder hat keine Zonen, aber Zone1 oder Zone2 ist gesetzt'
+
+        if zone_count == 1 and self.zone2:
+            errors['zone2'] = 'Boulder hat nur eine Zone, aber Zone2 ist gesetzt'
+
+        if errors:
+            raise ValidationError(errors)
+
     def __str__(self) -> str:
-        return f"{self.participant} – {self.boulder}: top={self.top}, z2={self.zone2}, z1={self.zone1}, tries={self.attempts}"
+        return f"{self.participant} – {self.boulder}: top={self.top}, z2={self.zone2}, z1={self.zone1}"
 
 
 class CompetitionSettings(models.Model):
@@ -491,6 +569,24 @@ class CompetitionSettings(models.Model):
             for participant in Participant.objects.all():
                 participant.assign_age_group(force=True)
                 participant.save(update_fields=['age_group'])
+
+
+class Punktesystem(CompetitionSettings):
+    """Proxy model for the scoring/grading settings (admin display only)."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Punktesystem"
+        verbose_name_plural = "Punktesystem"
+
+
+class Wettkampfdatum(CompetitionSettings):
+    """Proxy model for the competition date setting (admin display only)."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Wettkampfdatum"
+        verbose_name_plural = "Wettkampfdaten"
 
 
 class AdminMessage(models.Model):
@@ -685,8 +781,8 @@ class SubmissionWindow(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Zeitslot für Ergebnis-Eintrag"
-        verbose_name_plural = "Zeitslots für Ergebnis-Eintrag"
+        verbose_name = "Zeitslot"
+        verbose_name_plural = "Zeitslots"
 
     def __str__(self) -> str:
         start = self.submission_start.strftime("%d.%m. %H:%M") if self.submission_start else "offen"

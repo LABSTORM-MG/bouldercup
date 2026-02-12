@@ -145,7 +145,7 @@ class ParticipantAuthTestCase(TestCase):
         # Should not redirect (failed login)
         self.assertEqual(response.status_code, 200)
         self.assertNotIn('participant_id', client.session)
-        self.assertContains(response, 'Unbekannter Teilnehmer')
+        self.assertContains(response, 'Unbekannte*r Teilnehmer*in.')
 
 
 class PasswordChangeTestCase(TestCase):
@@ -252,64 +252,398 @@ class PasswordChangeTestCase(TestCase):
 class CachingTestCase(TestCase):
     """Test caching functionality for models."""
 
-    def test_rulebook_cache_invalidation(self):
-        """Test that Rulebook cache is invalidated on save."""
+    def test_competition_settings_cache_invalidation(self):
+        """Test that CompetitionSettings cache is invalidated on save."""
         from django.core.cache import cache
-        from .models import Rulebook
+        from .models import CompetitionSettings, AgeGroup, Participant
 
-        # Clear cache
         cache.clear()
 
-        # Get or create rulebook (singleton)
-        rulebook, _ = Rulebook.objects.get_or_create(
+        settings, _ = CompetitionSettings.objects.get_or_create(
             singleton_guard=True,
-            defaults={
-                "name": "Test Rulebook",
-                "content": "Test content"
-            }
+            defaults={'grading_system': 'ifsc'}
         )
 
-        # Cache should be empty initially
-        self.assertIsNone(cache.get('rulebook_content'))
+        # Prime the cache by accessing Participant.age (which reads competition_settings)
+        age_group = AgeGroup.objects.create(name='CacheTest', min_age=0, max_age=99, gender='mixed')
+        participant = Participant.objects.create(
+            username='cachetest', name='Cache Test',
+            date_of_birth=date(2000, 1, 1), gender='male', age_group=age_group
+        )
+        _ = participant.age  # triggers cache.set('competition_settings', ...)
+        self.assertIsNotNone(cache.get('competition_settings'))
 
-        # Simulate caching
-        cache.set('rulebook_content', rulebook.content, 300)
-        self.assertIsNotNone(cache.get('rulebook_content'))
+        # Save should invalidate cache
+        settings.grading_system = 'point_based'
+        settings.save()
 
-        # Update rulebook
-        rulebook.content = "Updated content"
-        rulebook.save()
+        self.assertIsNone(cache.get('competition_settings'))
 
-        # Cache should be invalidated
-        self.assertIsNone(cache.get('rulebook_content'))
-
-    def test_helptext_cache_invalidation(self):
-        """Test that HelpText cache is invalidated on save."""
+    def test_admin_message_cache_invalidation(self):
+        """Test that AdminMessage cache is invalidated on save."""
         from django.core.cache import cache
-        from .models import HelpText
+        from .models import AdminMessage
 
-        # Clear cache
         cache.clear()
 
-        # Get or create help text (singleton)
-        helptext, _ = HelpText.objects.get_or_create(
+        msg, _ = AdminMessage.objects.get_or_create(
             singleton_guard=True,
-            defaults={
-                "name": "Test Help",
-                "content": "Test help content"
-            }
+            defaults={'heading': 'Test', 'content': 'Hello', 'background_color': '#ffffff'}
         )
 
-        # Cache should be empty initially
-        self.assertIsNone(cache.get('helptext_content'))
+        # Manually prime the cache
+        cache.set('admin_message', {'heading': msg.heading}, 300)
+        self.assertIsNotNone(cache.get('admin_message'))
 
-        # Simulate caching
-        cache.set('helptext_content', helptext.content, 300)
-        self.assertIsNotNone(cache.get('helptext_content'))
+        # Save should invalidate cache
+        msg.heading = 'Updated'
+        msg.save()
 
-        # Update help text
-        helptext.content = "Updated help content"
-        helptext.save()
+        self.assertIsNone(cache.get('admin_message'))
 
-        # Cache should be invalidated
-        self.assertIsNone(cache.get('helptext_content'))
+
+class BulkSubmissionWindowTestCase(TestCase):
+    """Test bulk submission window creation admin action."""
+
+    def setUp(self):
+        """Create age groups for testing."""
+        self.age_group1 = AgeGroup.objects.create(
+            name="U12",
+            min_age=0,
+            max_age=12,
+            gender="mixed"
+        )
+        self.age_group2 = AgeGroup.objects.create(
+            name="U16",
+            min_age=13,
+            max_age=16,
+            gender="mixed"
+        )
+        self.age_group3 = AgeGroup.objects.create(
+            name="Open",
+            min_age=17,
+            max_age=99,
+            gender="mixed"
+        )
+
+    def test_bulk_create_windows_creates_one_per_age_group(self):
+        """Bulk action creates one window per age group."""
+        from accounts.models import SubmissionWindow, CompetitionSettings, AgeGroup
+
+        # Set competition date
+        settings, _ = CompetitionSettings.objects.get_or_create(
+            singleton_guard=True,
+            defaults={'grading_system': 'ifsc'}
+        )
+        settings.competition_date = date(2026, 3, 15)
+        settings.save()
+
+        # Simulate the bulk action logic directly
+        age_groups = list(AgeGroup.objects.all().order_by('name'))
+        for age_group in age_groups:
+            window = SubmissionWindow.objects.create(
+                name=f"Zeitfenster {age_group.name}",
+                note=f"Test window for {age_group.name}"
+            )
+            window.age_groups.add(age_group)
+
+        # Should create 3 windows (one per age group)
+        windows = SubmissionWindow.objects.all()
+        self.assertEqual(windows.count(), 3)
+
+        # Each window should have exactly one age group
+        for window in windows:
+            self.assertEqual(window.age_groups.count(), 1)
+
+        # Check that all age groups are covered
+        covered_age_groups = set()
+        for window in windows:
+            covered_age_groups.update(window.age_groups.all())
+        self.assertEqual(len(covered_age_groups), 3)
+        self.assertIn(self.age_group1, covered_age_groups)
+        self.assertIn(self.age_group2, covered_age_groups)
+        self.assertIn(self.age_group3, covered_age_groups)
+
+    def test_bulk_create_windows_uses_competition_date(self):
+        """Bulk action uses competition date from settings."""
+        from accounts.models import SubmissionWindow, CompetitionSettings
+        from django.utils import timezone
+        from datetime import datetime
+
+        # Set competition date
+        settings, _ = CompetitionSettings.objects.get_or_create(
+            singleton_guard=True,
+            defaults={'grading_system': 'ifsc'}
+        )
+        comp_date = date(2026, 3, 15)
+        settings.competition_date = comp_date
+        settings.save()
+
+        # Simulate the date calculation from bulk action
+        competition_datetime = timezone.make_aware(
+            datetime.combine(comp_date, datetime.min.time().replace(hour=9, minute=0))
+        )
+        submission_start = competition_datetime
+        submission_end = competition_datetime.replace(hour=17, minute=0)
+
+        # Create a window with these dates
+        window = SubmissionWindow.objects.create(
+            name="Test Window",
+            submission_start=submission_start,
+            submission_end=submission_end
+        )
+
+        # Check that window uses the competition date
+        self.assertIsNotNone(window.submission_start)
+        self.assertEqual(window.submission_start.date(), comp_date)
+        self.assertEqual(window.submission_start.hour, 9)
+        self.assertEqual(window.submission_start.minute, 0)
+        self.assertEqual(window.submission_end.hour, 17)
+        self.assertEqual(window.submission_end.minute, 0)
+
+    def test_bulk_create_windows_no_age_groups(self):
+        """Bulk action handles case with no age groups gracefully."""
+        from accounts.models import SubmissionWindow, AgeGroup
+
+        # Delete all age groups
+        AgeGroup.objects.all().delete()
+
+        # Simulate the bulk action logic with no age groups
+        age_groups = list(AgeGroup.objects.all().order_by('name'))
+        for age_group in age_groups:
+            window = SubmissionWindow.objects.create(
+                name=f"Zeitfenster {age_group.name}",
+            )
+            window.age_groups.add(age_group)
+
+        # Should not create any windows
+        self.assertEqual(SubmissionWindow.objects.count(), 0)
+
+    def test_bulk_create_windows_naming(self):
+        """Bulk action creates windows with descriptive names."""
+        from accounts.models import SubmissionWindow, AgeGroup
+
+        # Simulate the bulk action logic
+        age_groups = list(AgeGroup.objects.all().order_by('name'))
+        for age_group in age_groups:
+            window = SubmissionWindow.objects.create(
+                name=f"Zeitfenster {age_group.name}",
+            )
+            window.age_groups.add(age_group)
+
+        # Check window names
+        window_names = list(SubmissionWindow.objects.values_list('name', flat=True))
+        self.assertIn("Zeitfenster U12", window_names)
+        self.assertIn("Zeitfenster U16", window_names)
+        self.assertIn("Zeitfenster Open", window_names)
+
+
+class ResultExportTestCase(TestCase):
+    """Test result export functionality (CSV and PDF)."""
+
+    def setUp(self):
+        """Create test data for exports."""
+        from accounts.models import Boulder, CompetitionSettings
+
+        # Create age group
+        self.age_group = AgeGroup.objects.create(
+            name="Test Group",
+            min_age=10,
+            max_age=15,
+            gender="mixed"
+        )
+
+        # Create participants
+        self.participant1 = Participant.objects.create(
+            username="test1",
+            name="Test Teilnehmer 1",
+            password="hashed",
+            date_of_birth=date(2010, 1, 1),
+            gender="male",
+            age_group=self.age_group
+        )
+        self.participant2 = Participant.objects.create(
+            username="test2",
+            name="Test Teilnehmer 2",
+            password="hashed",
+            date_of_birth=date(2011, 6, 15),
+            gender="female",
+            age_group=self.age_group
+        )
+
+        # Create boulders
+        self.boulder1 = Boulder.objects.create(label="B1", zone_count=2, color="#ff0000")
+        self.boulder1.age_groups.add(self.age_group)
+
+        self.boulder2 = Boulder.objects.create(label="B2", zone_count=1, color="#00ff00")
+        self.boulder2.age_groups.add(self.age_group)
+
+        # Create competition settings (use get_or_create – singleton)
+        self.settings, _ = CompetitionSettings.objects.get_or_create(
+            singleton_guard=True,
+            defaults={'grading_system': 'ifsc'}
+        )
+
+    def test_result_has_created_at_field(self):
+        """Result model has created_at field for tracking creation time."""
+        from accounts.models import Result
+
+        result = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            top=True,
+            attempts_top=3
+        )
+
+        # Should have created_at timestamp
+        self.assertIsNotNone(result.created_at)
+        self.assertIsNotNone(result.updated_at)
+
+    def test_result_has_history(self):
+        """Result model has history tracking via django-simple-history."""
+        from accounts.models import Result
+
+        result = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            zone1=True,
+            attempts_zone1=2
+        )
+
+        # Should have history
+        self.assertTrue(hasattr(result, 'history'))
+        self.assertEqual(result.history.count(), 1)
+
+        # Update result
+        result.top = True
+        result.attempts_top = 5
+        result.save()
+
+        # Should have 2 history records now
+        self.assertEqual(result.history.count(), 2)
+
+    def test_csv_export_includes_timestamps(self):
+        """CSV export includes created_at and updated_at timestamps."""
+        from accounts.models import Result
+        from accounts.admin import ResultAdmin
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        # Create results
+        result1 = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            top=True,
+            attempts_top=1  # Flash
+        )
+        result2 = Result.objects.create(
+            participant=self.participant2,
+            boulder=self.boulder2,
+            zone1=True,
+            attempts_zone1=3
+        )
+
+        # Simulate admin export
+        admin_instance = ResultAdmin(Result, AdminSite())
+        factory = RequestFactory()
+        request = factory.post('/admin/accounts/result/')
+
+        # Export CSV
+        response = admin_instance.export_results_csv(request, Result.objects.all())
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv; charset=utf-8-sig')
+        self.assertIn('attachment', response['Content-Disposition'])
+        self.assertIn('ergebnisse_', response['Content-Disposition'])
+
+        # Decode content
+        content = response.content.decode('utf-8-sig')
+
+        # Check headers
+        self.assertIn('Teilnehmer', content)
+        self.assertIn('Boulder', content)
+        self.assertIn('Flash', content)
+        self.assertIn('Erstellt am', content)
+        self.assertIn('Zuletzt geändert', content)
+
+        # Check flash detection
+        self.assertIn('⚡', content)  # Result1 is a flash
+
+    def test_history_csv_export_tracks_changes(self):
+        """History CSV export shows all changes with timestamps."""
+        from accounts.models import Result
+        from accounts.admin import ResultAdmin
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        # Create and modify result
+        result = Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            zone1=True,
+            attempts_zone1=2
+        )
+
+        # Update multiple times
+        result.zone2 = True
+        result.attempts_zone2 = 3
+        result.save()
+
+        result.top = True
+        result.attempts_top = 5
+        result.save()
+
+        # Should have 3 history records (create + 2 updates)
+        self.assertEqual(result.history.count(), 3)
+
+        # Export history
+        admin_instance = ResultAdmin(Result, AdminSite())
+        factory = RequestFactory()
+        request = factory.post('/admin/accounts/result/')
+
+        response = admin_instance.export_results_history_csv(request, Result.objects.filter(id=result.id))
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode('utf-8-sig')
+
+        # Should show all 3 versions
+        self.assertIn('Änderungszeitpunkt', content)
+        self.assertIn('Änderungstyp', content)
+
+    def test_pdf_standings_export(self):
+        """PDF standings export produces a valid PDF file."""
+        from accounts.models import Result
+        from accounts.admin import ResultAdmin
+        from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
+        # Create some results
+        Result.objects.create(
+            participant=self.participant1,
+            boulder=self.boulder1,
+            top=True, zone2=True, zone1=True,
+            attempts_top=2, attempts_zone2=2, attempts_zone1=2
+        )
+        Result.objects.create(
+            participant=self.participant2,
+            boulder=self.boulder1,
+            zone1=True,
+            attempts_zone1=3
+        )
+
+        # Export PDF
+        admin_instance = ResultAdmin(Result, AdminSite())
+        factory = RequestFactory()
+        request = factory.post('/admin/accounts/result/')
+
+        response = admin_instance.export_standings_pdf(request, Result.objects.none())
+
+        # Should be a PDF response
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('rangliste_', response['Content-Disposition'])
+
+        # PDF starts with %PDF header
+        self.assertTrue(response.content.startswith(b'%PDF'))

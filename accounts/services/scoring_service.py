@@ -46,13 +46,13 @@ class ScoringService:
         for res in results:
             if res.top:
                 tops += 1
-                top_attempts += res.attempts_top or res.attempts
+                top_attempts += res.attempts_top
             if res.zone2 or res.zone1:
                 zones += 1
                 if res.zone2:
-                    zone_attempts += res.attempts_zone2 or res.attempts
+                    zone_attempts += res.attempts_zone2
                 elif res.zone1:
-                    zone_attempts += res.attempts_zone1 or res.attempts
+                    zone_attempts += res.attempts_zone1
         return {
             "tops": tops,
             "zones": zones,
@@ -88,7 +88,7 @@ class ScoringService:
         achieved_zone = result.zone2 or result.zone1
 
         if result.top:
-            attempts_used = result.attempts_top or result.attempts
+            attempts_used = result.attempts_top
 
             # Flash always gets flash points
             if attempts_used == 1:
@@ -97,9 +97,21 @@ class ScoringService:
             # Dynamic scoring modes
             if grading_system in ScoringService.DYNAMIC_SYSTEMS:
                 if top_counts is None or participant_count is None:
+                    logger.warning(
+                        f"Dynamic scoring data missing for result {result.id} "
+                        f"(participant={result.participant_id}, boulder={result.boulder_id}): "
+                        f"top_counts={'None' if top_counts is None else 'provided'}, "
+                        f"participant_count={participant_count}. Returning 0 points."
+                    )
                     return 0
 
                 boulder_tops = top_counts.get(result.boulder_id, 0)
+                if participant_count == 0:
+                    logger.warning(
+                        f"Dynamic scoring with zero participants for result {result.id} "
+                        f"(participant={result.participant_id}, boulder={result.boulder_id}). "
+                        f"Using 0% top rate."
+                    )
                 top_percentage = (boulder_tops / participant_count * 100) if participant_count > 0 else 0
                 base = ScoringService.get_dynamic_top_points(settings, top_percentage)
 
@@ -131,7 +143,7 @@ class ScoringService:
 
             # Apply attempt penalty for point_based and point_based_dynamic_attempts
             if grading_system == "point_based" or grading_system == "point_based_dynamic_attempts":
-                attempts_used = result.attempts_zone2 if result.zone2 else result.attempts_zone1 or result.attempts
+                attempts_used = result.attempts_zone2 if result.zone2 else result.attempts_zone1
                 penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
                 return max(base - penalty, min_zone)
 
@@ -155,7 +167,7 @@ class ScoringService:
             achieved_zone = res.zone2 or res.zone1
             
             if res.top:
-                attempts_used = res.attempts_top or res.attempts
+                attempts_used = res.attempts_top
                 tops += 1
                 base = settings.flash_points if attempts_used == 1 else settings.top_points
                 penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
@@ -163,10 +175,10 @@ class ScoringService:
                 points += pts
                 total_attempts += attempts_used
             elif achieved_zone:
-                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
+                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1
                 zones += 1
                 is_two_zone = getattr(res.boulder, "zone_count", 0) >= 2
-                
+
                 if res.zone2:
                     base = settings.zone2_points
                     min_zone = settings.min_zone2_points
@@ -176,13 +188,13 @@ class ScoringService:
                 else:
                     base = settings.zone_points
                     min_zone = settings.min_zone_points
-                
+
                 penalty = settings.attempt_penalty * max(attempts_used - 1, 0)
                 pts = max(base - penalty, min_zone)
                 points += pts
                 total_attempts += attempts_used
             else:
-                total_attempts += res.attempts
+                total_attempts += 0
         
         return {
             "points": points,
@@ -271,7 +283,7 @@ class ScoringService:
             achieved_zone = res.zone2 or res.zone1
 
             if res.top:
-                attempts_used = res.attempts_top or res.attempts
+                attempts_used = res.attempts_top
                 tops += 1
 
                 # Flash (first attempt) gets flash points, otherwise use percentage-based points
@@ -299,9 +311,7 @@ class ScoringService:
                     pts = settings.zone_points
 
                 points += pts
-                total_attempts += res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
-            else:
-                total_attempts += res.attempts
+                total_attempts += res.attempts_zone2 if res.zone2 else res.attempts_zone1
 
         return {
             "points": points,
@@ -338,7 +348,7 @@ class ScoringService:
             achieved_zone = res.zone2 or res.zone1
 
             if res.top:
-                attempts_used = res.attempts_top or res.attempts
+                attempts_used = res.attempts_top
                 tops += 1
 
                 # Flash (first attempt) gets flash points
@@ -356,7 +366,7 @@ class ScoringService:
                 points += pts
                 total_attempts += attempts_used
             elif achieved_zone:
-                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1 or res.attempts
+                attempts_used = res.attempts_zone2 if res.zone2 else res.attempts_zone1
                 zones += 1
                 is_two_zone = getattr(res.boulder, "zone_count", 0) >= 2
 
@@ -375,8 +385,6 @@ class ScoringService:
                 pts = max(base - penalty, min_zone)
                 points += pts
                 total_attempts += attempts_used
-            else:
-                total_attempts += res.attempts
 
         return {
             "points": points,
@@ -498,3 +506,32 @@ class ScoringService:
         """Cache scoreboard data."""
         cache_key = f"scoreboard_{age_group_id}_{grading_system}"
         cache.set(cache_key, data, timeout=TIMING.SCOREBOARD_CACHE_TIMEOUT)
+
+    @staticmethod
+    def invalidate_all_scoreboards() -> None:
+        """
+        Invalidate all scoreboard caches.
+
+        This uses cache key pattern matching to delete only scoreboard-related caches,
+        preserving other caches like competition_settings and admin_message.
+
+        Uses Django's cache.delete_many() which is more efficient than clearing all caches.
+        """
+        from ..models import AgeGroup, CompetitionSettings
+
+        # Get all possible grading systems
+        grading_systems = [choice[0] for choice in CompetitionSettings.GRADING_CHOICES]
+
+        # Get all age group IDs
+        age_group_ids = list(AgeGroup.objects.values_list('id', flat=True))
+        age_group_ids.append('all')  # Include the "all participants" scoreboard
+
+        # Build list of all possible scoreboard cache keys
+        keys_to_delete = []
+        for age_group_id in age_group_ids:
+            for grading in grading_systems:
+                keys_to_delete.append(f"scoreboard_{age_group_id}_{grading}")
+
+        # Delete all scoreboard caches in one operation
+        cache.delete_many(keys_to_delete)
+        logger.info(f"Invalidated {len(keys_to_delete)} scoreboard cache keys")

@@ -23,9 +23,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'simple_history',
     'django_ckeditor_5',
     'accounts.apps.AccountsConfig',
-    'competition_admin',
 ]
 
 CKEDITOR_5_CONFIGS = {
