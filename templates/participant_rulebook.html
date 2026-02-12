@@ -10,10 +10,7 @@
 <body data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
       data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
       data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
-    <header>
-        <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
-        <h1>Regelwerk</h1>
-    </header>
+    {% include 'includes/header_back.html' with section_title="Regelwerk" %}
     <main>
         {% if rules_text %}
             <div class="rules-block">{{ rules_text|safe }}</div>
@@ -21,6 +18,6 @@
             <p>Das Regelwerk wird hier angezeigt, sobald es vom Admin hinterlegt wurde.</p>
         {% endif %}
     </main>
-    <script src="{% static 'js/admin_message_poll.js' %}"></script>
+    {% include 'includes/admin_message_poll.html' %}
 </body>
 </html>

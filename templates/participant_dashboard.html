@@ -193,7 +193,7 @@
         </div>
         <span style="font-size: 0.95rem; color: rgba(255,255,255,0.7);">erstellt von Lennart</span>
     </footer>
-    <script src="{% static 'js/admin_message_poll.js' %}"></script>
+    {% include 'includes/admin_message_poll.html' %}
 
     {% if show_greeting %}
     <!-- Greeting Modal -->
