@@ -11,7 +11,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, Result, SubmissionWindow, CompetitionSettings
+from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, Result, SubmissionWindow, CompetitionSettings, Punktesystem, Wettkampfdatum
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 logger = logging.getLogger(__name__)
@@ -319,21 +319,7 @@ class SingletonAdminMixin:
         return super().changelist_view(request, extra_context=extra_context)
 
 
-class CompetitionMetadataAdmin(SingletonAdminMixin, admin.ModelAdmin):
-    """Admin for competition-wide metadata (date, etc.)."""
-    list_display = ("competition_date", "updated_at")
-    fieldsets = (
-        (
-            None,
-            {"fields": ("competition_date",)},
-        ),
-    )
-
-    def has_delete_permission(self, request, obj=None):
-        """Prevent deletion of the singleton."""
-        return False
-
-
+@admin.register(Punktesystem)
 class CompetitionSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
     list_display = (
         "grading_system",
@@ -398,6 +384,31 @@ class CompetitionSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
         js = ("admin/js/competition_settings_toggle.js",)
 
 
+@admin.register(Wettkampfdatum)
+class WettkampfdatumAdmin(SingletonAdminMixin, admin.ModelAdmin):
+    list_display = ("competition_date", "updated_at")
+    fieldsets = (
+        (None, {"fields": ("competition_date",)}),
+    )
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_save_and_add_another'] = False
+        extra_context['show_save_and_continue'] = False
+        return super().change_view(request, object_id, form_url, extra_context=extra_context)
+
+    def response_change(self, request, obj):
+        from django.http import HttpResponseRedirect
+        from django.contrib import messages
+        messages.success(request, "Wettkampfdatum erfolgreich gespeichert.")
+        return HttpResponseRedirect(
+            reverse(f"admin:{obj._meta.app_label}_{obj._meta.model_name}_change", args=[obj.pk])
+        )
+
+
 class AdminSplitDateTimeNoSeconds(admin.widgets.AdminSplitDateTime):
     """AdminSplitDateTime without seconds in the time field."""
     def __init__(self, attrs=None):
@@ -437,6 +448,7 @@ class SubmissionWindowAdminForm(forms.ModelForm):
         return cleaned_data
 
 
+@admin.register(SubmissionWindow)
 class SubmissionWindowAdmin(admin.ModelAdmin):
     form = SubmissionWindowAdminForm
     list_display = ("name", "display_age_groups", "display_start", "display_end", "display_status", "updated_at")
@@ -611,6 +623,7 @@ class SiteSettingsAdminForm(forms.ModelForm):
         }
 
 
+@admin.register(SiteSettings)
 class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
     form = SiteSettingsAdminForm
     list_display = ("name", "updated_at")
@@ -899,8 +912,8 @@ class ResultAdmin(admin.ModelAdmin):
                         entry['participant'].name,
                         str(entry.get('tops', 0)),
                         str(entry.get('zones', 0)),
-                        str(entry.get('attempts_top', 0)),
-                        str(entry.get('attempts_zone', 0)),
+                        str(entry.get('top_attempts', 0)),
+                        str(entry.get('zone_attempts', 0)),
                     ])
             else:
                 table_data = [['Rang', 'Name', 'Punkte', 'Tops', 'Zonen']]
@@ -908,7 +921,7 @@ class ResultAdmin(admin.ModelAdmin):
                     table_data.append([
                         str(entry['rank']),
                         entry['participant'].name,
-                        f"{entry.get('total_points', 0):.1f}",
+                        f"{entry.get('points', 0):.1f}",
                         str(entry.get('tops', 0)),
                         str(entry.get('zones', 0)),
                     ])

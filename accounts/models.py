@@ -571,6 +571,24 @@ class CompetitionSettings(models.Model):
                 participant.save(update_fields=['age_group'])
 
 
+class Punktesystem(CompetitionSettings):
+    """Proxy model for the scoring/grading settings (admin display only)."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Punktesystem"
+        verbose_name_plural = "Punktesystem"
+
+
+class Wettkampfdatum(CompetitionSettings):
+    """Proxy model for the competition date setting (admin display only)."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "Wettkampfdatum"
+        verbose_name_plural = "Wettkampfdaten"
+
+
 class AdminMessage(models.Model):
     """Admin broadcast message displayed to all participants."""
 
@@ -763,8 +781,8 @@ class SubmissionWindow(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Zeitslot für Ergebnis-Eintrag"
-        verbose_name_plural = "Zeitslots für Ergebnis-Eintrag"
+        verbose_name = "Zeitslot"
+        verbose_name_plural = "Zeitslots"
 
     def __str__(self) -> str:
         start = self.submission_start.strftime("%d.%m. %H:%M") if self.submission_start else "offen"

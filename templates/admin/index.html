@@ -1,6 +1,107 @@
 {% extends "admin/index.html" %}
 {% load i18n static %}
 
+{% block content %}
+<div id="content-main">
+{% if app_list %}
+  {% for app in app_list %}
+    {% if app.app_label == 'accounts' %}
+
+      {# Section 1: Participants and boulders #}
+      {% with participant_models="AdminMessage,AgeGroup,Boulder,Participant,Result" %}
+      <div class="app-accounts module">
+        <table>
+          <caption>
+            <a href="{{ app.app_url }}" class="section" title="{% blocktranslate with name=app.name %}Models in the {{ name }} application{% endblocktranslate %}">{{ app.name }}</a>
+          </caption>
+          <thead class="visually-hidden">
+            <tr>
+              <th scope="col">{% translate 'Model name' %}</th>
+              <th scope="col">{% translate 'Add link' %}</th>
+              <th scope="col">{% translate 'Change or view list link' %}</th>
+            </tr>
+          </thead>
+          {% for model in app.models %}
+            {% if model.object_name == 'AdminMessage' or model.object_name == 'AgeGroup' or model.object_name == 'Boulder' or model.object_name == 'Participant' or model.object_name == 'Result' %}
+              {% with model_name=model.object_name|lower %}
+              <tr class="model-{{ model_name }}{% if model.admin_url in request.path|urlencode %} current-model{% endif %}">
+                <th scope="row" id="{{ app.app_label }}-{{ model_name }}">
+                  {% if model.admin_url %}<a href="{{ model.admin_url }}"{% if model.admin_url in request.path|urlencode %} aria-current="page"{% endif %}>{{ model.name }}</a>{% else %}{{ model.name }}{% endif %}
+                </th>
+                {% if model.add_url %}<td><a href="{{ model.add_url }}" class="addlink" aria-describedby="{{ app.app_label }}-{{ model_name }}">{% translate 'Add' %}</a></td>{% else %}<td></td>{% endif %}
+                {% if model.admin_url %}<td><a href="{{ model.admin_url }}" class="changelink" aria-describedby="{{ app.app_label }}-{{ model_name }}">{% translate 'Change' %}</a></td>{% else %}<td></td>{% endif %}
+              </tr>
+              {% endwith %}
+            {% endif %}
+          {% endfor %}
+        </table>
+      </div>
+      {% endwith %}
+
+      {# Section 2: Competition settings #}
+      <div class="app-wettkampf-einstellungen module">
+        <table>
+          <caption>
+            <a href="#" class="section">{% translate 'Wettkampf-Einstellungen' %}</a>
+          </caption>
+          <thead class="visually-hidden">
+            <tr>
+              <th scope="col">{% translate 'Model name' %}</th>
+              <th scope="col">{% translate 'Add link' %}</th>
+              <th scope="col">{% translate 'Change or view list link' %}</th>
+            </tr>
+          </thead>
+          {% for model in app.models %}
+            {% if model.object_name == 'Punktesystem' or model.object_name == 'SiteSettings' or model.object_name == 'Wettkampfdatum' or model.object_name == 'SubmissionWindow' %}
+              {% with model_name=model.object_name|lower %}
+              <tr class="model-{{ model_name }}{% if model.admin_url in request.path|urlencode %} current-model{% endif %}">
+                <th scope="row" id="wettkampf-{{ model_name }}">
+                  {% if model.admin_url %}<a href="{{ model.admin_url }}"{% if model.admin_url in request.path|urlencode %} aria-current="page"{% endif %}>{{ model.name }}</a>{% else %}{{ model.name }}{% endif %}
+                </th>
+                {% if model.add_url %}<td><a href="{{ model.add_url }}" class="addlink" aria-describedby="wettkampf-{{ model_name }}">{% translate 'Add' %}</a></td>{% else %}<td></td>{% endif %}
+                {% if model.admin_url %}<td><a href="{{ model.admin_url }}" class="changelink" aria-describedby="wettkampf-{{ model_name }}">{% translate 'Change' %}</a></td>{% else %}<td></td>{% endif %}
+              </tr>
+              {% endwith %}
+            {% endif %}
+          {% endfor %}
+        </table>
+      </div>
+
+    {% else %}
+      {# All other apps (auth, etc.) rendered normally #}
+      <div class="app-{{ app.app_label }} module{% if app.app_url in request.path|urlencode %} current-app{% endif %}">
+        <table>
+          <caption>
+            <a href="{{ app.app_url }}" class="section" title="{% blocktranslate with name=app.name %}Models in the {{ name }} application{% endblocktranslate %}">{{ app.name }}</a>
+          </caption>
+          <thead class="visually-hidden">
+            <tr>
+              <th scope="col">{% translate 'Model name' %}</th>
+              <th scope="col">{% translate 'Add link' %}</th>
+              <th scope="col">{% translate 'Change or view list link' %}</th>
+            </tr>
+          </thead>
+          {% for model in app.models %}
+            {% with model_name=model.object_name|lower %}
+            <tr class="model-{{ model_name }}{% if model.admin_url in request.path|urlencode %} current-model{% endif %}">
+              <th scope="row" id="{{ app.app_label }}-{{ model_name }}">
+                {% if model.admin_url %}<a href="{{ model.admin_url }}"{% if model.admin_url in request.path|urlencode %} aria-current="page"{% endif %}>{{ model.name }}</a>{% else %}{{ model.name }}{% endif %}
+              </th>
+              {% if model.add_url %}<td><a href="{{ model.add_url }}" class="addlink" aria-describedby="{{ app.app_label }}-{{ model_name }}">{% translate 'Add' %}</a></td>{% else %}<td></td>{% endif %}
+              {% if model.admin_url %}<td><a href="{{ model.admin_url }}" class="changelink" aria-describedby="{{ app.app_label }}-{{ model_name }}">{% translate 'Change' %}</a></td>{% else %}<td></td>{% endif %}
+            </tr>
+            {% endwith %}
+          {% endfor %}
+        </table>
+      </div>
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <p>{% translate "You don't have permission to view or edit anything." %}</p>
+{% endif %}
+</div>
+{% endblock %}
+
 {% block sidebar %}
 <div id="content-related">
     <div class="module" id="recent-actions-module">

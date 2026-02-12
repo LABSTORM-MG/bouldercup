@@ -11,10 +11,7 @@
 <body data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
       data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
       data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
-    <header>
-        <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
-        <h1>{{ section_title }}</h1>
-    </header>
+    {% include 'includes/header_back.html' with section_title=section_title %}
     <main>
         {% block content %}{% endblock %}
     </main>
