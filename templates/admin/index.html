@@ -52,7 +52,7 @@
             </tr>
           </thead>
           {% for model in app.models %}
-            {% if model.object_name == 'Punktesystem' or model.object_name == 'SiteSettings' or model.object_name == 'Wettkampfdatum' or model.object_name == 'SubmissionWindow' %}
+            {% if model.object_name == 'CountdownSettings' or model.object_name == 'Punktesystem' or model.object_name == 'SiteSettings' or model.object_name == 'Wettkampfdatum' or model.object_name == 'SubmissionWindow' %}
               {% with model_name=model.object_name|lower %}
               <tr class="model-{{ model_name }}{% if model.admin_url in request.path|urlencode %} current-model{% endif %}">
                 <th scope="row" id="wettkampf-{{ model_name }}">
