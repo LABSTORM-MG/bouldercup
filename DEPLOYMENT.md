@@ -78,8 +78,22 @@ sudo chown -R bouldercup-deploy:bouldercup-deploy /var/log/bouldercup
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-pip python3-venv git nginx
+sudo apt install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git \
+    nginx \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf2.0-0 \
+    libffi-dev \
+    shared-mime-info \
+    fonts-liberation
 ```
+
+**Note**: Additional packages beyond the first five are required for WeasyPrint (PDF generation library).
 
 ### A4. Generate SSH Key for GitHub Actions
 
