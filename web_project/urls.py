@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.urls import include, path
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
+from django.conf import settings
+from django.conf.urls.static import static
 
 from accounts.views import (
     acknowledge_greeting,
@@ -54,3 +56,7 @@ urlpatterns = [
     path('regelwerk/', participant_rulebook, name='participant_rulebook'),
     path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('favicon.ico'), permanent=False), name='favicon'),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
