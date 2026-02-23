@@ -863,3 +863,106 @@ class SubmissionWindow(models.Model):
             models.Q(submission_start__isnull=True) | models.Q(submission_start__lte=now),
             models.Q(submission_end__isnull=True) | models.Q(submission_end__gte=grace_now),
         ).exists()
+
+
+class CountdownSettings(models.Model):
+    """Site-wide countdown/coming soon page configuration."""
+
+    name = models.CharField(max_length=150, default="Countdown-Einstellungen", editable=False)
+
+    # Core functionality
+    enabled = models.BooleanField(
+        default=False,
+        verbose_name="Countdown aktivieren",
+        help_text="Zeigt allen Besuchern eine Countdown-Seite."
+    )
+
+    countdown_end_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Countdown endet am",
+        help_text="Zeitpunkt, zu dem die normale Seite sichtbar wird."
+    )
+
+    # Content
+    logo = models.ImageField(
+        upload_to="countdown/",
+        blank=True,
+        null=True,
+        verbose_name="Logo",
+        help_text="Logo-Bild hochladen"
+    )
+
+    heading = models.CharField(
+        max_length=200,
+        default="BoulderCup",
+        verbose_name="Hauptüberschrift"
+    )
+
+    subtitle = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Untertitel",
+        help_text="z.B. 'Saison 2026'"
+    )
+
+    message = CKEditor5Field(
+        "Coming Soon Nachricht",
+        config_name="default",
+        blank=True,
+        default="<p>Coming Soon</p>",
+        help_text="HTML-formatierte Nachricht mit WYSIWYG-Editor"
+    )
+
+    # Visuals
+    background_image = models.ImageField(
+        upload_to="countdown/",
+        blank=True,
+        null=True,
+        verbose_name="Hintergrundbild",
+        help_text="Optional: Hintergrundbild hochladen (überschreibt Hintergrundfarbe)"
+    )
+
+    background_color = models.CharField(
+        max_length=7,
+        default="#f1f5f9",
+        verbose_name="Hintergrundfarbe",
+        help_text="Fallback wenn kein Hintergrundbild gesetzt (Standard: #f1f5f9)"
+    )
+
+    primary_color = models.CharField(
+        max_length=7,
+        default="#1f7a8c",
+        verbose_name="Primärfarbe",
+        help_text="Farbe für Squares 1 & 3 (Standard: #1f7a8c)"
+    )
+
+    secondary_color = models.CharField(
+        max_length=7,
+        default="#166470",
+        verbose_name="Sekundärfarbe",
+        help_text="Farbe für Squares 2 & 4 (Standard: #166470)"
+    )
+
+    # Singleton pattern
+    singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Countdown-Einstellung"
+        verbose_name_plural = "Countdown-Einstellungen"
+
+    def __str__(self):
+        return self.name
+
+    def is_active(self) -> bool:
+        """Check if countdown should be shown right now."""
+        if not self.enabled:
+            return False
+        if not self.countdown_end_time:
+            return True  # Enabled with no end time = always show
+        from django.utils import timezone
+        return timezone.now() < self.countdown_end_time
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)

@@ -1,0 +1,118 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ heading }} - Coming Soon</title>
+    <link rel="stylesheet" href="{% static 'css/countdown.css' %}">
+    <style>
+        body {
+            {% if background_image and background_image.url %}
+            background-image: url('{{ background_image.url }}');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            {% else %}
+            background-color: {{ background_color }};
+            {% endif %}
+        }
+    </style>
+</head>
+<body>
+    <div class="countdown-container">
+        <!-- Logo -->
+        {% if logo and logo.url %}
+        <div class="logo-container">
+            <img src="{{ logo.url }}" alt="{{ heading }}" class="logo">
+        </div>
+        {% endif %}
+
+        <!-- Main heading -->
+        <h1 class="main-heading">{{ heading }}</h1>
+
+        <!-- Subtitle -->
+        {% if subtitle %}
+        <div class="subtitle" style="color: {{ primary_color }};">{{ subtitle }}</div>
+        {% endif %}
+
+        <!-- Coming Soon message (HTML from CKEditor) -->
+        <div class="coming-soon-message">{{ message|safe }}</div>
+
+        <!-- White card with countdown -->
+        <div class="countdown-card">
+            <!-- Countdown timer with rotated squares -->
+            <div class="countdown-timer">
+                <div class="countdown-square" style="background-color: {{ primary_color }}; transform: rotate(5deg);">
+                    <div class="countdown-value" id="days">--</div>
+                    <div class="countdown-label">Tage</div>
+                </div>
+                <div class="countdown-square" style="background-color: {{ secondary_color }}; transform: rotate(-5deg);">
+                    <div class="countdown-value" id="hours">--</div>
+                    <div class="countdown-label">Stunden</div>
+                </div>
+                <div class="countdown-square" style="background-color: {{ primary_color }}; transform: rotate(5deg);">
+                    <div class="countdown-value" id="minutes">--</div>
+                    <div class="countdown-label">Min</div>
+                </div>
+                <div class="countdown-square" style="background-color: {{ secondary_color }}; transform: rotate(-5deg);">
+                    <div class="countdown-value" id="seconds">--</div>
+                    <div class="countdown-label">Sek</div>
+                </div>
+            </div>
+
+            <!-- Start date below countdown -->
+            {% if countdown_end_time %}
+            <div class="start-date">
+                Start am {{ countdown_end_time|date:"d.m.Y - H:i" }} Uhr
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Preview Site Button -->
+        <a href="?preview=1" class="preview-button" style="border-color: {{ primary_color }}; color: {{ primary_color }};">
+            Preview Site
+        </a>
+    </div>
+
+    <script>
+        // Countdown logic
+        {% if countdown_end_timestamp %}
+        const endTimestamp = {{ countdown_end_timestamp }};
+
+        function updateCountdown() {
+            const now = Math.floor(Date.now() / 1000);
+            const remaining = endTimestamp - now;
+
+            if (remaining <= 0) {
+                // Countdown finished - reload page to show normal site
+                window.location.reload();
+                return;
+            }
+
+            const days = Math.floor(remaining / 86400);
+            const hours = Math.floor((remaining % 86400) / 3600);
+            const minutes = Math.floor((remaining % 3600) / 60);
+            const seconds = remaining % 60;
+
+            document.getElementById('days').textContent = String(days).padStart(2, '0');
+            document.getElementById('hours').textContent = String(hours).padStart(2, '0');
+            document.getElementById('minutes').textContent = String(minutes).padStart(2, '0');
+            document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
+        }
+
+        // Update immediately
+        updateCountdown();
+
+        // Update every second
+        setInterval(updateCountdown, 1000);
+        {% else %}
+        // No end time set - show dashes
+        document.getElementById('days').textContent = '--';
+        document.getElementById('hours').textContent = '--';
+        document.getElementById('minutes').textContent = '--';
+        document.getElementById('seconds').textContent = '--';
+        {% endif %}
+    </script>
+</body>
+</html>

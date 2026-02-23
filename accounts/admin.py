@@ -11,7 +11,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
-from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, Result, SubmissionWindow, CompetitionSettings, Punktesystem, Wettkampfdatum
+from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, CountdownSettings, Result, SubmissionWindow, CompetitionSettings, Punktesystem, Wettkampfdatum
 from django_ckeditor_5.widgets import CKEditor5Widget
 
 logger = logging.getLogger(__name__)
@@ -634,6 +634,52 @@ class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
         ("Regelwerk", {"fields": ("rulebook_content",)}),
     )
     readonly_fields = ("greeting_version",)
+
+    class Media:
+        css = {
+            "all": ("admin/css/ckeditor5_overrides.css",),
+        }
+
+    def has_delete_permission(self, request, obj=None):
+        """Prevent deletion of the singleton."""
+        return False
+
+
+class CountdownSettingsAdminForm(forms.ModelForm):
+    background_color = forms.CharField(
+        widget=forms.TextInput(attrs={"type": "color"}),
+        label="Hintergrundfarbe"
+    )
+    primary_color = forms.CharField(
+        widget=forms.TextInput(attrs={"type": "color"}),
+        label="Primärfarbe"
+    )
+    secondary_color = forms.CharField(
+        widget=forms.TextInput(attrs={"type": "color"}),
+        label="Sekundärfarbe"
+    )
+
+    class Meta:
+        model = CountdownSettings
+        fields = (
+            "enabled", "countdown_end_time",
+            "logo", "heading", "subtitle", "message",
+            "background_image", "background_color", "primary_color", "secondary_color"
+        )
+        widgets = {
+            "message": CKEditor5Widget(config_name="default"),
+        }
+
+
+@admin.register(CountdownSettings)
+class CountdownSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
+    form = CountdownSettingsAdminForm
+    list_display = ("name", "enabled", "countdown_end_time", "updated_at")
+    fieldsets = (
+        ("Status", {"fields": ("enabled", "countdown_end_time")}),
+        ("Inhalt", {"fields": ("logo", "heading", "subtitle", "message")}),
+        ("Design", {"fields": ("background_image", "background_color", "primary_color", "secondary_color")}),
+    )
 
     class Media:
         css = {
