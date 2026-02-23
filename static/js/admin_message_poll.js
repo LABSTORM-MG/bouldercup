@@ -109,17 +109,16 @@
         // Create modal box
         const modal = document.createElement('div');
         modal.style.cssText = `
-            background: linear-gradient(135deg, ${message.background_color} 0%, ${adjustBrightness(message.background_color, -15)} 100%);
+            background: #fff;
             max-width: 90%;
             width: 600px;
             max-height: 85vh;
             border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             padding: 0;
             position: relative;
             z-index: 9999;
             overflow: hidden;
-            color: #fff;
             animation: slideIn 0.3s ease-out;
         `;
 
@@ -128,7 +127,8 @@
         header.style.cssText = `
             padding: 28px 32px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, ${message.background_color} 0%, ${adjustBrightness(message.background_color, -15)} 100%);
+            color: #fff;
         `;
 
         // Create close button
@@ -142,7 +142,7 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(255, 255, 255, 0.15);
             border: none;
             color: #fff;
             cursor: pointer;
@@ -157,11 +157,11 @@
             backdrop-filter: blur(10px);
         `;
         closeButton.onmouseover = function() {
-            this.style.background = 'rgba(255, 255, 255, 0.2)';
+            this.style.background = 'rgba(255, 255, 255, 0.3)';
             this.style.transform = 'scale(1.1)';
         };
         closeButton.onmouseout = function() {
-            this.style.background = 'rgba(0, 0, 0, 0.2)';
+            this.style.background = 'rgba(255, 255, 255, 0.15)';
             this.style.transform = 'scale(1)';
         };
 
@@ -197,8 +197,7 @@
                 white-space: pre-wrap;
                 font-size: 17px;
                 line-height: 1.6;
-                color: rgba(255, 255, 255, 0.95);
-                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+                color: #333;
             `;
             contentWrapper.appendChild(content);
             modal.appendChild(contentWrapper);
