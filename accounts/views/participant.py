@@ -485,7 +485,12 @@ def participant_detail_results(request: HttpRequest, participant: Participant, p
     for boulder in boulders:
         res = result_map.get(boulder.id)
 
-        if res:
+        # A result record with 0 attempts and no top/zone counts as not attempted
+        actually_attempted = res is not None and (
+            res.attempts_top > 0 or res.top or res.zone1 or res.zone2
+        )
+
+        if actually_attempted:
             # Calculate points for this boulder
             points = 0
             if is_point_based and settings:
@@ -519,7 +524,7 @@ def participant_detail_results(request: HttpRequest, participant: Participant, p
                 'zone1_display': f"✓ ({res.attempts_zone1})" if res.zone1 else ("-" if boulder.zone_count >= 1 else "N/A"),
             })
         else:
-            # Boulder not attempted
+            # Boulder not attempted (no record, or record with 0 attempts and no top/zone)
             if boulder.zone_count >= 2:
                 has_two_zone_boulders = True
             boulders_without_results.append(boulder)

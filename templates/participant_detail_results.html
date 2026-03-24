@@ -208,6 +208,26 @@
                 min-width: 100%;
             }
         }
+
+        .boulder-header-link {
+            display: flex;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
+        .boulder-header-link:hover {
+            opacity: 0.85;
+            text-decoration: underline dotted;
+        }
+
+        a.boulder-chip {
+            text-decoration: none;
+            color: inherit;
+        }
+        a.boulder-chip:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
     </style>
 </head>
 <body data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
@@ -263,12 +283,13 @@
                 <div class="boulder-list">
                     {% for item in boulder_results %}
                         <div class="boulder-card" style="--accent: {{ item.boulder.color|default:'#f9fafb' }};">
-                            <div class="boulder-header">
+                            <a class="boulder-header boulder-header-link"
+                               href="{% url 'participant_results' %}#boulder-{{ item.boulder.id }}">
                                 <span class="boulder-label-text">{{ item.boulder.label }}</span>
                                 {% if is_point_based %}
                                     <span style="font-weight: 700; color: #0f172a;">{{ item.points }} Punkte</span>
                                 {% endif %}
-                            </div>
+                            </a>
                             <div class="tier-list">
                                 <div class="tier-row">
                                     <div class="tier-label">Top</div>
@@ -312,12 +333,13 @@
                     <h3>Noch nicht versucht ({{ boulders_without_results|length }})</h3>
                     <div class="boulder-chips">
                         {% for boulder in boulders_without_results %}
-                            <div class="boulder-chip">
+                            <a class="boulder-chip"
+                               href="{% url 'participant_results' %}#boulder-{{ boulder.id }}">
                                 {% if boulder.color %}
                                     <span class="color-indicator" style="background-color: {{ boulder.color }};"></span>
                                 {% endif %}
                                 {{ boulder.label }}
-                            </div>
+                            </a>
                         {% endfor %}
                     </div>
                 </div>

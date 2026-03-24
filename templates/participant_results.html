@@ -65,7 +65,7 @@
                 {% csrf_token %}
                 <div class="boulder-list{% if not can_submit %} readonly{% endif %}">
                     {% for boulder in boulders %}
-                        <div class="boulder-card" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
+                        <div class="boulder-card" id="boulder-{{ boulder.id }}" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
                             <div class="boulder-header">
                                 <span class="boulder-label-text">{{ boulder.label }}</span>
                                 <span class="flash-badge" aria-label="Flash-Begehung">⚡</span>

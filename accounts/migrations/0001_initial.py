@@ -8,7 +8,7 @@ def seed_competition_settings(apps, schema_editor):
     Settings = apps.get_model("accounts", "CompetitionSettings")
     if not Settings.objects.exists():
         Settings.objects.create(
-            grading_system="ifsc",
+            grading_system="point_based",
             name="Standard Punkte-Setup",
             top_points=25,
             flash_points=30,
@@ -86,7 +86,7 @@ class Migration(migrations.Migration):
                             ("point_based_dynamic", "Punktebasiert (dynamisch)"),
                             ("point_based_dynamic_attempts", "Punktebasiert (dynamisch + Versuche)"),
                         ],
-                        default="ifsc",
+                        default="point_based",
                         max_length=30,
                     ),
                 ),
