@@ -10,6 +10,7 @@ from functools import wraps
 
 from django import forms
 from django.contrib import messages
+from django_ckeditor_5.widgets import CKEditor5Widget
 from django.contrib.auth import logout as auth_logout
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
@@ -18,14 +19,16 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from ..forms import CSVUploadForm
-from ..forms_admin import BoulderAdminForm
+from ..forms_admin import BoulderAdminForm, SubmissionWindowAdminForm
 from ..models import (
     AgeGroup,
     AdminMessage,
     Boulder,
     CompetitionSettings,
+    CountdownSettings,
     Participant,
     Result,
+    SiteSettings,
     SubmissionWindow,
 )
 from ..utils import hash_password, normalize_gender, parse_date, pick_value, unique_username
@@ -602,4 +605,490 @@ def myadmin_wettkampfdatum(request):
     return render(request, "myadmin/singletons/wettkampfdatum.html", {
         "form": form,
         "page_title": "Wettkampfdatum",
+    })
+
+# ---------------------------------------------------------------------------
+# Results
+# ---------------------------------------------------------------------------
+
+class ResultEditForm(forms.ModelForm):
+    class Meta:
+        model = Result
+        fields = ("top", "zone2", "zone1", "attempts_top", "attempts_zone2", "attempts_zone1")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Re-use model's clean() logic via full_clean on a temp instance
+        return cleaned_data
+
+
+@myadmin_required
+def myadmin_results(request):
+    qs = Result.objects.select_related(
+        "participant", "participant__age_group", "boulder"
+    ).order_by("participant__age_group__name", "participant__name", "boulder__label")
+
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(
+            Q(participant__name__icontains=q) | Q(boulder__label__icontains=q)
+        )
+
+    age_group_id = request.GET.get("age_group", "")
+    if age_group_id:
+        qs = qs.filter(participant__age_group_id=age_group_id)
+
+    boulder_id = request.GET.get("boulder", "")
+    if boulder_id:
+        qs = qs.filter(boulder_id=boulder_id)
+
+    top_filter = request.GET.get("top", "")
+    if top_filter == "1":
+        qs = qs.filter(top=True)
+    elif top_filter == "0":
+        qs = qs.filter(top=False)
+
+    page_obj = _paginate(qs, request, per_page=100)
+    age_groups = AgeGroup.objects.order_by("name")
+    boulders = Boulder.objects.order_by("label")
+
+    return render(request, "myadmin/results/list.html", {
+        "page_title": "Ergebnisse",
+        "page_obj": page_obj,
+        "age_groups": age_groups,
+        "boulders": boulders,
+        "q": q,
+        "filter_age_group": age_group_id,
+        "filter_boulder": boulder_id,
+        "filter_top": top_filter,
+        "total_count": qs.count(),
+    })
+
+
+@myadmin_required
+def myadmin_result_edit(request, pk):
+    result = get_object_or_404(
+        Result.objects.select_related("participant", "boulder"), pk=pk
+    )
+    if request.method == "POST":
+        form = ResultEditForm(request.POST, instance=result)
+        if form.is_valid():
+            old = Result.objects.get(pk=pk)
+            changes = []
+            for field in ["top", "zone2", "zone1", "attempts_top", "attempts_zone2", "attempts_zone1"]:
+                old_val = getattr(old, field)
+                new_val = form.cleaned_data.get(field)
+                if old_val != new_val:
+                    changes.append(field + ": " + str(old_val) + " -> " + str(new_val))
+            obj = form.save(commit=False)
+            try:
+                obj.full_clean()
+            except Exception as e:
+                form.add_error(None, str(e))
+            else:
+                obj.save()
+                if changes:
+                    logger.warning(
+                        "Admin result change by " + request.user.username + ": "
+                        + result.participant.username + " / " + result.boulder.label
+                        + " -- " + ", ".join(changes)
+                    )
+                messages.success(request, "Ergebnis gespeichert.")
+                return redirect("myadmin:results")
+    else:
+        form = ResultEditForm(instance=result)
+    _add_ma_classes(form)
+    return render(request, "myadmin/results/form.html", {
+        "form": form,
+        "result": result,
+        "page_title": result.participant.name + " / " + result.boulder.label,
+    })
+
+
+@myadmin_required
+def myadmin_result_delete(request, pk):
+    result = get_object_or_404(
+        Result.objects.select_related("participant", "boulder"), pk=pk
+    )
+    if request.method == "POST":
+        desc = result.participant.name + " / " + result.boulder.label
+        result.delete()
+        messages.success(request, "Ergebnis " + desc + " geloescht.")
+        return redirect("myadmin:results")
+    return render(request, "myadmin/results/delete_confirm.html", {
+        "result": result,
+        "page_title": "Ergebnis loeschen?",
+    })
+
+
+# ---------------------------------------------------------------------------
+# Export actions
+# ---------------------------------------------------------------------------
+
+@myadmin_required
+def myadmin_export_results_csv(request):
+    from django.utils import timezone as tz
+    results = Result.objects.select_related(
+        "participant", "participant__age_group", "boulder"
+    ).order_by("participant__age_group__name", "participant__name", "boulder__label")
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+    ts = tz.now().strftime("%Y-%m-%d_%H%M")
+    response["Content-Disposition"] = "attachment; filename=\"ergebnisse_" + ts + ".csv\""
+
+    writer = csv.writer(response)
+    writer.writerow([
+        "Teilnehmer", "Benutzername", "Altersgruppe", "Boulder",
+        "Top", "Zone 2", "Zone 1",
+        "Versuche Top", "Versuche Zone 2", "Versuche Zone 1",
+        "Flash", "Version", "Erstellt am", "Zuletzt geaendert",
+    ])
+    for r in results:
+        is_flash = r.top and r.attempts_top == 1
+        writer.writerow([
+            r.participant.name,
+            r.participant.username,
+            r.participant.age_group.name if r.participant.age_group else "--",
+            r.boulder.label,
+            "Ja" if r.top else "Nein",
+            "Ja" if r.zone2 else "Nein",
+            "Ja" if r.zone1 else "Nein",
+            r.attempts_top,
+            r.attempts_zone2,
+            r.attempts_zone1,
+            "Flash" if is_flash else "",
+            r.version,
+            r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "--",
+            r.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+        ])
+    return response
+
+
+@myadmin_required
+def myadmin_export_history_csv(request):
+    from django.utils import timezone as tz
+    results = Result.objects.all()
+
+    response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+    ts = tz.now().strftime("%Y-%m-%d_%H%M")
+    response["Content-Disposition"] = "attachment; filename=\"ergebnisse_verlauf_" + ts + ".csv\""
+
+    writer = csv.writer(response)
+    writer.writerow([
+        "Teilnehmer", "Benutzername", "Altersgruppe", "Boulder",
+        "Top", "Zone 2", "Zone 1",
+        "Versuche Top", "Versuche Zone 2", "Versuche Zone 1",
+        "Version", "Aenderungszeitpunkt", "Aenderungstyp", "Geaendert von",
+    ])
+    history_type_map = {"+": "Erstellt", "~": "Geaendert", "-": "Geloescht"}
+    for result in results:
+        for h in result.history.all().order_by("history_date"):
+            writer.writerow([
+                h.participant.name if h.participant else "--",
+                h.participant.username if h.participant else "--",
+                h.participant.age_group.name if h.participant and h.participant.age_group else "--",
+                h.boulder.label if h.boulder else "--",
+                "Ja" if h.top else "Nein",
+                "Ja" if h.zone2 else "Nein",
+                "Ja" if h.zone1 else "Nein",
+                h.attempts_top,
+                h.attempts_zone2,
+                h.attempts_zone1,
+                h.version,
+                h.history_date.strftime("%Y-%m-%d %H:%M:%S"),
+                history_type_map.get(h.history_type, h.history_type),
+                h.history_user.username if h.history_user else "System",
+            ])
+    return response
+
+
+@myadmin_required
+def myadmin_export_standings_pdf(request):
+    from django.utils import timezone as tz
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+    from ..services.scoring_service import ScoringService
+
+    settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
+    if not settings:
+        messages.error(request, "Keine Wettkampfeinstellungen gefunden.")
+        return redirect("myadmin:results")
+
+    response = HttpResponse(content_type="application/pdf")
+    ts = tz.now().strftime("%Y-%m-%d_%H%M")
+    response["Content-Disposition"] = "attachment; filename=\"rangliste_" + ts + ".pdf\""
+
+    doc = SimpleDocTemplate(response, pagesize=landscape(A4))
+    elements = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("T", parent=styles["Heading1"], fontSize=18, spaceAfter=30, alignment=1)
+    current_time = tz.now().strftime("%d.%m.%Y %H:%M:%S")
+    elements.append(Paragraph("BoulderCup Rangliste<br/><font size=12>Stand: " + current_time + "</font>", title_style))
+    elements.append(Spacer(1, 0.5 * cm))
+
+    group_style = ParagraphStyle("G", parent=styles["Heading2"], fontSize=14, spaceAfter=10)
+
+    for age_group in AgeGroup.objects.order_by("name"):
+        elements.append(Paragraph("Altersgruppe: " + age_group.name, group_style))
+        participants = list(
+            Participant.objects.filter(age_group=age_group).select_related("age_group").order_by("name")
+        )
+        if not participants:
+            elements.append(Paragraph("Keine Teilnehmer vorhanden", styles["Normal"]))
+            elements.append(Spacer(1, 0.5 * cm))
+            continue
+
+        boulders = list(Boulder.objects.filter(age_groups=age_group))
+        results_qs = Result.objects.filter(
+            participant__in=participants, boulder__in=boulders
+        ).select_related("participant", "boulder")
+
+        if settings.grading_system in ("point_based_dynamic", "point_based_dynamic_attempts"):
+            results_list = list(results_qs)
+            result_map = ScoringService.group_results_by_participant(results_list)
+            top_counts = ScoringService.count_tops_per_boulder(results_list)
+            entries = ScoringService.build_scoreboard_entries(
+                participants, result_map, settings.grading_system, settings,
+                top_counts=top_counts, participant_count=len(participants),
+            )
+        else:
+            result_map = ScoringService.group_results_by_participant(results_qs)
+            entries = ScoringService.build_scoreboard_entries(
+                participants, result_map, settings.grading_system, settings
+            )
+
+        if not entries:
+            elements.append(Paragraph("Keine Ergebnisse vorhanden", styles["Normal"]))
+            elements.append(Spacer(1, 0.5 * cm))
+            continue
+
+        if settings.grading_system == "ifsc":
+            table_data = [["Rang", "Name", "Tops", "Zonen", "Versuche Top", "Versuche Zone"]]
+            for e in entries:
+                table_data.append([str(e["rank"]), e["participant"].name,
+                    str(e.get("tops", 0)), str(e.get("zones", 0)),
+                    str(e.get("top_attempts", 0)), str(e.get("zone_attempts", 0))])
+        else:
+            table_data = [["Rang", "Name", "Punkte", "Tops", "Zonen"]]
+            for e in entries:
+                table_data.append([str(e["rank"]), e["participant"].name,
+                    str(round(e.get("points", 0), 1)),
+                    str(e.get("tops", 0)), str(e.get("zones", 0))])
+
+        table = Table(table_data, hAlign="LEFT")
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 12),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 10),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 1 * cm))
+
+    doc.build(elements)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# SubmissionWindows
+# ---------------------------------------------------------------------------
+
+@myadmin_required
+def myadmin_windows(request):
+    qs = SubmissionWindow.objects.prefetch_related("age_groups").order_by("submission_start")
+    page_obj = _paginate(qs, request, per_page=50)
+    return render(request, "myadmin/windows/list.html", {
+        "page_title": "Zeitfenster",
+        "page_obj": page_obj,
+    })
+
+
+@myadmin_required
+def myadmin_window_add(request):
+    # Pre-fill with competition date
+    initial = {}
+    cs = CompetitionSettings.objects.filter(singleton_guard=True).first()
+    if cs and cs.competition_date:
+        from datetime import datetime
+        start = timezone.make_aware(datetime.combine(cs.competition_date, datetime.min.time().replace(hour=9, minute=0)))
+        initial["submission_start"] = start
+        initial["submission_end"] = start.replace(hour=17, minute=0)
+
+    if request.method == "POST":
+        form = SubmissionWindowAdminForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Zeitfenster wurde angelegt.")
+            return redirect("myadmin:windows")
+    else:
+        form = SubmissionWindowAdminForm(initial=initial)
+    _add_ma_classes(form)
+    return render(request, "myadmin/windows/form.html", {
+        "form": form, "is_add": True, "page_title": "Zeitfenster anlegen",
+    })
+
+
+@myadmin_required
+def myadmin_window_edit(request, pk):
+    window = get_object_or_404(SubmissionWindow, pk=pk)
+    if request.method == "POST":
+        form = SubmissionWindowAdminForm(request.POST, instance=window)
+        if form.is_valid():
+            form.save()
+            messages.success(request, window.name + " gespeichert.")
+            return redirect("myadmin:windows")
+    else:
+        form = SubmissionWindowAdminForm(instance=window)
+    _add_ma_classes(form)
+    return render(request, "myadmin/windows/form.html", {
+        "form": form, "window": window, "is_add": False,
+        "page_title": window.name + " bearbeiten",
+    })
+
+
+@myadmin_required
+def myadmin_window_delete(request, pk):
+    window = get_object_or_404(SubmissionWindow, pk=pk)
+    if request.method == "POST":
+        name = window.name
+        window.delete()
+        messages.success(request, "Zeitfenster " + name + " geloescht.")
+        return redirect("myadmin:windows")
+    return render(request, "myadmin/windows/delete_confirm.html", {
+        "window": window, "page_title": window.name + " loeschen?",
+    })
+
+
+@myadmin_required
+def myadmin_window_bulk_create(request):
+    if request.method != "POST":
+        return redirect("myadmin:windows")
+    from datetime import datetime
+    cs = CompetitionSettings.objects.filter(singleton_guard=True).first()
+    if cs and cs.competition_date:
+        start = timezone.make_aware(datetime.combine(cs.competition_date, datetime.min.time().replace(hour=9, minute=0)))
+        end = start.replace(hour=17, minute=0)
+    else:
+        now = timezone.now()
+        start = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        end = now.replace(hour=17, minute=0, second=0, microsecond=0)
+
+    age_groups = list(AgeGroup.objects.order_by("name"))
+    if not age_groups:
+        messages.warning(request, "Keine Altersgruppen vorhanden.")
+        return redirect("myadmin:windows")
+
+    count = 0
+    for ag in age_groups:
+        w = SubmissionWindow.objects.create(
+            name="Zeitfenster " + ag.name,
+            submission_start=start,
+            submission_end=end,
+            note="Automatisch erstellt fuer " + ag.name,
+        )
+        w.age_groups.add(ag)
+        count += 1
+
+    messages.success(request, str(count) + " Zeitfenster erstellt (09:00-17:00).")
+    return redirect("myadmin:windows")
+
+
+# ---------------------------------------------------------------------------
+# Settings singletons: SiteSettings, CountdownSettings, Punktesystem
+# ---------------------------------------------------------------------------
+
+class SiteSettingsForm(forms.ModelForm):
+    class Meta:
+        model = SiteSettings
+        fields = (
+            "dashboard_heading", "greeting_enabled", "greeting_heading",
+            "greeting_message", "help_text_content", "rulebook_content",
+        )
+        widgets = {
+            "greeting_message": CKEditor5Widget(config_name="default"),
+            "help_text_content": CKEditor5Widget(config_name="default"),
+            "rulebook_content":  CKEditor5Widget(config_name="default"),
+        }
+
+
+class CountdownSettingsForm(forms.ModelForm):
+    background_color = forms.CharField(widget=forms.TextInput(attrs={"type": "color", "class": "ma-input"}), label="Hintergrundfarbe")
+    primary_color    = forms.CharField(widget=forms.TextInput(attrs={"type": "color", "class": "ma-input"}), label="Primaerfarbe")
+    secondary_color  = forms.CharField(widget=forms.TextInput(attrs={"type": "color", "class": "ma-input"}), label="Sekundaerfarbe")
+
+    class Meta:
+        model = CountdownSettings
+        fields = (
+            "enabled", "countdown_end_time", "show_preview_button",
+            "logo", "heading", "subtitle", "message",
+            "background_image", "background_color", "primary_color", "secondary_color",
+        )
+        widgets = {"message": CKEditor5Widget(config_name="default")}
+
+
+class PunkteSystemForm(forms.ModelForm):
+    class Meta:
+        model = CompetitionSettings
+        fields = (
+            "grading_system",
+            "flash_points",
+            "top_points",
+            "top_points_10", "top_points_20", "top_points_30", "top_points_40",
+            "top_points_50", "top_points_60", "top_points_70", "top_points_80",
+            "top_points_90", "top_points_100",
+            "zone_points", "zone1_points", "zone2_points",
+            "min_top_points", "min_zone_points", "min_zone1_points", "min_zone2_points",
+            "attempt_penalty",
+        )
+
+
+@myadmin_required
+def myadmin_site_settings(request):
+    obj, _ = SiteSettings.objects.get_or_create(singleton_guard=True)
+    form = SiteSettingsForm(request.POST or None, instance=obj)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Site-Einstellungen gespeichert.")
+        return redirect("myadmin:site_settings")
+    _add_ma_classes(form)
+    return render(request, "myadmin/singletons/site_settings.html", {
+        "form": form, "page_title": "Site-Einstellungen",
+    })
+
+
+@myadmin_required
+def myadmin_countdown(request):
+    obj, _ = CountdownSettings.objects.get_or_create(singleton_guard=True)
+    form = CountdownSettingsForm(request.POST or None, request.FILES or None, instance=obj)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Countdown-Einstellungen gespeichert.")
+        return redirect("myadmin:countdown")
+    _add_ma_classes(form)
+    return render(request, "myadmin/singletons/countdown.html", {
+        "form": form, "page_title": "Countdown",
+    })
+
+
+@myadmin_required
+def myadmin_punktesystem(request):
+    obj, _ = CompetitionSettings.objects.get_or_create(singleton_guard=True)
+    form = PunkteSystemForm(request.POST or None, instance=obj)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Punktesystem gespeichert.")
+        return redirect("myadmin:punktesystem")
+    _add_ma_classes(form)
+    return render(request, "myadmin/singletons/punktesystem.html", {
+        "form": form, "page_title": "Punktesystem",
     })

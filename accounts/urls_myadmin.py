@@ -19,9 +19,26 @@ from .views.myadmin import (
     myadmin_agegroup_add,
     myadmin_agegroup_edit,
     myadmin_agegroup_delete,
+    # Results
+    myadmin_results,
+    myadmin_result_edit,
+    myadmin_result_delete,
+    # Exports
+    myadmin_export_results_csv,
+    myadmin_export_history_csv,
+    myadmin_export_standings_pdf,
+    # SubmissionWindows
+    myadmin_windows,
+    myadmin_window_add,
+    myadmin_window_edit,
+    myadmin_window_delete,
+    myadmin_window_bulk_create,
     # Singletons
     myadmin_admin_message,
     myadmin_wettkampfdatum,
+    myadmin_site_settings,
+    myadmin_countdown,
+    myadmin_punktesystem,
 )
 
 app_name = "myadmin"
@@ -46,7 +63,24 @@ urlpatterns = [
     path("altersgruppen/neu/", myadmin_agegroup_add, name="agegroup_add"),
     path("altersgruppen/<int:pk>/", myadmin_agegroup_edit, name="agegroup_edit"),
     path("altersgruppen/<int:pk>/loeschen/", myadmin_agegroup_delete, name="agegroup_delete"),
+    # Results
+    path("ergebnisse/", myadmin_results, name="results"),
+    path("ergebnisse/<int:pk>/", myadmin_result_edit, name="result_edit"),
+    path("ergebnisse/<int:pk>/loeschen/", myadmin_result_delete, name="result_delete"),
+    # Exports
+    path("export/ergebnisse-csv/", myadmin_export_results_csv, name="export_results_csv"),
+    path("export/verlauf-csv/", myadmin_export_history_csv, name="export_history_csv"),
+    path("export/rangliste-pdf/", myadmin_export_standings_pdf, name="export_standings_pdf"),
+    # SubmissionWindows
+    path("zeitfenster/", myadmin_windows, name="windows"),
+    path("zeitfenster/neu/", myadmin_window_add, name="window_add"),
+    path("zeitfenster/<int:pk>/", myadmin_window_edit, name="window_edit"),
+    path("zeitfenster/<int:pk>/loeschen/", myadmin_window_delete, name="window_delete"),
+    path("zeitfenster/bulk-erstellen/", myadmin_window_bulk_create, name="window_bulk_create"),
     # Singletons
     path("nachricht/", myadmin_admin_message, name="admin_message"),
     path("wettkampfdatum/", myadmin_wettkampfdatum, name="wettkampfdatum"),
+    path("site-einstellungen/", myadmin_site_settings, name="site_settings"),
+    path("countdown/", myadmin_countdown, name="countdown"),
+    path("punktesystem/", myadmin_punktesystem, name="punktesystem"),
 ]

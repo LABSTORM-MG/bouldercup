@@ -1,0 +1,90 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Ergebnisse{% endblock %}
+
+{% block content %}
+<form method="get">
+<div class="ma-toolbar">
+  <div class="ma-search">
+    <span>🔍</span>
+    <input type="text" name="q" value="{{ q }}" placeholder="Teilnehmer, Boulder…" autocomplete="off">
+  </div>
+  <div class="ma-filters">
+    <select name="age_group" class="ma-select" onchange="this.form.submit()">
+      <option value="">Alle Gruppen</option>
+      {% for ag in age_groups %}
+        <option value="{{ ag.pk }}" {% if filter_age_group == ag.pk|stringformat:"s" %}selected{% endif %}>{{ ag.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="boulder" class="ma-select" onchange="this.form.submit()">
+      <option value="">Alle Boulder</option>
+      {% for b in boulders %}
+        <option value="{{ b.pk }}" {% if filter_boulder == b.pk|stringformat:"s" %}selected{% endif %}>{{ b.label }}</option>
+      {% endfor %}
+    </select>
+    <select name="top" class="ma-select" onchange="this.form.submit()">
+      <option value="">Top: alle</option>
+      <option value="1" {% if filter_top == '1' %}selected{% endif %}>Top: Ja</option>
+      <option value="0" {% if filter_top == '0' %}selected{% endif %}>Top: Nein</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Filtern</button>
+    {% if q or filter_age_group or filter_boulder or filter_top %}
+      <a href="{% url 'myadmin:results' %}" class="btn btn-ghost btn-sm">✕</a>
+    {% endif %}
+  </div>
+</div>
+</form>
+
+<p style="font-size:.8rem; color:var(--text-muted); margin-bottom:.5rem;">{{ total_count }} Einträge</p>
+
+<div class="ma-table-wrap">
+  <table class="ma-table">
+    <thead>
+      <tr>
+        <th>Teilnehmer</th>
+        <th>Gruppe</th>
+        <th>Boulder</th>
+        <th>Top</th>
+        <th>Zone 2</th>
+        <th>Zone 1</th>
+        <th>V-Top</th>
+        <th>V-Z2</th>
+        <th>V-Z1</th>
+        <th style="text-align:right;">Aktionen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in page_obj %}
+      <tr>
+        <td><strong>{{ r.participant.name }}</strong><br><small style="color:var(--text-muted);">{{ r.participant.username }}</small></td>
+        <td style="font-size:.8rem;">{{ r.participant.age_group.name|default:"—" }}</td>
+        <td>{{ r.boulder.label }}</td>
+        <td>
+          {% if r.top and r.attempts_top == 1 %}
+            <span class="badge badge-warning">Flash</span>
+          {% elif r.top %}
+            <span class="badge badge-success">✓</span>
+          {% else %}
+            <span style="color:var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td>{% if r.zone2 %}<span class="badge badge-success">✓</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+        <td>{% if r.zone1 %}<span class="badge badge-success">✓</span>{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}</td>
+        <td style="text-align:center;">{{ r.attempts_top }}</td>
+        <td style="text-align:center;">{{ r.attempts_zone2 }}</td>
+        <td style="text-align:center;">{{ r.attempts_zone1 }}</td>
+        <td>
+          <div class="row-actions">
+            <a href="{% url 'myadmin:result_edit' r.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
+            <a href="{% url 'myadmin:result_delete' r.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="10"><div class="ma-empty"><div class="empty-icon">🏆</div><p>Keine Ergebnisse gefunden.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include 'myadmin/_pagination.html' %}
+</div>
+{% endblock %}

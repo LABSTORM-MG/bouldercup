@@ -30,12 +30,40 @@
         <span class="nav-icon">👥</span> Altersgruppen
       </a>
 
+      <div class="ma-nav-group">Ergebnisse</div>
+      <a href="{% url 'myadmin:results' %}" class="{% if 'result' in url_name %}active{% endif %}">
+        <span class="nav-icon">🏆</span> Ergebnisse
+      </a>
+      <a href="{% url 'myadmin:windows' %}" class="{% if 'window' in url_name %}active{% endif %}">
+        <span class="nav-icon">🕐</span> Zeitfenster
+      </a>
+
       <div class="ma-nav-group">Einstellungen</div>
       <a href="{% url 'myadmin:admin_message' %}" class="{% if url_name == 'admin_message' %}active{% endif %}">
         <span class="nav-icon">📢</span> Admin-Nachricht
       </a>
       <a href="{% url 'myadmin:wettkampfdatum' %}" class="{% if url_name == 'wettkampfdatum' %}active{% endif %}">
         <span class="nav-icon">📅</span> Wettkampfdatum
+      </a>
+      <a href="{% url 'myadmin:site_settings' %}" class="{% if url_name == 'site_settings' %}active{% endif %}">
+        <span class="nav-icon">🌐</span> Site-Einstellungen
+      </a>
+      <a href="{% url 'myadmin:countdown' %}" class="{% if url_name == 'countdown' %}active{% endif %}">
+        <span class="nav-icon">⏳</span> Countdown
+      </a>
+      <a href="{% url 'myadmin:punktesystem' %}" class="{% if url_name == 'punktesystem' %}active{% endif %}">
+        <span class="nav-icon">🎯</span> Punktesystem
+      </a>
+
+      <div class="ma-nav-group">Export</div>
+      <a href="{% url 'myadmin:export_results_csv' %}">
+        <span class="nav-icon">📥</span> Ergebnisse CSV
+      </a>
+      <a href="{% url 'myadmin:export_history_csv' %}">
+        <span class="nav-icon">📋</span> Verlauf CSV
+      </a>
+      <a href="{% url 'myadmin:export_standings_pdf' %}">
+        <span class="nav-icon">📄</span> Rangliste PDF
       </a>
 
       <div class="ma-nav-group">System</div>

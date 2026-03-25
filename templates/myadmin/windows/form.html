@@ -1,0 +1,26 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}
+  <span class="sep">/</span> <a href="{% url 'myadmin:windows' %}">Zeitfenster</a>
+  <span class="sep">/</span> {% if is_add %}Neu{% else %}Bearbeiten{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="ma-card" style="max-width: 760px;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">{{ page_title }}</span>
+  </div>
+  <div class="ma-card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="ma-form-grid">
+        {% include 'myadmin/_form_fields.html' %}
+      </div>
+      <div class="ma-form-actions">
+        <button type="submit" class="btn btn-primary">💾 Speichern</button>
+        <a href="{% url 'myadmin:windows' %}" class="btn btn-secondary">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
