@@ -676,7 +676,7 @@ class CountdownSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
     form = CountdownSettingsAdminForm
     list_display = ("name", "enabled", "countdown_end_time", "updated_at")
     fieldsets = (
-        ("Status", {"fields": ("enabled", "countdown_end_time")}),
+        ("Status", {"fields": ("enabled", "countdown_end_time", "show_preview_button")}),
         ("Inhalt", {"fields": ("logo", "heading", "subtitle", "message")}),
         ("Design", {"fields": ("background_image", "background_color", "primary_color", "secondary_color")}),
     )

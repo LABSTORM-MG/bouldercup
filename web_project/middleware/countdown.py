@@ -13,6 +13,21 @@ from django.shortcuts import render
 logger = logging.getLogger(__name__)
 
 
+def _contrast_color(hex_color: str) -> str:
+    """Return #ffffff or #1a1a1a depending on which has better WCAG contrast against hex_color."""
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) != 6:
+        return '#1a1a1a'
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+
+    def _lin(c):
+        c /= 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+    luminance = 0.2126 * _lin(r) + 0.7152 * _lin(g) + 0.0722 * _lin(b)
+    return '#ffffff' if luminance < 0.179 else '#1a1a1a'
+
+
 class CountdownMiddleware:
     """Intercept requests and show countdown until configured time."""
 
@@ -44,6 +59,7 @@ class CountdownMiddleware:
 
         # Show countdown page
         # JavaScript handles visual countdown, server just provides end timestamp
+        text_color = _contrast_color(settings.background_color)
         context = {
             'logo': settings.logo,
             'heading': settings.heading,
@@ -53,8 +69,10 @@ class CountdownMiddleware:
             'background_color': settings.background_color,
             'primary_color': settings.primary_color,
             'secondary_color': settings.secondary_color,
+            'text_color': text_color,
             'countdown_end_time': settings.countdown_end_time,
             'countdown_end_timestamp': None,
+            'show_preview_button': settings.show_preview_button,
         }
 
         if settings.countdown_end_time:

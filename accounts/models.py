@@ -944,6 +944,12 @@ class CountdownSettings(models.Model):
         help_text="Farbe für Squares 2 & 4 (Standard: #166470)"
     )
 
+    show_preview_button = models.BooleanField(
+        default=True,
+        verbose_name="'Preview Site'-Button anzeigen",
+        help_text="Erlaubt Admins, die Seite hinter dem Countdown vorab zu sehen."
+    )
+
     # Singleton pattern
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)

@@ -17,6 +17,18 @@
             background-color: {{ background_color }};
             {% endif %}
         }
+        .main-heading,
+        .coming-soon-message {
+            color: {{ text_color }};
+            {% if background_image and background_image.url %}
+            text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+            {% endif %}
+        }
+        .preview-button {
+            {% if background_image and background_image.url %}
+            text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            {% endif %}
+        }
     </style>
 </head>
 <body>
@@ -70,9 +82,11 @@
         </div>
 
         <!-- Preview Site Button -->
+        {% if show_preview_button %}
         <a href="?preview=1" class="preview-button" style="border-color: {{ primary_color }}; color: {{ primary_color }};">
             Preview Site
         </a>
+        {% endif %}
     </div>
 
     <script>
