@@ -580,6 +580,13 @@ table.ma-table {
 
 .ma-textarea { resize: vertical; min-height: 100px; }
 
+.ma-input[type="color"] {
+  width: 80px;
+  height: 2.5rem;
+  padding: .2rem .3rem;
+  cursor: pointer;
+}
+
 .field-help {
   font-size: .75rem;
   color: var(--text-muted);
