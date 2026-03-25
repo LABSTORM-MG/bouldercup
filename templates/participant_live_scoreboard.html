@@ -11,7 +11,13 @@
 <body data-admin-message-poll-interval="{{ frontend_config.ADMIN_MESSAGE_POLL_INTERVAL_MS }}"
       data-admin-message-poll-jitter-min="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MIN_MS }}"
       data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
-    {% include 'includes/header_back.html' with section_title=title %}
+    <header>
+        <a href="{% url 'participant_dashboard' %}">&#8592; Zurück</a>
+        <h1>
+            <span class="live-dot" aria-hidden="true"></span>
+            {{ title }}
+        </h1>
+    </header>
     <main>
         {% if entries %}
             <form method="get" class="age-group-filter">
