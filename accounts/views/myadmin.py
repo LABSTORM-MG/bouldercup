@@ -10,6 +10,7 @@ from functools import wraps
 
 from django import forms
 from django.contrib import messages
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django_ckeditor_5.widgets import CKEditor5Widget
 from django.contrib.auth import logout as auth_logout
 from django.core.paginator import Paginator
@@ -896,6 +897,7 @@ def myadmin_preview_standings(request):
     })
 
 
+@xframe_options_sameorigin
 @myadmin_required
 def myadmin_inline_standings_pdf(request):
     """Serve the standings PDF inline (for browser iframe embedding)."""
