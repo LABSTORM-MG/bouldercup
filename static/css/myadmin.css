@@ -300,6 +300,7 @@ body.myadmin {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .ma-card-header {
@@ -554,7 +555,7 @@ table.ma-table {
   color: var(--danger);
 }
 
-.ma-field .field-widget { display: flex; flex-direction: column; gap: .3rem; }
+.ma-field .field-widget { display: flex; flex-direction: column; gap: .3rem; min-width: 0; overflow: hidden; }
 
 .ma-input,
 .ma-select-full,
@@ -579,6 +580,11 @@ table.ma-table {
 }
 
 .ma-textarea { resize: vertical; min-height: 100px; }
+
+/* CKEditor5 inside form fields must not overflow the card */
+.ma-field .field-widget .ck-editor,
+.ma-field .field-widget .django-ckeditor-widget { max-width: 100%; }
+.ma-field .field-widget .ck-editor__editable { min-height: 120px; }
 
 .ma-input[type="color"] {
   width: 80px;
