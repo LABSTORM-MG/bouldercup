@@ -1,5 +1,3 @@
-{# Renders all visible fields of a form using myadmin styling.
-   Forms must set class="ma-input" / "ma-textarea" / "ma-select-full" on their widgets. #}
 {% if form.non_field_errors %}
 <div class="form-errors-banner">
   {% for error in form.non_field_errors %}{{ error }}{% endfor %}
