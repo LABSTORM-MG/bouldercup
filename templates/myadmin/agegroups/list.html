@@ -1,0 +1,46 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Altersgruppen{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'myadmin:agegroup_add' %}" class="btn btn-primary btn-sm">➕ Neu</a>
+{% endblock %}
+
+{% block content %}
+<div class="ma-table-wrap">
+  <table class="ma-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Altersbereich</th>
+        <th>Geschlecht</th>
+        <th>Teilnehmer</th>
+        <th style="text-align:right;">Aktionen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ag in page_obj %}
+      <tr>
+        <td><strong>{{ ag.name }}</strong></td>
+        <td>{{ ag.min_age }}–{{ ag.max_age }} Jahre</td>
+        <td>{{ ag.get_gender_display }}</td>
+        <td>
+          <a href="{% url 'myadmin:participants' %}?age_group={{ ag.pk }}" style="color:var(--accent);">
+            {{ ag.participant_count }}
+          </a>
+        </td>
+        <td>
+          <div class="row-actions">
+            <a href="{% url 'myadmin:agegroup_edit' ag.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
+            <a href="{% url 'myadmin:agegroup_delete' ag.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5"><div class="ma-empty"><div class="empty-icon">👥</div><p>Keine Altersgruppen vorhanden.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include 'myadmin/_pagination.html' %}
+</div>
+{% endblock %}

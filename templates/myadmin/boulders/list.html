@@ -1,0 +1,70 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Boulder{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'myadmin:boulder_add' %}" class="btn btn-primary btn-sm">➕ Neu</a>
+{% endblock %}
+
+{% block content %}
+<form method="get">
+<div class="ma-toolbar">
+  <div class="ma-search">
+    <span>🔍</span>
+    <input type="text" name="q" value="{{ q }}" placeholder="Label, Farbe, Ort…" autocomplete="off">
+  </div>
+  <div class="ma-filters">
+    <select name="zone_count" class="ma-select" onchange="this.form.submit()">
+      <option value="">Alle Zonen</option>
+      <option value="0" {% if filter_zone_count == '0' %}selected{% endif %}>0 Zonen</option>
+      <option value="1" {% if filter_zone_count == '1' %}selected{% endif %}>1 Zone</option>
+      <option value="2" {% if filter_zone_count == '2' %}selected{% endif %}>2 Zonen</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Filtern</button>
+    {% if q or filter_zone_count %}
+      <a href="{% url 'myadmin:boulders' %}" class="btn btn-ghost btn-sm">✕</a>
+    {% endif %}
+  </div>
+</div>
+</form>
+
+<div class="ma-table-wrap">
+  <table class="ma-table">
+    <thead>
+      <tr>
+        <th>Label</th>
+        <th>Farbe</th>
+        <th>Zonen</th>
+        <th>Altersgruppen</th>
+        <th>Ort / Notiz</th>
+        <th style="text-align:right;">Aktionen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in page_obj %}
+      <tr>
+        <td><strong>{{ b.label }}</strong></td>
+        <td>
+          <span class="color-swatch" style="background-color:{{ b.color }};"></span>
+          {{ b.color }}
+        </td>
+        <td>{{ b.get_zone_count_display }}</td>
+        <td style="font-size:.8rem; color:var(--text-secondary);">
+          {% for ag in b.age_groups.all %}{{ ag.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+        </td>
+        <td style="font-size:.8rem; color:var(--text-muted);">{{ b.location|default:"—" }}</td>
+        <td>
+          <div class="row-actions">
+            <a href="{% url 'myadmin:boulder_edit' b.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
+            <a href="{% url 'myadmin:boulder_delete' b.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6"><div class="ma-empty"><div class="empty-icon">🪨</div><p>Keine Boulder gefunden.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include 'myadmin/_pagination.html' %}
+</div>
+{% endblock %}

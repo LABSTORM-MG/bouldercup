@@ -1,0 +1,117 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Teilnehmer{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'myadmin:participant_import' %}" class="btn btn-secondary btn-sm">📥 Importieren</a>
+  <a href="{% url 'myadmin:participant_add' %}" class="btn btn-primary btn-sm">➕ Neu</a>
+{% endblock %}
+
+{% block content %}
+<form method="get" id="filter-form">
+<div class="ma-toolbar">
+  <div class="ma-search">
+    <span>🔍</span>
+    <input type="text" name="q" value="{{ q }}" placeholder="Name oder Benutzername…" autocomplete="off">
+  </div>
+  <div class="ma-filters">
+    <select name="gender" class="ma-select" onchange="this.form.submit()">
+      <option value="">Alle Geschlechter</option>
+      <option value="male"   {% if filter_gender == 'male' %}selected{% endif %}>Männlich</option>
+      <option value="female" {% if filter_gender == 'female' %}selected{% endif %}>Weiblich</option>
+      <option value="mixed"  {% if filter_gender == 'mixed' %}selected{% endif %}>Gemischt</option>
+    </select>
+    <select name="age_group" class="ma-select" onchange="this.form.submit()">
+      <option value="">Alle Gruppen</option>
+      {% for ag in age_groups %}
+        <option value="{{ ag.pk }}" {% if filter_age_group == ag.pk|stringformat:"s" %}selected{% endif %}>{{ ag.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="locked" class="ma-select" onchange="this.form.submit()">
+      <option value="">Alle Status</option>
+      <option value="0" {% if filter_locked == '0' %}selected{% endif %}>Entsperrt</option>
+      <option value="1" {% if filter_locked == '1' %}selected{% endif %}>Gesperrt</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Filtern</button>
+    {% if q or filter_gender or filter_age_group or filter_locked %}
+      <a href="{% url 'myadmin:participants' %}" class="btn btn-ghost btn-sm">✕ Zurücksetzen</a>
+    {% endif %}
+  </div>
+</div>
+</form>
+
+<form method="post" action="{% url 'myadmin:participant_action' %}" id="bulk-form">
+{% csrf_token %}
+<div id="bulk-bar" class="ma-bulk-bar" style="display:none;">
+  <span class="bulk-count" id="bulk-count">0</span> ausgewählt
+  <button type="submit" name="action" value="lock" class="btn btn-secondary btn-sm">🔒 Sperren</button>
+  <button type="submit" name="action" value="unlock" class="btn btn-primary btn-sm">🔓 Entsperren</button>
+  <button type="submit" name="action" value="walking_sheets" class="btn btn-secondary btn-sm">📄 Laufzettel PDF</button>
+</div>
+
+<div class="ma-table-wrap">
+  <table class="ma-table">
+    <thead>
+      <tr>
+        <th style="width:36px;"><input type="checkbox" id="select-all" title="Alle auswählen"></th>
+        <th><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=name&dir={% if sort == 'name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Name {% if sort == 'name' %}{% if dir == 'asc' %}↑{% else %}↓{% endif %}{% endif %}</a></th>
+        <th><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=username&dir={% if sort == 'username' and dir == 'asc' %}desc{% else %}asc{% endif %}">Benutzername</a></th>
+        <th>Geschlecht</th>
+        <th><a href="?{% for k,v in request.GET.items %}{% if k != 'sort' and k != 'dir' and k != 'page' %}{{ k }}={{ v }}&{% endif %}{% endfor %}sort=age_group__name&dir={% if sort == 'age_group__name' and dir == 'asc' %}desc{% else %}asc{% endif %}">Altersgruppe</a></th>
+        <th>Status</th>
+        <th style="text-align:right;">Aktionen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in page_obj %}
+      <tr>
+        <td><input type="checkbox" name="selected_ids" value="{{ p.pk }}" class="row-cb"></td>
+        <td><strong>{{ p.name }}</strong></td>
+        <td style="color:var(--text-muted); font-family:monospace; font-size:.8rem;">{{ p.username }}</td>
+        <td>{{ p.get_gender_display }}</td>
+        <td>{{ p.age_group.name|default:"—" }}</td>
+        <td>
+          {% if p.is_locked %}
+            <span class="badge badge-danger">Gesperrt</span>
+          {% else %}
+            <span class="badge badge-success">Aktiv</span>
+          {% endif %}
+        </td>
+        <td>
+          <div class="row-actions">
+            <a href="{% url 'myadmin:participant_edit' p.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
+            <a href="{% url 'myadmin:participant_delete' p.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7"><div class="ma-empty"><div class="empty-icon">👤</div><p>Keine Teilnehmer gefunden.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% include 'myadmin/_pagination.html' %}
+</div>
+</form>
+
+<script>
+const selectAll = document.getElementById('select-all');
+const bulkBar   = document.getElementById('bulk-bar');
+const bulkCount = document.getElementById('bulk-count');
+const cbs = () => document.querySelectorAll('.row-cb');
+
+function updateBulk() {
+  const checked = [...cbs()].filter(c => c.checked);
+  bulkBar.style.display = checked.length ? 'flex' : 'none';
+  bulkCount.textContent = checked.length;
+  selectAll.indeterminate = checked.length > 0 && checked.length < cbs().length;
+  selectAll.checked = checked.length === cbs().length && cbs().length > 0;
+}
+
+selectAll.addEventListener('change', () => {
+  cbs().forEach(c => c.checked = selectAll.checked);
+  updateBulk();
+});
+
+document.addEventListener('change', e => { if (e.target.classList.contains('row-cb')) updateBulk(); });
+</script>
+{% endblock %}

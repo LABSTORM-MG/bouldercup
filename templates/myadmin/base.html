@@ -1,0 +1,79 @@
+{% load static %}<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ page_title|default:"Admin" }} — BoulderCup Admin</title>
+  <link rel="stylesheet" href="{% static 'css/myadmin.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="myadmin">
+<div class="ma-layout">
+
+  <!-- Sidebar -->
+  <aside class="ma-sidebar">
+    <div class="ma-sidebar-logo">Boulder<span>Cup</span> Admin</div>
+    <nav class="ma-nav">
+      {% with url_name=request.resolver_match.url_name %}
+      <a href="{% url 'myadmin:dashboard' %}" class="{% if url_name == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+
+      <div class="ma-nav-group">Wettkampf</div>
+      <a href="{% url 'myadmin:participants' %}" class="{% if 'participant' in url_name %}active{% endif %}">
+        <span class="nav-icon">👤</span> Teilnehmer
+      </a>
+      <a href="{% url 'myadmin:boulders' %}" class="{% if 'boulder' in url_name %}active{% endif %}">
+        <span class="nav-icon">🪨</span> Boulder
+      </a>
+      <a href="{% url 'myadmin:agegroups' %}" class="{% if 'agegroup' in url_name %}active{% endif %}">
+        <span class="nav-icon">👥</span> Altersgruppen
+      </a>
+
+      <div class="ma-nav-group">Einstellungen</div>
+      <a href="{% url 'myadmin:admin_message' %}" class="{% if url_name == 'admin_message' %}active{% endif %}">
+        <span class="nav-icon">📢</span> Admin-Nachricht
+      </a>
+      <a href="{% url 'myadmin:wettkampfdatum' %}" class="{% if url_name == 'wettkampfdatum' %}active{% endif %}">
+        <span class="nav-icon">📅</span> Wettkampfdatum
+      </a>
+
+      <div class="ma-nav-group">System</div>
+      <a href="/admin/status/" target="_blank">
+        <span class="nav-icon">🔧</span> System-Status <span class="nav-ext">↗</span>
+      </a>
+      <a href="/admin/" target="_blank">
+        <span class="nav-icon">⚙️</span> Django Admin <span class="nav-ext">↗</span>
+      </a>
+      {% endwith %}
+    </nav>
+    <div class="ma-sidebar-footer">
+      <a href="{% url 'myadmin:logout' %}"><span>🚪</span> Abmelden ({{ request.user.username }})</a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="ma-main">
+    <div class="ma-topbar">
+      <div class="ma-topbar-left">
+        <div>
+          <div class="ma-breadcrumb">
+            <a href="{% url 'myadmin:dashboard' %}">Dashboard</a>
+            {% block breadcrumb %}{% endblock %}
+          </div>
+          <div class="ma-page-title">{{ page_title|default:"" }}</div>
+        </div>
+      </div>
+      <div class="ma-topbar-right">{% block topbar_actions %}{% endblock %}</div>
+    </div>
+
+    <div class="ma-content">
+      {% include 'myadmin/_messages.html' %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+</div>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

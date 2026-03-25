@@ -1,0 +1,19 @@
+{# Renders all visible fields of a form using myadmin styling.
+   Forms must set class="ma-input" / "ma-textarea" / "ma-select-full" on their widgets. #}
+{% if form.non_field_errors %}
+<div class="form-errors-banner">
+  {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+</div>
+{% endif %}
+{% for field in form.visible_fields %}
+<div class="ma-field">
+  <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">
+    {{ field.label }}
+  </label>
+  <div class="field-widget">
+    {{ field }}
+    {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+    {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </div>
+</div>
+{% endfor %}

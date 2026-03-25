@@ -11,6 +11,13 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 
 from .forms import ParticipantAdminForm
+from .forms_admin import (
+    AdminMessageAdminForm,
+    BoulderAdminForm,
+    ColorPickerWidget,
+    CountdownSettingsAdminForm,
+    SiteSettingsAdminForm,
+)
 from .models import AgeGroup, Boulder, Participant, AdminMessage, SiteSettings, CountdownSettings, Result, SubmissionWindow, CompetitionSettings, Punktesystem, Wettkampfdatum
 from django_ckeditor_5.widgets import CKEditor5Widget
 
@@ -223,69 +230,6 @@ class ParticipantAdmin(admin.ModelAdmin):
 admin.site.site_title = "BoulderCup Verwaltung"
 admin.site.site_header = "BoulderCup Verwaltung"
 
-
-class ColorPickerWidget(forms.TextInput):
-    """Custom widget that combines text input with color picker."""
-
-    def __init__(self, attrs=None):
-        default_attrs = {'style': 'width: 200px;'}
-        if attrs:
-            default_attrs.update(attrs)
-        super().__init__(attrs=default_attrs)
-
-    def render(self, name, value, attrs=None, renderer=None):
-        # Render the standard text input
-        text_input = super().render(name, value, attrs, renderer)
-
-        # Get the ID for JavaScript
-        final_attrs = self.build_attrs(attrs, {'name': name})
-        widget_id = final_attrs.get('id', f'id_{name}')
-
-        # Add color picker and JavaScript
-        color_picker_html = f'''
-        <input type="color" id="{widget_id}_picker" style="margin-left: 5px; width: 50px; height: 30px; vertical-align: middle; cursor: pointer;" title="Farbe visuell auswählen">
-        <script>
-        (function() {{
-            var textInput = document.getElementById('{widget_id}');
-            var colorPicker = document.getElementById('{widget_id}_picker');
-
-            // Update color picker when text input changes (if valid hex)
-            function updateColorPicker() {{
-                var value = textInput.value.trim();
-                if (/^#[0-9A-Fa-f]{{6}}$/.test(value)) {{
-                    colorPicker.value = value;
-                }}
-            }}
-
-            // Update text input when color picker changes
-            colorPicker.addEventListener('input', function() {{
-                textInput.value = colorPicker.value;
-                textInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-            }});
-
-            // Initial sync
-            updateColorPicker();
-            textInput.addEventListener('input', updateColorPicker);
-            textInput.addEventListener('change', updateColorPicker);
-        }})();
-        </script>
-        '''
-
-        from django.utils.safestring import mark_safe
-        return mark_safe(text_input + color_picker_html)
-
-
-class BoulderAdminForm(forms.ModelForm):
-    color = forms.CharField(
-        widget=ColorPickerWidget(),
-        max_length=50,
-        label="Farbe",
-        help_text="Griff-/Tape-Farbe zur einfachen Zuordnung. Eingabe möglich als: Deutsche Namen (rot, blau, grün, türkis), Englische CSS-Namen (red, blue, hotpink), oder Hex-Codes (#ff0000, f00). Nicht-Standard-Farben werden automatisch auf die nächste CSS-Standardfarbe normalisiert.",
-    )
-
-    class Meta:
-        model = Boulder
-        fields = "__all__"
 
 
 @admin.register(Boulder)
@@ -560,18 +504,6 @@ class SubmissionWindowAdmin(admin.ModelAdmin):
         )
 
 
-class AdminMessageAdminForm(forms.ModelForm):
-    background_color = forms.CharField(
-        widget=forms.TextInput(attrs={"type": "color"}),
-        label="Hintergrundfarbe",
-        help_text="Hintergrundfarbe der Nachricht (Hex-Code).",
-    )
-
-    class Meta:
-        model = AdminMessage
-        fields = ("heading", "content", "background_color")
-
-
 @admin.register(AdminMessage)
 class AdminMessageAdmin(SingletonAdminMixin, admin.ModelAdmin):
     form = AdminMessageAdminForm
@@ -612,17 +544,6 @@ class AdminMessageAdmin(SingletonAdminMixin, admin.ModelAdmin):
         return False
 
 
-class SiteSettingsAdminForm(forms.ModelForm):
-    class Meta:
-        model = SiteSettings
-        fields = ("dashboard_heading", "greeting_enabled", "greeting_heading", "greeting_message", "help_text_content", "rulebook_content")
-        widgets = {
-            "greeting_message": CKEditor5Widget(config_name="default"),
-            "help_text_content": CKEditor5Widget(config_name="default"),
-            "rulebook_content": CKEditor5Widget(config_name="default"),
-        }
-
-
 @admin.register(SiteSettings)
 class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
     form = SiteSettingsAdminForm
@@ -643,32 +564,6 @@ class SiteSettingsAdmin(SingletonAdminMixin, admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         """Prevent deletion of the singleton."""
         return False
-
-
-class CountdownSettingsAdminForm(forms.ModelForm):
-    background_color = forms.CharField(
-        widget=forms.TextInput(attrs={"type": "color"}),
-        label="Hintergrundfarbe"
-    )
-    primary_color = forms.CharField(
-        widget=forms.TextInput(attrs={"type": "color"}),
-        label="Primärfarbe"
-    )
-    secondary_color = forms.CharField(
-        widget=forms.TextInput(attrs={"type": "color"}),
-        label="Sekundärfarbe"
-    )
-
-    class Meta:
-        model = CountdownSettings
-        fields = (
-            "enabled", "countdown_end_time",
-            "logo", "heading", "subtitle", "message",
-            "background_image", "background_color", "primary_color", "secondary_color"
-        )
-        widgets = {
-            "message": CKEditor5Widget(config_name="default"),
-        }
 
 
 @admin.register(CountdownSettings)

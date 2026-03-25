@@ -38,6 +38,7 @@ from accounts.views import (
 from accounts.views.health import system_status, status_api
 
 urlpatterns = [
+    path('myadmin/', include('accounts.urls_myadmin', namespace='myadmin')),
     path('admin/status/', system_status, name='system_status'),
     path('admin/status/api/', status_api, name='status_api'),
     path('admin/', admin.site.urls),
