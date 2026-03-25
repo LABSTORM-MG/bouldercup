@@ -27,6 +27,7 @@ from .views.myadmin import (
     myadmin_preview_results_csv,
     myadmin_preview_history_csv,
     myadmin_preview_standings,
+    myadmin_inline_standings_pdf,
     myadmin_export_results_csv,
     myadmin_export_history_csv,
     myadmin_export_standings_pdf,
@@ -74,6 +75,7 @@ urlpatterns = [
     path("export/ergebnisse-csv/vorschau/", myadmin_preview_results_csv, name="preview_results_csv"),
     path("export/verlauf-csv/vorschau/", myadmin_preview_history_csv, name="preview_history_csv"),
     path("export/rangliste/vorschau/", myadmin_preview_standings, name="preview_standings"),
+    path("export/rangliste/inline/", myadmin_inline_standings_pdf, name="inline_standings_pdf"),
     # Exports — downloads
     path("export/ergebnisse-csv/", myadmin_export_results_csv, name="export_results_csv"),
     path("export/verlauf-csv/", myadmin_export_history_csv, name="export_history_csv"),

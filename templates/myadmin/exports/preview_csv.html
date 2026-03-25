@@ -1,0 +1,27 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Export <span class="sep">/</span> {{ page_title }}{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url download_url_name %}" class="btn btn-primary btn-sm">📥 Herunterladen</a>
+{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:.75rem; font-size:.8rem; color:var(--text-muted);">
+  {{ row_count }} Zeilen &mdash; {{ filename }}
+</div>
+<pre style="
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: .78rem;
+  line-height: 1.5;
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+">{{ csv_text }}</pre>
+{% endblock %}

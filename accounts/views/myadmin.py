@@ -850,14 +850,23 @@ def _standings_groups():
 # Export — preview views (browser)
 # ---------------------------------------------------------------------------
 
+def _rows_to_csv_text(headers, rows):
+    """Render headers + rows as a UTF-8 CSV string (for in-browser display)."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return buf.getvalue()
+
+
 @myadmin_required
 def myadmin_preview_results_csv(request):
     headers, rows = _results_rows()
-    return render(request, "myadmin/exports/preview_results.html", {
-        "page_title": "Vorschau: Ergebnisse",
-        "headers": headers,
-        "rows": rows,
-        "download_url": "myadmin:export_results_csv",
+    return render(request, "myadmin/exports/preview_csv.html", {
+        "page_title": "Vorschau: Ergebnisse CSV",
+        "csv_text": _rows_to_csv_text(headers, rows),
+        "row_count": len(rows),
+        "download_url_name": "myadmin:export_results_csv",
         "filename": "ergebnisse.csv",
     })
 
@@ -865,11 +874,11 @@ def myadmin_preview_results_csv(request):
 @myadmin_required
 def myadmin_preview_history_csv(request):
     headers, rows = _history_rows()
-    return render(request, "myadmin/exports/preview_history.html", {
-        "page_title": "Vorschau: Verlaufsprotokoll",
-        "headers": headers,
-        "rows": rows,
-        "download_url": "myadmin:export_history_csv",
+    return render(request, "myadmin/exports/preview_csv.html", {
+        "page_title": "Vorschau: Verlaufsprotokoll CSV",
+        "csv_text": _rows_to_csv_text(headers, rows),
+        "row_count": len(rows),
+        "download_url_name": "myadmin:export_history_csv",
         "filename": "ergebnisse_verlauf.csv",
     })
 
@@ -882,9 +891,75 @@ def myadmin_preview_standings(request):
         return redirect("myadmin:dashboard")
     return render(request, "myadmin/exports/preview_standings.html", {
         "page_title": "Vorschau: Rangliste",
-        "groups": groups,
-        "download_url": "myadmin:export_standings_pdf",
+        "inline_pdf_url": "myadmin:inline_standings_pdf",
+        "download_url_name": "myadmin:export_standings_pdf",
     })
+
+
+@myadmin_required
+def myadmin_inline_standings_pdf(request):
+    """Serve the standings PDF inline (for browser iframe embedding)."""
+    from django.utils import timezone as tz
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+    settings, groups = _standings_groups()
+    if groups is None:
+        return HttpResponse("Keine Wettkampfeinstellungen.", status=404)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
+    elements = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("T", parent=styles["Heading1"], fontSize=18, spaceAfter=30, alignment=1)
+    current_time = tz.now().strftime("%d.%m.%Y %H:%M:%S")
+    elements.append(Paragraph("BoulderCup Rangliste<br/><font size=12>Stand: " + current_time + "</font>", title_style))
+    elements.append(Spacer(1, 0.5 * cm))
+    group_style = ParagraphStyle("G", parent=styles["Heading2"], fontSize=14, spaceAfter=10)
+
+    for g in groups:
+        elements.append(Paragraph("Altersgruppe: " + g["age_group"].name, group_style))
+        entries = g["entries"]
+        if not entries:
+            elements.append(Paragraph("Keine Ergebnisse vorhanden", styles["Normal"]))
+            elements.append(Spacer(1, 0.5 * cm))
+            continue
+        if g["grading_system"] == "ifsc":
+            table_data = [["Rang", "Name", "Tops", "Zonen", "Versuche Top", "Versuche Zone"]]
+            for e in entries:
+                table_data.append([str(e["rank"]), e["participant"].name,
+                    str(e.get("tops", 0)), str(e.get("zones", 0)),
+                    str(e.get("top_attempts", 0)), str(e.get("zone_attempts", 0))])
+        else:
+            table_data = [["Rang", "Name", "Punkte", "Tops", "Zonen"]]
+            for e in entries:
+                table_data.append([str(e["rank"]), e["participant"].name,
+                    str(round(e.get("points", 0), 1)),
+                    str(e.get("tops", 0)), str(e.get("zones", 0))])
+        table = Table(table_data, hAlign="LEFT")
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, 0), 12),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+            ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("FONTSIZE", (0, 1), (-1, -1), 10),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 1 * cm))
+
+    doc.build(elements)
+    buf.seek(0)
+    response = HttpResponse(buf.read(), content_type="application/pdf")
+    response["Content-Disposition"] = "inline; filename=\"rangliste_vorschau.pdf\""
+    return response
 
 
 # ---------------------------------------------------------------------------
