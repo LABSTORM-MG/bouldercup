@@ -510,7 +510,7 @@ def myadmin_boulder_delete(request, pk):
 
 @myadmin_required
 def myadmin_agegroups(request):
-    qs = AgeGroup.objects.annotate(participant_count=Count("participant")).order_by("name")
+    qs = AgeGroup.objects.annotate(participant_count=Count("participants")).order_by("name")
     page_obj = _paginate(qs, request)
     return render(request, "myadmin/agegroups/list.html", {
         "page_title": "Altersgruppen",
@@ -566,7 +566,7 @@ def myadmin_agegroup_delete(request, pk):
         return redirect("myadmin:agegroups")
     return render(request, "myadmin/agegroups/delete_confirm.html", {
         "agegroup": agegroup,
-        "participant_count": agegroup.participant_set.count(),
+        "participant_count": agegroup.participants.count(),
         "page_title": agegroup.name + " loeschen?",
     })
 
