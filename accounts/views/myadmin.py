@@ -722,30 +722,24 @@ def myadmin_result_delete(request, pk):
 
 
 # ---------------------------------------------------------------------------
-# Export actions
+# Export — shared data helpers
 # ---------------------------------------------------------------------------
 
-@myadmin_required
-def myadmin_export_results_csv(request):
-    from django.utils import timezone as tz
-    results = Result.objects.select_related(
-        "participant", "participant__age_group", "boulder"
-    ).order_by("participant__age_group__name", "participant__name", "boulder__label")
-
-    response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
-    ts = tz.now().strftime("%Y-%m-%d_%H%M")
-    response["Content-Disposition"] = "attachment; filename=\"ergebnisse_" + ts + ".csv\""
-
-    writer = csv.writer(response)
-    writer.writerow([
+def _results_rows():
+    """Return (headers, rows) for the results CSV/preview."""
+    headers = [
         "Teilnehmer", "Benutzername", "Altersgruppe", "Boulder",
         "Top", "Zone 2", "Zone 1",
         "Versuche Top", "Versuche Zone 2", "Versuche Zone 1",
         "Flash", "Version", "Erstellt am", "Zuletzt geaendert",
-    ])
+    ]
+    results = Result.objects.select_related(
+        "participant", "participant__age_group", "boulder"
+    ).order_by("participant__age_group__name", "participant__name", "boulder__label")
+    rows = []
     for r in results:
         is_flash = r.top and r.attempts_top == 1
-        writer.writerow([
+        rows.append([
             r.participant.name,
             r.participant.username,
             r.participant.age_group.name if r.participant.age_group else "--",
@@ -761,44 +755,165 @@ def myadmin_export_results_csv(request):
             r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "--",
             r.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
         ])
+    return headers, rows
+
+
+_HISTORY_TYPE_MAP = {"+": "Erstellt", "~": "Geaendert", "-": "Geloescht"}
+
+
+def _history_rows():
+    """Return (headers, rows) for the history CSV/preview.
+
+    Queries HistoricalResult directly (single query) instead of N+1
+    per-result approach. Uses select_related to avoid further queries for
+    participant/boulder/history_user.
+    """
+    headers = [
+        "Teilnehmer", "Benutzername", "Altersgruppe", "Boulder",
+        "Top", "Zone 2", "Zone 1",
+        "Versuche Top", "Versuche Zone 2", "Versuche Zone 1",
+        "Version", "Aenderungszeitpunkt", "Aenderungstyp", "Geaendert von",
+    ]
+    HistoricalResult = Result.history.model
+    history_qs = (
+        HistoricalResult.objects
+        .select_related("participant", "participant__age_group", "boulder", "history_user")
+        .order_by("history_date")
+    )
+    rows = []
+    for h in history_qs:
+        try:
+            p_name = h.participant.name if h.participant_id else "--"
+            p_user = h.participant.username if h.participant_id else "--"
+            p_group = (
+                h.participant.age_group.name
+                if h.participant_id and h.participant and h.participant.age_group_id
+                else "--"
+            )
+        except Exception:
+            p_name = p_user = p_group = "--"
+        try:
+            b_label = h.boulder.label if h.boulder_id else "--"
+        except Exception:
+            b_label = "--"
+        rows.append([
+            p_name, p_user, p_group, b_label,
+            "Ja" if h.top else "Nein",
+            "Ja" if h.zone2 else "Nein",
+            "Ja" if h.zone1 else "Nein",
+            h.attempts_top, h.attempts_zone2, h.attempts_zone1,
+            h.version,
+            h.history_date.strftime("%Y-%m-%d %H:%M:%S"),
+            _HISTORY_TYPE_MAP.get(h.history_type, h.history_type),
+            h.history_user.username if h.history_user_id and h.history_user else "System",
+        ])
+    return headers, rows
+
+
+def _standings_groups():
+    """Return list of {age_group, entries, grading_system} dicts for preview/PDF."""
+    from ..services.scoring_service import ScoringService
+    settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
+    if not settings:
+        return None, None
+    groups = []
+    for age_group in AgeGroup.objects.order_by("name"):
+        participants = list(
+            Participant.objects.filter(age_group=age_group)
+            .select_related("age_group").order_by("name")
+        )
+        if not participants:
+            groups.append({"age_group": age_group, "entries": [], "grading_system": settings.grading_system})
+            continue
+        boulders = list(Boulder.objects.filter(age_groups=age_group))
+        results_qs = Result.objects.filter(
+            participant__in=participants, boulder__in=boulders
+        ).select_related("participant", "boulder")
+        if settings.grading_system in ("point_based_dynamic", "point_based_dynamic_attempts"):
+            results_list = list(results_qs)
+            result_map = ScoringService.group_results_by_participant(results_list)
+            top_counts = ScoringService.count_tops_per_boulder(results_list)
+            entries = ScoringService.build_scoreboard_entries(
+                participants, result_map, settings.grading_system, settings,
+                top_counts=top_counts, participant_count=len(participants),
+            )
+        else:
+            result_map = ScoringService.group_results_by_participant(results_qs)
+            entries = ScoringService.build_scoreboard_entries(
+                participants, result_map, settings.grading_system, settings
+            )
+        groups.append({"age_group": age_group, "entries": entries, "grading_system": settings.grading_system})
+    return settings, groups
+
+
+# ---------------------------------------------------------------------------
+# Export — preview views (browser)
+# ---------------------------------------------------------------------------
+
+@myadmin_required
+def myadmin_preview_results_csv(request):
+    headers, rows = _results_rows()
+    return render(request, "myadmin/exports/preview_results.html", {
+        "page_title": "Vorschau: Ergebnisse",
+        "headers": headers,
+        "rows": rows,
+        "download_url": "myadmin:export_results_csv",
+        "filename": "ergebnisse.csv",
+    })
+
+
+@myadmin_required
+def myadmin_preview_history_csv(request):
+    headers, rows = _history_rows()
+    return render(request, "myadmin/exports/preview_history.html", {
+        "page_title": "Vorschau: Verlaufsprotokoll",
+        "headers": headers,
+        "rows": rows,
+        "download_url": "myadmin:export_history_csv",
+        "filename": "ergebnisse_verlauf.csv",
+    })
+
+
+@myadmin_required
+def myadmin_preview_standings(request):
+    settings, groups = _standings_groups()
+    if groups is None:
+        messages.error(request, "Keine Wettkampfeinstellungen gefunden.")
+        return redirect("myadmin:dashboard")
+    return render(request, "myadmin/exports/preview_standings.html", {
+        "page_title": "Vorschau: Rangliste",
+        "groups": groups,
+        "download_url": "myadmin:export_standings_pdf",
+    })
+
+
+# ---------------------------------------------------------------------------
+# Export — download views
+# ---------------------------------------------------------------------------
+
+@myadmin_required
+def myadmin_export_results_csv(request):
+    from django.utils import timezone as tz
+    headers, rows = _results_rows()
+    response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
+    ts = tz.now().strftime("%Y-%m-%d_%H%M")
+    response["Content-Disposition"] = "attachment; filename=\"ergebnisse_" + ts + ".csv\""
+    writer = csv.writer(response)
+    writer.writerow(headers)
+    writer.writerows(rows)
     return response
 
 
 @myadmin_required
 def myadmin_export_history_csv(request):
     from django.utils import timezone as tz
-    results = Result.objects.all()
-
+    headers, rows = _history_rows()
     response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
     ts = tz.now().strftime("%Y-%m-%d_%H%M")
     response["Content-Disposition"] = "attachment; filename=\"ergebnisse_verlauf_" + ts + ".csv\""
-
     writer = csv.writer(response)
-    writer.writerow([
-        "Teilnehmer", "Benutzername", "Altersgruppe", "Boulder",
-        "Top", "Zone 2", "Zone 1",
-        "Versuche Top", "Versuche Zone 2", "Versuche Zone 1",
-        "Version", "Aenderungszeitpunkt", "Aenderungstyp", "Geaendert von",
-    ])
-    history_type_map = {"+": "Erstellt", "~": "Geaendert", "-": "Geloescht"}
-    for result in results:
-        for h in result.history.all().order_by("history_date"):
-            writer.writerow([
-                h.participant.name if h.participant else "--",
-                h.participant.username if h.participant else "--",
-                h.participant.age_group.name if h.participant and h.participant.age_group else "--",
-                h.boulder.label if h.boulder else "--",
-                "Ja" if h.top else "Nein",
-                "Ja" if h.zone2 else "Nein",
-                "Ja" if h.zone1 else "Nein",
-                h.attempts_top,
-                h.attempts_zone2,
-                h.attempts_zone1,
-                h.version,
-                h.history_date.strftime("%Y-%m-%d %H:%M:%S"),
-                history_type_map.get(h.history_type, h.history_type),
-                h.history_user.username if h.history_user else "System",
-            ])
+    writer.writerow(headers)
+    writer.writerows(rows)
     return response
 
 
@@ -811,10 +926,8 @@ def myadmin_export_standings_pdf(request):
     from reportlab.lib.units import cm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
-    from ..services.scoring_service import ScoringService
-
-    settings = CompetitionSettings.objects.filter(singleton_guard=True).first()
-    if not settings:
+    settings, groups = _standings_groups()
+    if groups is None:
         messages.error(request, "Keine Wettkampfeinstellungen gefunden.")
         return redirect("myadmin:results")
 
@@ -829,44 +942,16 @@ def myadmin_export_standings_pdf(request):
     current_time = tz.now().strftime("%d.%m.%Y %H:%M:%S")
     elements.append(Paragraph("BoulderCup Rangliste<br/><font size=12>Stand: " + current_time + "</font>", title_style))
     elements.append(Spacer(1, 0.5 * cm))
-
     group_style = ParagraphStyle("G", parent=styles["Heading2"], fontSize=14, spaceAfter=10)
 
-    for age_group in AgeGroup.objects.order_by("name"):
-        elements.append(Paragraph("Altersgruppe: " + age_group.name, group_style))
-        participants = list(
-            Participant.objects.filter(age_group=age_group).select_related("age_group").order_by("name")
-        )
-        if not participants:
-            elements.append(Paragraph("Keine Teilnehmer vorhanden", styles["Normal"]))
-            elements.append(Spacer(1, 0.5 * cm))
-            continue
-
-        boulders = list(Boulder.objects.filter(age_groups=age_group))
-        results_qs = Result.objects.filter(
-            participant__in=participants, boulder__in=boulders
-        ).select_related("participant", "boulder")
-
-        if settings.grading_system in ("point_based_dynamic", "point_based_dynamic_attempts"):
-            results_list = list(results_qs)
-            result_map = ScoringService.group_results_by_participant(results_list)
-            top_counts = ScoringService.count_tops_per_boulder(results_list)
-            entries = ScoringService.build_scoreboard_entries(
-                participants, result_map, settings.grading_system, settings,
-                top_counts=top_counts, participant_count=len(participants),
-            )
-        else:
-            result_map = ScoringService.group_results_by_participant(results_qs)
-            entries = ScoringService.build_scoreboard_entries(
-                participants, result_map, settings.grading_system, settings
-            )
-
+    for g in groups:
+        elements.append(Paragraph("Altersgruppe: " + g["age_group"].name, group_style))
+        entries = g["entries"]
         if not entries:
             elements.append(Paragraph("Keine Ergebnisse vorhanden", styles["Normal"]))
             elements.append(Spacer(1, 0.5 * cm))
             continue
-
-        if settings.grading_system == "ifsc":
+        if g["grading_system"] == "ifsc":
             table_data = [["Rang", "Name", "Tops", "Zonen", "Versuche Top", "Versuche Zone"]]
             for e in entries:
                 table_data.append([str(e["rank"]), e["participant"].name,
@@ -878,7 +963,6 @@ def myadmin_export_standings_pdf(request):
                 table_data.append([str(e["rank"]), e["participant"].name,
                     str(round(e.get("points", 0), 1)),
                     str(e.get("tops", 0)), str(e.get("zones", 0))])
-
         table = Table(table_data, hAlign="LEFT")
         table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.grey),

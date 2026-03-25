@@ -24,6 +24,9 @@ from .views.myadmin import (
     myadmin_result_edit,
     myadmin_result_delete,
     # Exports
+    myadmin_preview_results_csv,
+    myadmin_preview_history_csv,
+    myadmin_preview_standings,
     myadmin_export_results_csv,
     myadmin_export_history_csv,
     myadmin_export_standings_pdf,
@@ -67,7 +70,11 @@ urlpatterns = [
     path("ergebnisse/", myadmin_results, name="results"),
     path("ergebnisse/<int:pk>/", myadmin_result_edit, name="result_edit"),
     path("ergebnisse/<int:pk>/loeschen/", myadmin_result_delete, name="result_delete"),
-    # Exports
+    # Exports — previews
+    path("export/ergebnisse-csv/vorschau/", myadmin_preview_results_csv, name="preview_results_csv"),
+    path("export/verlauf-csv/vorschau/", myadmin_preview_history_csv, name="preview_history_csv"),
+    path("export/rangliste/vorschau/", myadmin_preview_standings, name="preview_standings"),
+    # Exports — downloads
     path("export/ergebnisse-csv/", myadmin_export_results_csv, name="export_results_csv"),
     path("export/verlauf-csv/", myadmin_export_history_csv, name="export_history_csv"),
     path("export/rangliste-pdf/", myadmin_export_standings_pdf, name="export_standings_pdf"),

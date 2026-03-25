@@ -56,14 +56,14 @@
       </a>
 
       <div class="ma-nav-group">Export</div>
-      <a href="{% url 'myadmin:export_results_csv' %}">
+      <a href="{% url 'myadmin:preview_results_csv' %}" class="{% if url_name == 'preview_results_csv' %}active{% endif %}">
         <span class="nav-icon">📥</span> Ergebnisse CSV
       </a>
-      <a href="{% url 'myadmin:export_history_csv' %}">
+      <a href="{% url 'myadmin:preview_history_csv' %}" class="{% if url_name == 'preview_history_csv' %}active{% endif %}">
         <span class="nav-icon">📋</span> Verlauf CSV
       </a>
-      <a href="{% url 'myadmin:export_standings_pdf' %}">
-        <span class="nav-icon">📄</span> Rangliste PDF
+      <a href="{% url 'myadmin:preview_standings' %}" class="{% if url_name == 'preview_standings' %}active{% endif %}">
+        <span class="nav-icon">📄</span> Rangliste
       </a>
 
       <div class="ma-nav-group">System</div>

@@ -1,0 +1,66 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Export <span class="sep">/</span> Rangliste{% endblock %}
+
+{% block topbar_actions %}
+  <a href="{% url 'myadmin:export_standings_pdf' %}" class="btn btn-primary btn-sm">📄 PDF herunterladen</a>
+{% endblock %}
+
+{% block content %}
+{% for g in groups %}
+<div class="ma-card" style="margin-bottom:1.5rem;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">{{ g.age_group.name }}</span>
+    <span style="font-size:.8rem; color:var(--text-muted);">{{ g.entries|length }} Teilnehmer</span>
+  </div>
+  <div class="ma-card-body" style="padding:0;">
+    {% if g.entries %}
+    <div class="ma-table-wrap">
+      <table class="ma-table">
+        <thead>
+          <tr>
+            <th style="width:3rem;">Rang</th>
+            <th>Name</th>
+            {% if g.grading_system == "ifsc" %}
+              <th>Tops</th><th>Zonen</th><th>V-Top</th><th>V-Zone</th>
+            {% else %}
+              <th>Punkte</th><th>Tops</th><th>Zonen</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in g.entries %}
+          <tr {% if e.rank == 1 %}style="background:rgba(255,215,0,.08);"{% endif %}>
+            <td style="text-align:center; font-weight:700;">
+              {% if e.rank == 1 %}🥇
+              {% elif e.rank == 2 %}🥈
+              {% elif e.rank == 3 %}🥉
+              {% else %}{{ e.rank }}{% endif %}
+            </td>
+            <td>{{ e.participant.name }}</td>
+            {% if g.grading_system == "ifsc" %}
+              <td style="text-align:center;">{{ e.tops|default:0 }}</td>
+              <td style="text-align:center;">{{ e.zones|default:0 }}</td>
+              <td style="text-align:center;">{{ e.top_attempts|default:0 }}</td>
+              <td style="text-align:center;">{{ e.zone_attempts|default:0 }}</td>
+            {% else %}
+              <td style="text-align:center; font-weight:600;">{{ e.points|default:0|floatformat:1 }}</td>
+              <td style="text-align:center;">{{ e.tops|default:0 }}</td>
+              <td style="text-align:center;">{{ e.zones|default:0 }}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="ma-empty" style="padding:2rem;">
+      <p>Keine Ergebnisse für diese Altersgruppe.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% empty %}
+<div class="ma-empty"><div class="empty-icon">🏆</div><p>Keine Altersgruppen vorhanden.</p></div>
+{% endfor %}
+{% endblock %}
