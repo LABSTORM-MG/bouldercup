@@ -124,40 +124,31 @@ class ParticipantAdmin(admin.ModelAdmin):
 
     @admin.action(description="Ausgewählte Teilnehmer sperren")
     def lock_participants(self, request, queryset):
-        """Lock selected participants and invalidate their sessions."""
-        from django.contrib.sessions.models import Session
-        from django.core.cache import cache
+        """Lock selected participants.
+
+        Sessions are intentionally NOT deleted here. The _participant_required
+        decorator re-checks is_locked on every request and redirects to
+        login?locked=1, so the participant sees the locked message immediately
+        on their next page load instead of being silently redirected to the
+        plain login page.
+        """
         import logging
 
         logger = logging.getLogger(__name__)
 
-        # Get participant IDs before update
         participant_ids = list(queryset.values_list('id', flat=True))
-
-        # Update lock status
         count = queryset.update(is_locked=True)
 
-        # Invalidate sessions for locked participants
-        sessions_deleted = 0
-        for session in Session.objects.all():
-            session_data = session.get_decoded()
-            participant_id = session_data.get('participant_id')
-            if participant_id in participant_ids:
-                session.delete()
-                sessions_deleted += 1
-
-        # Invalidate scoreboard caches (locked participants should disappear from scoreboards)
         from .services.scoring_service import ScoringService
         ScoringService.invalidate_all_scoreboards()
 
         self.message_user(
             request,
-            f"{count} Teilnehmer gesperrt. {sessions_deleted} Sitzungen beendet.",
+            f"{count} Teilnehmer gesperrt.",
             level="WARNING"
         )
         logger.warning(
-            f"Admin {request.user.username} locked {count} participants: "
-            f"IDs {participant_ids}. {sessions_deleted} sessions invalidated."
+            f"Admin {request.user.username} locked {count} participants: IDs {participant_ids}."
         )
 
     @admin.action(description="Ausgewählte Teilnehmer entsperren")
