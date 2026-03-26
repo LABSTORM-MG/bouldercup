@@ -129,10 +129,14 @@ export const submitAjax = (state, showStatusFn, applyServerResults, queueSubmit)
         body: data,
     })
         .then((res) => {
+            if (res.status === 403) {
+                return res.json().then((d) => { window.location.href = d.redirect || "/"; });
+            }
             if (!res.ok) throw new Error("HTTP " + res.status);
             return res.json();
         })
         .then((data) => {
+            if (!data) return;
             showStatusFn("Gespeichert", "ok");
             applyServerResults(data.results || {});
         })

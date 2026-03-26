@@ -41,10 +41,13 @@ def participant_required(
 
         # Check if participant is locked
         if participant.is_locked:
-            # Clear session and redirect to login with locked message
             request.session.flush()
             logger.warning(f"Locked participant attempted access: {participant.username} (ID: {participant.id})")
-            return HttpResponseRedirect(reverse("login") + "?locked=1")
+            locked_url = reverse("login") + "?locked=1"
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                from django.http import JsonResponse
+                return JsonResponse({"error": "locked", "redirect": locked_url}, status=403)
+            return HttpResponseRedirect(locked_url)
 
         return view_func(request, participant, *args, **kwargs)
 

@@ -22,6 +22,9 @@ export const checkWindowState = (state, applyServerResults) => {
         headers: { "X-Requested-With": "XMLHttpRequest" },
     })
         .then((res) => {
+            if (res.status === 403) {
+                return res.json().then((d) => { window.location.href = d.redirect || "/"; });
+            }
             if (!res.ok) throw new Error("HTTP " + res.status);
             return res.json();
         })
