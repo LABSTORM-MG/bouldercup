@@ -206,11 +206,26 @@ class Boulder(models.Model):
         blank=True,
         help_text="Wähle alle Altersgruppen, für die dieser Boulder gedacht ist.",
     )
+    LOCATION_OUTSIDE   = "outside"
+    LOCATION_INSIDE_EG = "inside_eg"
+    LOCATION_INSIDE_OG = "inside_og"
+    LOCATION_CHOICES = [
+        (LOCATION_OUTSIDE,   "Außen"),
+        (LOCATION_INSIDE_EG, "Innen EG"),
+        (LOCATION_INSIDE_OG, "Innen OG"),
+    ]
+
     note = models.TextField(blank=True)
     location = models.CharField(
-        max_length=150,
+        max_length=20,
+        choices=LOCATION_CHOICES,
         blank=True,
-        help_text="Sektor/Zone (kann später als eigenes Modell ausgegliedert werden).",
+        default="",
+        help_text="Bereich, in dem sich der Boulder befindet.",
+    )
+    sort_order = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Reihenfolge innerhalb des Standorts (aufsteigend).",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

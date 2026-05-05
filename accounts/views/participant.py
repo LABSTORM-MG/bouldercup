@@ -149,6 +149,31 @@ def participant_settings(request: HttpRequest, participant: Participant) -> Http
     )
 
 
+def _compute_boulder_stats(age_group, boulders) -> dict[int, dict]:
+    """Return {boulder_id: {tried_pct, topped_pct}} for all boulders in the age group."""
+    if not age_group:
+        return {}
+    total = age_group.participants.filter(is_locked=False).count()
+    raw: dict[int, dict] = {}
+    for r in Result.objects.filter(
+        boulder__in=boulders,
+        participant__age_group=age_group,
+        participant__is_locked=False,
+    ):
+        s = raw.setdefault(r.boulder_id, {"tried": 0, "topped": 0})
+        if r.top or r.zone1 or r.zone2 or r.attempts_top > 0:
+            s["tried"] += 1
+        if r.top:
+            s["topped"] += 1
+    return {
+        bid: {
+            "tried_pct":  round(s["tried"]  / total * 100) if total else 0,
+            "topped_pct": round(s["topped"] / total * 100) if total else 0,
+        }
+        for bid, s in raw.items()
+    }
+
+
 @participant_required
 def participant_results(request: HttpRequest, participant: Participant) -> HttpResponse:
     """
@@ -160,7 +185,7 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
     boulders = (
         Boulder.objects.filter(age_groups=participant.age_group)
         .prefetch_related('age_groups')
-        .order_by("label")
+        .order_by("sort_order", "label")
         if participant.age_group_id
         else Boulder.objects.none()
     )
@@ -214,13 +239,31 @@ def participant_results(request: HttpRequest, participant: Participant) -> HttpR
         )
         return JsonResponse({"ok": True, "results": payload})
 
+    boulder_stats = _compute_boulder_stats(participant.age_group, boulders)
+
+    # Group boulders by location in display order
+    location_order = [
+        (Boulder.LOCATION_OUTSIDE,   "🌲", "Außen"),
+        (Boulder.LOCATION_INSIDE_EG, "🧗", "Innen EG"),
+        (Boulder.LOCATION_INSIDE_OG, "🪨", "Innen OG"),
+    ]
+    groups = [
+        {"icon": icon, "name": label, "boulders": [b for b in boulders if b.location == key]}
+        for key, icon, label in location_order
+    ]
+    groups = [g for g in groups if g["boulders"]]
+    unassigned = [b for b in boulders if not b.location]
+    if unassigned:
+        groups.append({"name": None, "boulders": unassigned})
+
     return render(
         request,
         "participant_results.html",
         {
             "participant": participant,
             "title": "Ergebnisse eintragen",
-            "boulders": boulders,
+            "groups": groups,
+            "boulder_stats": boulder_stats,
             **WindowService.to_context_dict(window_status),
         },
     )
@@ -586,3 +629,20 @@ def get_admin_message(request: HttpRequest, participant: Participant) -> JsonRes
     logger.debug("Admin message cached")
 
     return JsonResponse({"ok": True, "message": message_data})
+
+
+@participant_required
+def api_boulder_stats(request: HttpRequest, participant: Participant) -> JsonResponse:
+    """Return current difficulty stats for all boulders in the participant's age group."""
+    boulders = (
+        Boulder.objects.filter(age_groups=participant.age_group)
+        if participant.age_group_id
+        else Boulder.objects.none()
+    )
+    stats = _compute_boulder_stats(participant.age_group, boulders)
+    # Include zeros for boulders with no results yet so the JS can reset stale values
+    payload = {
+        str(b.pk): stats.get(b.pk, {"tried_pct": 0, "topped_pct": 0})
+        for b in boulders
+    }
+    return JsonResponse({"stats": payload})

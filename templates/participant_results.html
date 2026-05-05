@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    {% load static %}
+    {% load static accounts_extras %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ title }} – BoulderCup</title>
@@ -59,15 +59,57 @@
             <p>Aktuell können keine Ergebnisse eingetragen werden.</p>
         </div>
     {% endif %}
+    <style>
+        .location-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.4rem 0 0.3rem;
+            margin-top: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            font-weight: 700;
+            font-size: clamp(0.95rem, 3vw, 1.05rem);
+            color: #1f7a8c;
+        }
+        .location-header:first-child { margin-top: 0.25rem; }
+        .location-count {
+            font-size: 0.8rem;
+            font-weight: 400;
+            color: #94a3b8;
+        }
+        .difficulty-hint {
+            display: flex;
+            gap: 0.75rem;
+            font-size: 0.72rem;
+            color: inherit;
+            opacity: 0.6;
+            margin-top: 0.2rem;
+        }
+    </style>
     <main>
-        {% if boulders %}
+        {% if groups %}
             <form method="post">
                 {% csrf_token %}
                 <div class="boulder-list{% if not can_submit %} readonly{% endif %}">
-                    {% for boulder in boulders %}
+                    {% for group in groups %}
+                        {% if group.name %}
+                            <div class="location-header">
+                                <span>{{ group.icon }} {{ group.name }}</span>
+                                <span class="location-count">{{ group.boulders|length }} Boulder</span>
+                            </div>
+                        {% endif %}
+                        {% for boulder in group.boulders %}
                         <div class="boulder-card" id="boulder-{{ boulder.id }}" data-boulder="{{ boulder.id }}" style="--accent: {{ boulder.color }};">
                             <div class="boulder-header">
-                                <span class="boulder-label-text">{{ boulder.label }}</span>
+                                <div>
+                                    <span class="boulder-label-text">{{ boulder.label }}</span>
+                                    {% with s=boulder_stats|get_item:boulder.id %}
+                                    <div class="difficulty-hint">
+                                        <span data-stat="tried">{{ s.tried_pct|default:0 }}% versucht</span>
+                                        <span data-stat="topped">{{ s.topped_pct|default:0 }}% getopped</span>
+                                    </div>
+                                    {% endwith %}
+                                </div>
                                 <span class="flash-badge" aria-label="Flash-Begehung">⚡</span>
                             </div>
                             <div class="tier-list" role="group" aria-label="Boulder {{ boulder.label }}">
@@ -114,6 +156,7 @@
                                 <input type="hidden" name="ver_{{ boulder.id }}" value="{% if boulder.existing_result %}{{ boulder.existing_result.version }}{% endif %}">
                             </div>
                         </div>
+                        {% endfor %}
                     {% endfor %}
                 </div>
             </form>
@@ -123,6 +166,7 @@
     </main>
     <div id="autosave-toast" class="toast" aria-live="polite"></div>
     <script src="{% static 'js/participant_results_modular.js' %}" type="module"></script>
+    <script src="{% static 'js/boulder_stats_poll.js' %}"></script>
     {% include 'includes/admin_message_poll.html' %}
 </body>
 </html>
