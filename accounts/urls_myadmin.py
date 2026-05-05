@@ -36,7 +36,7 @@ from .views.myadmin import (
     myadmin_window_add,
     myadmin_window_edit,
     myadmin_window_delete,
-    myadmin_window_bulk_create,
+    myadmin_toggle_submission,
     # Singletons
     myadmin_admin_message,
     myadmin_wettkampfdatum,
@@ -85,7 +85,7 @@ urlpatterns = [
     path("zeitfenster/neu/", myadmin_window_add, name="window_add"),
     path("zeitfenster/<int:pk>/", myadmin_window_edit, name="window_edit"),
     path("zeitfenster/<int:pk>/loeschen/", myadmin_window_delete, name="window_delete"),
-    path("zeitfenster/bulk-erstellen/", myadmin_window_bulk_create, name="window_bulk_create"),
+    path("zeitfenster/abgabe-umschalten/", myadmin_toggle_submission, name="toggle_submission"),
     # Singletons
     path("nachricht/", myadmin_admin_message, name="admin_message"),
     path("wettkampfdatum/", myadmin_wettkampfdatum, name="wettkampfdatum"),

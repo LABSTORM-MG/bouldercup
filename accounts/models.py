@@ -357,7 +357,7 @@ class Result(models.Model):
         blank=True,
         help_text="Zeitpunkt der ersten Erstellung (null für ältere Einträge)"
     )
-    updated_at = models.DateTimeField(auto_now=True)
+    updated_at = models.DateTimeField(default=None, null=True, blank=True)
 
     # History tracking
     from simple_history.models import HistoricalRecords
@@ -372,10 +372,24 @@ class Result(models.Model):
             models.Index(fields=["participant", "boulder"]),
         ]
 
+    TRACKED_FIELDS = frozenset({
+        "top", "zone1", "zone2",
+        "attempts_top", "attempts_zone1", "attempts_zone2",
+    })
+
     def save(self, *args, **kwargs):
-        """Override save to increment version on each update."""
-        if self.pk:  # Only increment for updates, not new records
+        """Override save to increment version and track updated_at on data changes."""
+        from django.utils import timezone
+        if self.pk:
             self.version += 1
+            try:
+                old = Result.objects.filter(pk=self.pk).values(*self.TRACKED_FIELDS).get()
+                if any(old[f] != getattr(self, f) for f in self.TRACKED_FIELDS):
+                    self.updated_at = timezone.now()
+            except Result.DoesNotExist:
+                self.updated_at = timezone.now()
+        else:
+            self.updated_at = timezone.now()
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -702,6 +716,12 @@ class SiteSettings(models.Model):
 <h2>Wertungssystem</h2>
 <p><em>Die spezifischen Regeln zum Wertungssystem werden vom Veranstalter bekanntgegeben.</em></p>""",
         help_text="Inhalt des Regelwerks für Teilnehmer.",
+    )
+
+    submission_always_open = models.BooleanField(
+        default=False,
+        verbose_name="Abgabe dauerhaft offen",
+        help_text="Wenn aktiv, können alle Teilnehmer jederzeit Ergebnisse einreichen – unabhängig von Zeitfenstern.",
     )
 
     singleton_guard = models.BooleanField(default=True, unique=True, editable=False)

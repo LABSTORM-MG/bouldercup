@@ -7,14 +7,14 @@
 {% endblock %}
 
 {% block content %}
-<form method="get">
+<form method="get" id="filter-form">
 <div class="ma-toolbar">
   <div class="ma-search">
     <span>🔍</span>
-    <input type="text" name="q" value="{{ q }}" placeholder="Label, Farbe, Ort…" autocomplete="off">
+    <input type="text" name="q" value="{{ q }}" placeholder="Label, Farbe, Ort…" autocomplete="off" id="search-input">
   </div>
   <div class="ma-filters">
-    <select name="zone_count" class="ma-select" onchange="this.form.submit()">
+    <select name="zone_count" class="ma-select">
       <option value="">Alle Zonen</option>
       <option value="0" {% if filter_zone_count == '0' %}selected{% endif %}>0 Zonen</option>
       <option value="1" {% if filter_zone_count == '1' %}selected{% endif %}>1 Zone</option>
@@ -22,7 +22,7 @@
     </select>
     <button type="submit" class="btn btn-secondary btn-sm">Filtern</button>
     {% if q or filter_zone_count %}
-      <a href="{% url 'myadmin:boulders' %}" class="btn btn-ghost btn-sm">✕</a>
+      <a href="{% url 'myadmin:boulders' %}" class="btn btn-ghost btn-sm" id="reset-link">✕ Zurücksetzen</a>
     {% endif %}
   </div>
 </div>
@@ -40,31 +40,63 @@
         <th style="text-align:right;">Aktionen</th>
       </tr>
     </thead>
-    <tbody>
-      {% for b in page_obj %}
-      <tr>
-        <td><strong>{{ b.label }}</strong></td>
-        <td>
-          <span class="color-swatch" style="background-color:{{ b.color }};"></span>
-          {{ b.color }}
-        </td>
-        <td>{{ b.get_zone_count_display }}</td>
-        <td style="font-size:.8rem; color:var(--text-secondary);">
-          {% for ag in b.age_groups.all %}{{ ag.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
-        </td>
-        <td style="font-size:.8rem; color:var(--text-muted);">{{ b.location|default:"—" }}</td>
-        <td>
-          <div class="row-actions">
-            <a href="{% url 'myadmin:boulder_edit' b.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
-            <a href="{% url 'myadmin:boulder_delete' b.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
-          </div>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="6"><div class="ma-empty"><div class="empty-icon">🪨</div><p>Keine Boulder gefunden.</p></div></td></tr>
-      {% endfor %}
+    <tbody id="boulders-tbody">
+      {% include 'myadmin/boulders/_rows.html' %}
     </tbody>
   </table>
-  {% include 'myadmin/_pagination.html' %}
+  <div id="boulders-pagination">{% include 'myadmin/_pagination.html' %}</div>
 </div>
+
+<script>
+const tbody      = document.getElementById('boulders-tbody');
+const paginationEl = document.getElementById('boulders-pagination');
+const filterForm = document.getElementById('filter-form');
+
+function fetchBoulders(params) {
+  const url = '?' + params.toString();
+  history.pushState(null, '', url);
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(data => {
+      tbody.innerHTML = data.rows;
+      paginationEl.innerHTML = data.pagination;
+    });
+}
+
+function currentParams() {
+  return new URLSearchParams(new FormData(filterForm));
+}
+
+document.getElementById('search-input').addEventListener('input', function () {
+  const p = currentParams();
+  p.delete('page');
+  fetchBoulders(p);
+});
+
+filterForm.querySelectorAll('select').forEach(sel => {
+  sel.addEventListener('change', () => {
+    const p = currentParams();
+    p.delete('page');
+    fetchBoulders(p);
+  });
+});
+
+filterForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const p = currentParams();
+  p.delete('page');
+  fetchBoulders(p);
+});
+
+document.addEventListener('click', e => {
+  const link = e.target.closest('#boulders-pagination a');
+  if (!link) return;
+  e.preventDefault();
+  fetchBoulders(new URLSearchParams(new URL(link.href).search));
+});
+
+window.addEventListener('popstate', () => {
+  fetchBoulders(new URLSearchParams(window.location.search));
+});
+</script>
 {% endblock %}

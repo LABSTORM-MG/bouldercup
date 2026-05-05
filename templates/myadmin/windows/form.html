@@ -13,8 +13,71 @@
   <div class="ma-card-body">
     <form method="post">
       {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="form-errors-banner">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+      </div>
+      {% endif %}
       <div class="ma-form-grid">
-        {% include 'myadmin/_form_fields.html' %}
+        {% for field in form.visible_fields %}
+          {% if field.html_name == 'age_groups' %}
+            {# rendered separately below #}
+          {% elif field.html_name == 'submission_start' or field.html_name == 'submission_end' %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">
+              {{ field.label }}
+            </label>
+            <div class="field-widget">
+              <div class="split-datetime-wrapper">
+                {{ field }}
+                <div class="datetime-quick-btns">
+                  <button type="button" class="btn-quick-date" data-target="{{ field.auto_id }}_0">Heute</button>
+                  <button type="button" class="btn-quick-time" data-target="{{ field.auto_id }}_1">Jetzt</button>
+                </div>
+              </div>
+              {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+              {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+            </div>
+          </div>
+          {% elif field.field.widget.input_type == 'checkbox' %}
+          <div class="ma-field ma-field--toggle">
+            <span class="ma-field-label-text">{{ field.label }}</span>
+            <div class="field-widget">
+              <label class="ma-toggle">
+                {{ field }}
+                <span class="ma-toggle-track"></span>
+              </label>
+              {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+              {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+            </div>
+          </div>
+          {% else %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">
+              {{ field.label }}
+            </label>
+            <div class="field-widget">
+              {{ field }}
+              {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+              {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        {% endfor %}
+
+        <div class="ma-field ma-field--full">
+          <label>Altersgruppen</label>
+          <div class="field-widget">
+            {% if form.age_groups.errors %}
+              {% for error in form.age_groups.errors %}<span class="field-error" style="display:block;margin-bottom:.5rem;">{{ error }}</span>{% endfor %}
+            {% endif %}
+            {% with picker_id="agegroup-picker-window" %}
+              {% include 'myadmin/_agegroup_picker.html' %}
+            {% endwith %}
+            <span class="field-help">Altersgruppen, für die dieses Zeitfenster gilt.</span>
+          </div>
+        </div>
+
       </div>
       <div class="ma-form-actions">
         <button type="submit" class="btn btn-primary">💾 Speichern</button>
@@ -23,4 +86,29 @@
     </form>
   </div>
 </div>
+
+<script>
+document.querySelectorAll(".btn-quick-date").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, "0");
+        const d = String(now.getDate()).padStart(2, "0");
+        input.value = `${y}-${m}-${d}`;
+    });
+});
+
+document.querySelectorAll(".btn-quick-time").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, "0");
+        const min = String(now.getMinutes()).padStart(2, "0");
+        input.value = `${h}:${min}`;
+    });
+});
+</script>
 {% endblock %}

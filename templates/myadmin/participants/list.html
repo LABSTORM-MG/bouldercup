@@ -12,7 +12,7 @@
 <div class="ma-toolbar">
   <div class="ma-search">
     <span>🔍</span>
-    <input type="text" name="q" value="{{ q }}" placeholder="Name oder Benutzername…" autocomplete="off">
+    <input type="text" name="q" value="{{ q }}" placeholder="Name oder Benutzername…" autocomplete="off" id="search-input">
   </div>
   <div class="ma-filters">
     <select name="gender" class="ma-select" onchange="this.form.submit()">
@@ -42,11 +42,12 @@
 
 <form method="post" action="{% url 'myadmin:participant_action' %}" id="bulk-form">
 {% csrf_token %}
-<div id="bulk-bar" class="ma-bulk-bar" style="display:none;">
-  <span class="bulk-count" id="bulk-count">0</span> ausgewählt
-  <button type="submit" name="action" value="lock" class="btn btn-secondary btn-sm">🔒 Sperren</button>
-  <button type="submit" name="action" value="unlock" class="btn btn-primary btn-sm">🔓 Entsperren</button>
-  <button type="submit" name="action" value="walking_sheets" class="btn btn-secondary btn-sm">📄 Laufzettel PDF</button>
+<div id="bulk-bar" class="ma-bulk-bar">
+  <button type="submit" name="action" value="lock" class="btn btn-secondary btn-sm" id="bulk-btn-lock">🔒 Sperren</button>
+  <button type="submit" name="action" value="unlock" class="btn btn-primary btn-sm" id="bulk-btn-unlock">🔓 Entsperren</button>
+  <button type="submit" name="action" value="walking_sheets" class="btn btn-secondary btn-sm" id="bulk-btn-sheets">📄 Laufzettel PDF</button>
+  <span class="bulk-hint" id="bulk-hint">Teilnehmer auswählen</span>
+  <span class="bulk-count" id="bulk-count" style="display:none;"><span id="bulk-count-n">0</span> ausgewählt</span>
 </div>
 
 <div class="ma-table-wrap">
@@ -62,49 +63,35 @@
         <th style="text-align:right;">Aktionen</th>
       </tr>
     </thead>
-    <tbody>
-      {% for p in page_obj %}
-      <tr>
-        <td><input type="checkbox" name="selected_ids" value="{{ p.pk }}" class="row-cb"></td>
-        <td><strong>{{ p.name }}</strong></td>
-        <td style="color:var(--text-muted); font-family:monospace; font-size:.8rem;">{{ p.username }}</td>
-        <td>{{ p.get_gender_display }}</td>
-        <td>{{ p.age_group.name|default:"—" }}</td>
-        <td>
-          {% if p.is_locked %}
-            <span class="badge badge-danger">Gesperrt</span>
-          {% else %}
-            <span class="badge badge-success">Aktiv</span>
-          {% endif %}
-        </td>
-        <td>
-          <div class="row-actions">
-            <a href="{% url 'myadmin:participant_edit' p.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
-            <a href="{% url 'myadmin:participant_delete' p.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
-          </div>
-        </td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="7"><div class="ma-empty"><div class="empty-icon">👤</div><p>Keine Teilnehmer gefunden.</p></div></td></tr>
-      {% endfor %}
+    <tbody id="participants-tbody">
+      {% include 'myadmin/participants/_rows.html' %}
     </tbody>
   </table>
-  {% include 'myadmin/_pagination.html' %}
+  <div id="participants-pagination">{% include 'myadmin/_pagination.html' %}</div>
 </div>
 </form>
 
 <script>
-const selectAll = document.getElementById('select-all');
-const bulkBar   = document.getElementById('bulk-bar');
-const bulkCount = document.getElementById('bulk-count');
+// --- Bulk selection ---
+const selectAll  = document.getElementById('select-all');
+const bulkHint   = document.getElementById('bulk-hint');
+const bulkCount  = document.getElementById('bulk-count');
+const bulkCountN = document.getElementById('bulk-count-n');
+const bulkBtns   = document.querySelectorAll('#bulk-btn-lock, #bulk-btn-unlock, #bulk-btn-sheets');
 const cbs = () => document.querySelectorAll('.row-cb');
 
 function updateBulk() {
   const checked = [...cbs()].filter(c => c.checked);
-  bulkBar.style.display = checked.length ? 'flex' : 'none';
-  bulkCount.textContent = checked.length;
-  selectAll.indeterminate = checked.length > 0 && checked.length < cbs().length;
-  selectAll.checked = checked.length === cbs().length && cbs().length > 0;
+  const n = checked.length;
+  const hasSelection = n > 0;
+
+  bulkBtns.forEach(btn => btn.disabled = !hasSelection);
+  bulkHint.style.display  = hasSelection ? 'none' : '';
+  bulkCount.style.display = hasSelection ? '' : 'none';
+  bulkCountN.textContent  = n;
+
+  selectAll.indeterminate = n > 0 && n < cbs().length;
+  selectAll.checked = n === cbs().length && cbs().length > 0;
 }
 
 selectAll.addEventListener('change', () => {
@@ -113,5 +100,68 @@ selectAll.addEventListener('change', () => {
 });
 
 document.addEventListener('change', e => { if (e.target.classList.contains('row-cb')) updateBulk(); });
+
+// --- AJAX filter/sort/pagination ---
+const tbody      = document.getElementById('participants-tbody');
+const paginationEl = document.getElementById('participants-pagination');
+const filterForm = document.getElementById('filter-form');
+
+function fetchParticipants(params) {
+  const url = '?' + params.toString();
+  history.pushState(null, '', url);
+
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(r => r.json())
+    .then(data => {
+      tbody.innerHTML = data.rows;
+      paginationEl.innerHTML = data.pagination;
+      updateBulk();
+      selectAll.checked = false;
+      selectAll.indeterminate = false;
+    });
+}
+
+function currentParams() {
+  return new URLSearchParams(new FormData(filterForm));
+}
+
+// Search: debounced
+document.getElementById('search-input').addEventListener('input', function () {
+  const p = currentParams();
+  p.delete('page');
+  fetchParticipants(p);
+});
+
+// Dropdowns: instant
+filterForm.querySelectorAll('select').forEach(sel => {
+  sel.removeAttribute('onchange');
+  sel.addEventListener('change', () => {
+    const p = currentParams();
+    p.delete('page');
+    fetchParticipants(p);
+  });
+});
+
+// "Filtern"-Button: prevent reload
+filterForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const p = currentParams();
+  p.delete('page');
+  fetchParticipants(p);
+});
+
+// Sort & pagination links: intercept clicks
+document.addEventListener('click', e => {
+  const link = e.target.closest('#participants-pagination a, .ma-table thead a');
+  if (!link) return;
+  e.preventDefault();
+  const p = new URLSearchParams(new URL(link.href).search);
+  fetchParticipants(p);
+});
+
+// Browser back/forward
+window.addEventListener('popstate', () => {
+  fetchParticipants(new URLSearchParams(window.location.search));
+});
 </script>
 {% endblock %}

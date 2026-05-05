@@ -1,0 +1,77 @@
+{# Age-group chip picker. Requires context: agegroups_all, selected_agegroup_pks, picker_id (optional) #}
+{% with pid=picker_id|default:"agegroup-picker" %}
+<div class="boulder-picker">
+  <input type="text" class="ma-input boulder-picker-search" placeholder="Altersgruppe suchen…" autocomplete="off"
+         data-picker="{{ pid }}">
+  <div class="boulder-picker-grid" id="{{ pid }}-grid">
+    {% for ag in agegroups_all %}
+    <label class="boulder-chip{% if ag.pk in selected_agegroup_pks %} selected{% endif %}">
+      <input type="checkbox" name="age_groups" value="{{ ag.pk }}"
+        {% if ag.pk in selected_agegroup_pks %}checked{% endif %}>
+      <span class="boulder-chip-label">{{ ag.name }}</span>
+      <span class="boulder-chip-check">✓</span>
+    </label>
+    {% empty %}
+    <span style="color:var(--text-muted);font-size:.85rem;">Noch keine Altersgruppen vorhanden.</span>
+    {% endfor %}
+  </div>
+  <div class="boulder-picker-footer">
+    <span class="boulder-picker-count" id="{{ pid }}-count"></span>
+    <div class="boulder-picker-actions">
+      <button type="button" class="boulder-picker-btn boulder-picker-btn--select" data-picker-select="{{ pid }}">Alle auswählen</button>
+      <button type="button" class="boulder-picker-btn boulder-picker-btn--clear" data-picker-clear="{{ pid }}">Auswahl aufheben</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var grid = document.getElementById('{{ pid }}-grid');
+  var countEl = document.getElementById('{{ pid }}-count');
+  if (!grid) return;
+
+  function updateCount() {
+    var n = grid.querySelectorAll('input[type="checkbox"]:checked').length;
+    countEl.textContent = n === 0 ? 'Keine ausgewählt' : n + ' ausgewählt';
+  }
+
+  grid.querySelectorAll('.boulder-chip input[type="checkbox"]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      this.closest('.boulder-chip').classList.toggle('selected', this.checked);
+      updateCount();
+    });
+  });
+
+  document.querySelector('.boulder-picker-search[data-picker="{{ pid }}"]').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+
+  document.querySelector('.boulder-picker-search[data-picker="{{ pid }}"]').addEventListener('input', function () {
+    var q = this.value.toLowerCase();
+    grid.querySelectorAll('.boulder-chip').forEach(function (chip) {
+      var label = chip.querySelector('.boulder-chip-label').textContent.toLowerCase();
+      chip.style.display = label.includes(q) ? 'flex' : 'none';
+    });
+  });
+
+  document.querySelector('[data-picker-select="{{ pid }}"]').addEventListener('click', function () {
+    grid.querySelectorAll('.boulder-chip').forEach(function (chip) {
+      if (chip.style.display === 'none') return;
+      var cb = chip.querySelector('input[type="checkbox"]');
+      cb.checked = true;
+      chip.classList.add('selected');
+    });
+    updateCount();
+  });
+
+  document.querySelector('[data-picker-clear="{{ pid }}"]').addEventListener('click', function () {
+    grid.querySelectorAll('.boulder-chip input[type="checkbox"]').forEach(function (cb) {
+      cb.checked = false;
+      cb.closest('.boulder-chip').classList.remove('selected');
+    });
+    updateCount();
+  });
+
+  updateCount();
+})();
+</script>
+{% endwith %}

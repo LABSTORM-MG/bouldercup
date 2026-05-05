@@ -15,7 +15,8 @@ from django_ckeditor_5.widgets import CKEditor5Widget
 from django.contrib.auth import logout as auth_logout
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.template.loader import render_to_string
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -143,9 +144,35 @@ class ParticipantEditForm(forms.ModelForm):
 
 
 class AgeGroupForm(forms.ModelForm):
+    boulders = forms.ModelMultipleChoiceField(
+        queryset=Boulder.objects.order_by("label"),
+        required=False,
+        label="Boulder",
+        help_text="Boulder, die dieser Altersgruppe zugewiesen sind.",
+    )
+
     class Meta:
         model = AgeGroup
         fields = ("name", "min_age", "max_age", "gender")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["boulders"].initial = self.instance.boulders.values_list("pk", flat=True)
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        if commit:
+            self._save_boulders(instance)
+        return instance
+
+    def _save_boulders(self, instance):
+        selected = set(self.cleaned_data["boulders"].values_list("pk", flat=True))
+        for boulder in Boulder.objects.filter(age_groups=instance):
+            if boulder.pk not in selected:
+                boulder.age_groups.remove(instance)
+        for boulder in self.cleaned_data["boulders"]:
+            boulder.age_groups.add(instance)
 
 
 class AdminMessageForm(forms.ModelForm):
@@ -246,7 +273,7 @@ def myadmin_participants(request):
     page_obj = _paginate(qs, request)
     age_groups = AgeGroup.objects.all().order_by("name")
 
-    return render(request, "myadmin/participants/list.html", {
+    ctx = {
         "page_title": "Teilnehmer",
         "page_obj": page_obj,
         "age_groups": age_groups,
@@ -256,7 +283,16 @@ def myadmin_participants(request):
         "filter_locked": locked,
         "sort": sort,
         "dir": direction,
-    })
+    }
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({
+            "rows": render_to_string("myadmin/participants/_rows.html", ctx, request),
+            "pagination": render_to_string("myadmin/_pagination.html", ctx, request),
+            "total": page_obj.paginator.count,
+        })
+
+    return render(request, "myadmin/participants/list.html", ctx)
 
 
 @myadmin_required
@@ -389,20 +425,10 @@ def myadmin_participant_action(request):
     qs = Participant.objects.filter(pk__in=ids)
 
     if action == "lock":
-        from django.contrib.sessions.models import Session
         from ..services.scoring_service import ScoringService
-        participant_ids = list(qs.values_list("id", flat=True))
         count = qs.update(is_locked=True)
-        sessions_deleted = 0
-        for session in Session.objects.all():
-            if session.get_decoded().get("participant_id") in participant_ids:
-                session.delete()
-                sessions_deleted += 1
         ScoringService.invalidate_all_scoreboards()
-        messages.warning(
-            request,
-            str(count) + " Teilnehmer gesperrt, " + str(sessions_deleted) + " Sitzungen beendet."
-        )
+        messages.warning(request, str(count) + " Teilnehmer gesperrt.")
 
     elif action == "unlock":
         from ..services.scoring_service import ScoringService
@@ -448,12 +474,28 @@ def myadmin_boulders(request):
         qs = qs.filter(zone_count=int(zone_count))
 
     page_obj = _paginate(qs, request)
-    return render(request, "myadmin/boulders/list.html", {
+    ctx = {
         "page_title": "Boulder",
         "page_obj": page_obj,
         "q": q,
         "filter_zone_count": zone_count,
-    })
+    }
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({
+            "rows": render_to_string("myadmin/boulders/_rows.html", ctx, request),
+            "pagination": render_to_string("myadmin/_pagination.html", ctx, request),
+            "total": page_obj.paginator.count,
+        })
+
+    return render(request, "myadmin/boulders/list.html", ctx)
+
+
+def _agegroup_picker_ctx(instance=None):
+    """Return context for the age-group chip picker."""
+    agegroups_all = AgeGroup.objects.order_by("name")
+    selected_pks = set(instance.age_groups.values_list("pk", flat=True)) if instance and instance.pk else set()
+    return {"agegroups_all": agegroups_all, "selected_agegroup_pks": selected_pks}
 
 
 @myadmin_required
@@ -471,6 +513,7 @@ def myadmin_boulder_add(request):
         "form": form,
         "is_add": True,
         "page_title": "Boulder anlegen",
+        **_agegroup_picker_ctx(),
     })
 
 
@@ -491,6 +534,7 @@ def myadmin_boulder_edit(request, pk):
         "boulder": boulder,
         "is_add": False,
         "page_title": "Boulder " + boulder.label + " bearbeiten",
+        **_agegroup_picker_ctx(boulder),
     })
 
 
@@ -522,6 +566,24 @@ def myadmin_agegroups(request):
     })
 
 
+def _agegroup_form_context(form, request, extra=None):
+    """Build shared context for the age group add/edit views."""
+    if request.method == "POST":
+        selected_pks = set(int(v) for v in request.POST.getlist("boulders") if v.isdigit())
+    else:
+        initial = form.fields["boulders"].initial
+        selected_pks = set(initial) if initial else set()
+    _add_ma_classes(form)
+    ctx = {
+        "form": form,
+        "boulders_all": Boulder.objects.order_by("label"),
+        "selected_boulder_pks": selected_pks,
+    }
+    if extra:
+        ctx.update(extra)
+    return ctx
+
+
 @myadmin_required
 def myadmin_agegroup_add(request):
     if request.method == "POST":
@@ -532,12 +594,8 @@ def myadmin_agegroup_add(request):
             return redirect("myadmin:agegroups")
     else:
         form = AgeGroupForm()
-    _add_ma_classes(form)
-    return render(request, "myadmin/agegroups/form.html", {
-        "form": form,
-        "is_add": True,
-        "page_title": "Altersgruppe anlegen",
-    })
+    return render(request, "myadmin/agegroups/form.html",
+        _agegroup_form_context(form, request, {"is_add": True, "page_title": "Altersgruppe anlegen"}))
 
 
 @myadmin_required
@@ -551,13 +609,12 @@ def myadmin_agegroup_edit(request, pk):
             return redirect("myadmin:agegroups")
     else:
         form = AgeGroupForm(instance=agegroup)
-    _add_ma_classes(form)
-    return render(request, "myadmin/agegroups/form.html", {
-        "form": form,
-        "agegroup": agegroup,
-        "is_add": False,
-        "page_title": agegroup.name + " bearbeiten",
-    })
+    return render(request, "myadmin/agegroups/form.html",
+        _agegroup_form_context(form, request, {
+            "agegroup": agegroup,
+            "is_add": False,
+            "page_title": agegroup.name + " bearbeiten",
+        }))
 
 
 @myadmin_required
@@ -753,8 +810,8 @@ def _results_rows():
             r.attempts_zone1,
             "Flash" if is_flash else "",
             r.version,
-            r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "--",
-            r.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+            r.created_at.strftime("%d.%m.%Y %H:%M:%S") if r.created_at else "--",
+            r.updated_at.strftime("%d.%m.%Y %H:%M:%S") if r.updated_at else "--",
         ])
     return headers, rows
 
@@ -804,7 +861,7 @@ def _history_rows():
             "Ja" if h.zone1 else "Nein",
             h.attempts_top, h.attempts_zone2, h.attempts_zone1,
             h.version,
-            h.history_date.strftime("%Y-%m-%d %H:%M:%S"),
+            h.history_date.strftime("%d.%m.%Y %H:%M:%S"),
             _HISTORY_TYPE_MAP.get(h.history_type, h.history_type),
             h.history_user.username if h.history_user_id and h.history_user else "System",
         ])
@@ -897,31 +954,64 @@ def myadmin_preview_standings(request):
     })
 
 
-@xframe_options_sameorigin
-@myadmin_required
-def myadmin_inline_standings_pdf(request):
-    """Serve the standings PDF inline (for browser iframe embedding)."""
-    from django.utils import timezone as tz
+def _build_standings_pdf_elements(groups, current_time):
+    """Build the ReportLab flowable elements for the standings PDF."""
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import cm
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import Table, TableStyle, Paragraph, Spacer
 
-    settings, groups = _standings_groups()
-    if groups is None:
-        return HttpResponse("Keine Wettkampfeinstellungen.", status=404)
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
-    elements = []
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle("T", parent=styles["Heading1"], fontSize=18, spaceAfter=30, alignment=1)
-    current_time = tz.now().strftime("%d.%m.%Y %H:%M:%S")
-    elements.append(Paragraph("BoulderCup Rangliste<br/><font size=12>Stand: " + current_time + "</font>", title_style))
-    elements.append(Spacer(1, 0.5 * cm))
     group_style = ParagraphStyle("G", parent=styles["Heading2"], fontSize=14, spaceAfter=10)
 
+    TABLE_STYLE = TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 10),
+    ])
+
+    elements = []
+    elements.append(Paragraph("BoulderCup Rangliste<br/><font size=12>Stand: " + current_time + "</font>", title_style))
+    elements.append(Spacer(1, 0.5 * cm))
+
+    # --- Gesamtübersicht ---
+    grading_system = groups[0]["grading_system"] if groups else "ifsc"
+    elements.append(Paragraph("Gesamtübersicht", group_style))
+    if grading_system == "ifsc":
+        overview_data = [["Altersgruppe", "Rang", "Name", "Tops", "Zonen", "Versuche Top", "Versuche Zone"]]
+        for g in groups:
+            for e in g["entries"]:
+                overview_data.append([
+                    g["age_group"].name, str(e["rank"]), e["participant"].name,
+                    str(e.get("tops", 0)), str(e.get("zones", 0)),
+                    str(e.get("top_attempts", 0)), str(e.get("zone_attempts", 0)),
+                ])
+    else:
+        overview_data = [["Altersgruppe", "Rang", "Name", "Punkte", "Tops", "Zonen"]]
+        for g in groups:
+            for e in g["entries"]:
+                overview_data.append([
+                    g["age_group"].name, str(e["rank"]), e["participant"].name,
+                    str(round(e.get("points", 0), 1)),
+                    str(e.get("tops", 0)), str(e.get("zones", 0)),
+                ])
+    if len(overview_data) > 1:
+        overview_table = Table(overview_data, hAlign="LEFT")
+        overview_table.setStyle(TABLE_STYLE)
+        elements.append(overview_table)
+    else:
+        elements.append(Paragraph("Keine Ergebnisse vorhanden", styles["Normal"]))
+    elements.append(Spacer(1, 1.5 * cm))
+
+    # --- Einzelne Altersgruppen ---
     for g in groups:
         elements.append(Paragraph("Altersgruppe: " + g["age_group"].name, group_style))
         entries = g["entries"]
@@ -942,22 +1032,28 @@ def myadmin_inline_standings_pdf(request):
                     str(round(e.get("points", 0), 1)),
                     str(e.get("tops", 0)), str(e.get("zones", 0))])
         table = Table(table_data, hAlign="LEFT")
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 12),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 10),
-        ]))
+        table.setStyle(TABLE_STYLE)
         elements.append(table)
         elements.append(Spacer(1, 1 * cm))
 
-    doc.build(elements)
+    return elements
+
+
+@xframe_options_sameorigin
+@myadmin_required
+def myadmin_inline_standings_pdf(request):
+    """Serve the standings PDF inline (for browser iframe embedding)."""
+    from django.utils import timezone as tz
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate
+
+    settings, groups = _standings_groups()
+    if groups is None:
+        return HttpResponse("Keine Wettkampfeinstellungen.", status=404)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4))
+    doc.build(_build_standings_pdf_elements(groups, tz.now().strftime("%d.%m.%Y %H:%M:%S")))
     buf.seek(0)
     response = HttpResponse(buf.read(), content_type="application/pdf")
     response["Content-Disposition"] = "inline; filename=\"rangliste_vorschau.pdf\""
@@ -997,11 +1093,8 @@ def myadmin_export_history_csv(request):
 @myadmin_required
 def myadmin_export_standings_pdf(request):
     from django.utils import timezone as tz
-    from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import cm
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate
 
     settings, groups = _standings_groups()
     if groups is None:
@@ -1013,50 +1106,7 @@ def myadmin_export_standings_pdf(request):
     response["Content-Disposition"] = "attachment; filename=\"rangliste_" + ts + ".pdf\""
 
     doc = SimpleDocTemplate(response, pagesize=landscape(A4))
-    elements = []
-    styles = getSampleStyleSheet()
-    title_style = ParagraphStyle("T", parent=styles["Heading1"], fontSize=18, spaceAfter=30, alignment=1)
-    current_time = tz.now().strftime("%d.%m.%Y %H:%M:%S")
-    elements.append(Paragraph("BoulderCup Rangliste<br/><font size=12>Stand: " + current_time + "</font>", title_style))
-    elements.append(Spacer(1, 0.5 * cm))
-    group_style = ParagraphStyle("G", parent=styles["Heading2"], fontSize=14, spaceAfter=10)
-
-    for g in groups:
-        elements.append(Paragraph("Altersgruppe: " + g["age_group"].name, group_style))
-        entries = g["entries"]
-        if not entries:
-            elements.append(Paragraph("Keine Ergebnisse vorhanden", styles["Normal"]))
-            elements.append(Spacer(1, 0.5 * cm))
-            continue
-        if g["grading_system"] == "ifsc":
-            table_data = [["Rang", "Name", "Tops", "Zonen", "Versuche Top", "Versuche Zone"]]
-            for e in entries:
-                table_data.append([str(e["rank"]), e["participant"].name,
-                    str(e.get("tops", 0)), str(e.get("zones", 0)),
-                    str(e.get("top_attempts", 0)), str(e.get("zone_attempts", 0))])
-        else:
-            table_data = [["Rang", "Name", "Punkte", "Tops", "Zonen"]]
-            for e in entries:
-                table_data.append([str(e["rank"]), e["participant"].name,
-                    str(round(e.get("points", 0), 1)),
-                    str(e.get("tops", 0)), str(e.get("zones", 0))])
-        table = Table(table_data, hAlign="LEFT")
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 12),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 10),
-        ]))
-        elements.append(table)
-        elements.append(Spacer(1, 1 * cm))
-
-    doc.build(elements)
+    doc.build(_build_standings_pdf_elements(groups, tz.now().strftime("%d.%m.%Y %H:%M:%S")))
     return response
 
 
@@ -1066,12 +1116,30 @@ def myadmin_export_standings_pdf(request):
 
 @myadmin_required
 def myadmin_windows(request):
+    from ..models import SiteSettings
+    site = SiteSettings.objects.filter(singleton_guard=True).first()
     qs = SubmissionWindow.objects.prefetch_related("age_groups").order_by("submission_start")
     page_obj = _paginate(qs, request, per_page=50)
     return render(request, "myadmin/windows/list.html", {
         "page_title": "Zeitfenster",
         "page_obj": page_obj,
+        "submission_always_open": site.submission_always_open if site else False,
     })
+
+
+@myadmin_required
+def myadmin_toggle_submission(request):
+    if request.method != "POST":
+        return redirect("myadmin:windows")
+    from ..models import SiteSettings
+    site, _ = SiteSettings.objects.get_or_create(singleton_guard=True)
+    site.submission_always_open = not site.submission_always_open
+    site.save()
+    if site.submission_always_open:
+        messages.success(request, "Abgabe dauerhaft geöffnet.")
+    else:
+        messages.info(request, "Dauerhaft-offen deaktiviert. Zeitfenster gelten wieder.")
+    return redirect("myadmin:windows")
 
 
 @myadmin_required
@@ -1096,6 +1164,7 @@ def myadmin_window_add(request):
     _add_ma_classes(form)
     return render(request, "myadmin/windows/form.html", {
         "form": form, "is_add": True, "page_title": "Zeitfenster anlegen",
+        **_agegroup_picker_ctx(),
     })
 
 
@@ -1114,6 +1183,7 @@ def myadmin_window_edit(request, pk):
     return render(request, "myadmin/windows/form.html", {
         "form": form, "window": window, "is_add": False,
         "page_title": window.name + " bearbeiten",
+        **_agegroup_picker_ctx(window),
     })
 
 
@@ -1129,39 +1199,6 @@ def myadmin_window_delete(request, pk):
         "window": window, "page_title": window.name + " loeschen?",
     })
 
-
-@myadmin_required
-def myadmin_window_bulk_create(request):
-    if request.method != "POST":
-        return redirect("myadmin:windows")
-    from datetime import datetime
-    cs = CompetitionSettings.objects.filter(singleton_guard=True).first()
-    if cs and cs.competition_date:
-        start = timezone.make_aware(datetime.combine(cs.competition_date, datetime.min.time().replace(hour=9, minute=0)))
-        end = start.replace(hour=17, minute=0)
-    else:
-        now = timezone.now()
-        start = now.replace(hour=9, minute=0, second=0, microsecond=0)
-        end = now.replace(hour=17, minute=0, second=0, microsecond=0)
-
-    age_groups = list(AgeGroup.objects.order_by("name"))
-    if not age_groups:
-        messages.warning(request, "Keine Altersgruppen vorhanden.")
-        return redirect("myadmin:windows")
-
-    count = 0
-    for ag in age_groups:
-        w = SubmissionWindow.objects.create(
-            name="Zeitfenster " + ag.name,
-            submission_start=start,
-            submission_end=end,
-            note="Automatisch erstellt fuer " + ag.name,
-        )
-        w.age_groups.add(ag)
-        count += 1
-
-    messages.success(request, str(count) + " Zeitfenster erstellt (09:00-17:00).")
-    return redirect("myadmin:windows")
 
 
 # ---------------------------------------------------------------------------

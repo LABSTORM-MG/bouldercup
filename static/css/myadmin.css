@@ -518,6 +518,19 @@ table.ma-table {
 
 .ma-bulk-bar .bulk-count { font-weight: 700; }
 
+.ma-bulk-bar .bulk-hint {
+  font-size: .8rem;
+  color: var(--accent-dark);
+  opacity: .65;
+  font-style: italic;
+}
+
+.ma-bulk-bar .btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Checkbox */
 .ma-table input[type="checkbox"] {
   width: 15px;
@@ -618,19 +631,263 @@ table.ma-table {
   margin-bottom: 1.25rem;
 }
 
-/* Checkbox toggle in form */
-.ma-field-checkbox {
+/* Toggle switch */
+.ma-field--toggle {
+  align-items: center;
+}
+
+.ma-field-label-text {
+  font-size: .875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ma-toggle {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.ma-toggle input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ma-toggle-track {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  background: var(--border-strong);
+  border-radius: 12px;
+  transition: background .2s;
+  flex-shrink: 0;
+}
+
+.ma-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  transition: left .2s;
+}
+
+.ma-toggle input[type="checkbox"]:checked + .ma-toggle-track {
+  background: var(--accent);
+}
+
+.ma-toggle input[type="checkbox"]:checked + .ma-toggle-track::after {
+  left: 23px;
+}
+
+.ma-toggle input[type="checkbox"]:focus-visible + .ma-toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ma-field full-width variant */
+.ma-field--full {
+  grid-column: 1 / -1;
+}
+
+/* Toggle submission button */
+.toggle-submission-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+.toggle-track {
+  display: inline-flex;
+  align-items: center;
+  width: 2rem;
+  height: 1.1rem;
+  border-radius: 1rem;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background .2s;
+  position: relative;
+}
+.toggle-track.on {
+  background: var(--success, #22c55e);
+}
+.toggle-thumb {
+  position: absolute;
+  left: .15rem;
+  width: .8rem;
+  height: .8rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: left .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.toggle-track.on .toggle-thumb {
+  left: calc(100% - .95rem);
+}
+
+/* Split datetime quick buttons */
+.split-datetime-wrapper {
   display: flex;
   align-items: center;
   gap: .5rem;
-  padding-top: .45rem;
+}
+.split-datetime-wrapper > span { /* Django wraps SplitDateTimeWidget in <span> */
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+.datetime-quick-btns {
+  display: flex;
+  gap: .4rem;
+  flex-shrink: 0;
+}
+.btn-quick-date,
+.btn-quick-time {
+  padding: .15rem .55rem;
+  font-size: .78rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.btn-quick-date:hover,
+.btn-quick-time:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
-.ma-field-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent);
+/* Boulder picker */
+.boulder-picker {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: .75rem;
+  background: #fafafa;
+}
+
+.boulder-picker-search {
+  width: 100%;
+  margin-bottom: .65rem;
+}
+
+.boulder-picker-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+}
+
+.boulder-chip {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .45rem .75rem;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
+  user-select: none;
+  font-size: .85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--card-bg);
+  transition: background .1s, color .1s;
+}
+
+.boulder-chip:last-child { border-bottom: none; }
+
+.boulder-chip input[type="checkbox"] { display: none; }
+
+.boulder-chip:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.boulder-chip.selected {
+  background: var(--accent-light);
+  color: var(--accent-dark);
+}
+
+.boulder-chip-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.18);
+  flex-shrink: 0;
+}
+
+.boulder-chip-check {
+  margin-left: auto;
+  color: var(--accent);
+  font-size: .8rem;
+  opacity: 0;
+  transition: opacity .1s;
+}
+
+.boulder-chip.selected .boulder-chip-check { opacity: 1; }
+
+.boulder-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: .6rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--border);
+  gap: .5rem;
+}
+
+.boulder-picker-count {
+  font-size: .78rem;
+  color: var(--text-muted);
+}
+
+.boulder-picker-actions {
+  display: flex;
+  gap: .4rem;
+}
+
+.boulder-picker-btn {
+  padding: .25rem .65rem;
+  font-size: .78rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.boulder-picker-btn--select {
+  background: var(--accent-light);
+  color: var(--accent-dark);
+  border-color: var(--accent);
+}
+
+.boulder-picker-btn--select:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.boulder-picker-btn--clear {
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+.boulder-picker-btn--clear:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 /* Form actions bar */

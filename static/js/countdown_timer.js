@@ -203,10 +203,8 @@ export const initializeCountdowns = (state, showStatus, flushBeforeUnload, confi
 
     // Start countdown for next window if submission is locked
     if (state.nextWindowTimestamp && !state.canSubmit) {
-        countdownInterval = updateCountdown(state, showStatus, config, null);
-        if (countdownInterval === null) {
-            // Already enabled, don't set interval
-        } else {
+        updateCountdown(state, showStatus, config, null);
+        if (!state.canSubmit) {
             countdownInterval = setInterval(() => {
                 countdownInterval = updateCountdown(state, showStatus, config, countdownInterval);
             }, 1000);
@@ -215,10 +213,8 @@ export const initializeCountdowns = (state, showStatus, flushBeforeUnload, confi
 
     // Start ending countdown if there's an active window
     if (state.activeWindowEndTimestamp && state.canSubmit) {
-        endingCountdownInterval = updateEndingCountdown(state, config, flushBeforeUnload, showStatus, null);
-        if (endingCountdownInterval === null) {
-            // Already disabled, don't set interval
-        } else {
+        updateEndingCountdown(state, config, flushBeforeUnload, showStatus, null);
+        if (state.canSubmit) {
             endingCountdownInterval = setInterval(() => {
                 endingCountdownInterval = updateEndingCountdown(
                     state,

@@ -6,7 +6,7 @@ This service encapsulates submission window logic, making it reusable and testab
 from dataclasses import dataclass
 from typing import Optional
 
-from ..models import AgeGroup, SubmissionWindow
+from ..models import AgeGroup, SiteSettings, SubmissionWindow
 
 
 @dataclass
@@ -48,6 +48,18 @@ class WindowService:
         Returns:
             SubmissionWindowStatus with all relevant window information
         """
+        # Global override: admin enabled permanent submission
+        site = SiteSettings.objects.filter(singleton_guard=True).first()
+        if site and site.submission_always_open:
+            return SubmissionWindowStatus(
+                can_submit=True,
+                has_windows=False,
+                active_window=None,
+                next_window=None,
+                active_window_end_timestamp=None,
+                next_window_timestamp=None,
+            )
+
         if not age_group:
             # No age group = no restrictions, allow submission
             return SubmissionWindowStatus(

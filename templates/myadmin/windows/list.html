@@ -3,9 +3,14 @@
 {% block breadcrumb %}<span class="sep">/</span> Zeitfenster{% endblock %}
 
 {% block topbar_actions %}
-  <form method="post" action="{% url 'myadmin:window_bulk_create' %}" style="display:inline;">
+  <form method="post" action="{% url 'myadmin:toggle_submission' %}" style="display:inline;">
     {% csrf_token %}
-    <button type="submit" class="btn btn-secondary btn-sm" title="Ein Zeitfenster pro Altersgruppe erstellen">⚡ Bulk erstellen</button>
+    <button type="submit" class="btn btn-sm {% if submission_always_open %}btn-warning{% else %}btn-secondary{% endif %} toggle-submission-btn" title="{% if submission_always_open %}Dauerhaft-offen deaktivieren{% else %}Abgabe dauerhaft öffnen{% endif %}">
+      <span class="toggle-track {% if submission_always_open %}on{% endif %}">
+        <span class="toggle-thumb"></span>
+      </span>
+      Abgabe dauerhaft offen{% if submission_always_open %}: <strong>AN</strong>{% else %}: AUS{% endif %}
+    </button>
   </form>
   <a href="{% url 'myadmin:window_add' %}" class="btn btn-primary btn-sm">➕ Neu</a>
 {% endblock %}
