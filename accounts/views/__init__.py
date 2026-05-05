@@ -2,6 +2,7 @@ from .admin import upload_participants
 from .auth import login_view
 from .participant import (
     acknowledge_greeting,
+    api_boulder_stats,
     get_admin_message,
     participant_dashboard,
     participant_detail_results,
@@ -17,6 +18,7 @@ __all__ = [
     "login_view",
     "upload_participants",
     "acknowledge_greeting",
+    "api_boulder_stats",
     "get_admin_message",
     "participant_dashboard",
     "participant_support",

@@ -1223,6 +1223,12 @@ class CountdownSettingsForm(forms.ModelForm):
     background_color = forms.CharField(widget=forms.TextInput(attrs={"type": "color", "class": "ma-input"}), label="Hintergrundfarbe")
     primary_color    = forms.CharField(widget=forms.TextInput(attrs={"type": "color", "class": "ma-input"}), label="Primaerfarbe")
     secondary_color  = forms.CharField(widget=forms.TextInput(attrs={"type": "color", "class": "ma-input"}), label="Sekundaerfarbe")
+    countdown_end_time = forms.DateTimeField(
+        required=False,
+        input_formats=["%Y-%m-%dT%H:%M"],
+        widget=forms.DateTimeInput(attrs={"type": "datetime-local", "class": "ma-input"}, format="%Y-%m-%dT%H:%M"),
+        label="Countdown endet am",
+    )
 
     class Meta:
         model = CountdownSettings

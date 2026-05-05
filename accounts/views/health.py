@@ -9,15 +9,32 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.db import connection
 from django.core.cache import cache
+from django.utils import timezone
 
+from accounts.models import Boulder, Participant, Result, SubmissionWindow
 from web_project.settings.config import HEALTH
 
 logger = logging.getLogger(__name__)
+
+
+@staff_member_required
+def clear_logs(request):
+    """Truncate the log file. POST only."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
+    log_file = Path(HEALTH.LOG_DIR) / 'bouldercup.log'
+    try:
+        log_file.write_text('')
+        logger.info('Log file cleared by admin')
+        return JsonResponse({'ok': True})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
 
 @staff_member_required
@@ -106,10 +123,52 @@ def status_api(request):
             logger.error(f"Error reading log file: {e}")
             logs = [{'message': f'Error reading logs: {e}', 'levelname': 'ERROR'}]
 
+    # Competition stats
+    now = timezone.now()
+    total_p  = Participant.objects.count()
+    locked_p = Participant.objects.filter(is_locked=True).count()
+    with_results_p = Result.objects.values('participant_id').distinct().count()
+    total_r  = Result.objects.count()
+    topped_r = Result.objects.filter(top=True).count()
+
+    windows = []
+    for w in SubmissionWindow.objects.prefetch_related('age_groups').order_by('submission_start'):
+        if w.submission_start and w.submission_end:
+            if w.submission_start <= now <= w.submission_end:
+                status = 'active'
+            elif now < w.submission_start:
+                status = 'upcoming'
+            else:
+                status = 'past'
+        else:
+            status = 'unknown'
+        windows.append({
+            'name': w.name,
+            'age_groups': [ag.name for ag in w.age_groups.all()],
+            'start': w.submission_start.isoformat() if w.submission_start else None,
+            'end':   w.submission_end.isoformat()   if w.submission_end   else None,
+            'status': status,
+        })
+
+    db_path = Path(settings.DATABASES['default']['NAME'])
+    db_size_mb = round(db_path.stat().st_size / (1024 ** 2), 2) if db_path.exists() else 0
+
+    competition = {
+        'participants_total':        total_p,
+        'participants_locked':       locked_p,
+        'participants_with_results': with_results_p,
+        'results_total':             total_r,
+        'results_topped':            topped_r,
+        'boulders_total':            Boulder.objects.count(),
+        'windows':                   windows,
+        'db_size_mb':                db_size_mb,
+    }
+
     return JsonResponse({
         'timestamp': datetime.now().isoformat(),
         'health': health,
         'metrics': metrics,
+        'competition': competition,
         'logs': logs,
         'log_count': len(logs)
     })

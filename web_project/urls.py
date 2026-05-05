@@ -23,6 +23,7 @@ from django.conf.urls.static import static
 
 from accounts.views import (
     acknowledge_greeting,
+    api_boulder_stats,
     get_admin_message,
     login_view,
     participant_dashboard,
@@ -35,17 +36,19 @@ from accounts.views import (
     upload_participants,
     participant_rulebook,
 )
-from accounts.views.health import system_status, status_api
+from accounts.views.health import system_status, status_api, clear_logs
 
 urlpatterns = [
     path('myadmin/', include('accounts.urls_myadmin', namespace='myadmin')),
     path('admin/status/', system_status, name='system_status'),
     path('admin/status/api/', status_api, name='status_api'),
+    path('admin/status/clear-logs/', clear_logs, name='clear_logs'),
     path('admin/', admin.site.urls),
     path("ckeditor5/", include('django_ckeditor_5.urls')),
     path('', login_view, name='login'),
     path('api/admin-message/', get_admin_message, name='get_admin_message'),
     path('api/acknowledge-greeting/', acknowledge_greeting, name='acknowledge_greeting'),
+    path('api/boulder-stats/', api_boulder_stats, name='api_boulder_stats'),
     path('upload/', upload_participants, name='upload_participants'),
     path('dashboard/', participant_dashboard, name='participant_dashboard'),
     path('dashboard/ergebnisse/', participant_results, name='participant_results'),

@@ -61,11 +61,49 @@
             </div>
         </section>
 
+        <!-- Competition Stats Section -->
+        <section class="metrics-section" id="competition-section">
+            <div class="metric-card">
+                <h3>Teilnehmer</h3>
+                <div class="metric-value" id="p-total">-</div>
+                <div class="metric-detail" id="p-detail">- mit Ergebnissen · - gesperrt</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Ergebnisse</h3>
+                <div class="metric-value" id="r-total">-</div>
+                <div class="metric-detail" id="r-detail">- Tops</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Boulder</h3>
+                <div class="metric-value" id="b-total">-</div>
+            </div>
+
+            <div class="metric-card">
+                <h3>Datenbank</h3>
+                <div class="metric-value" id="db-size">- MB</div>
+                <div class="metric-detail">SQLite</div>
+            </div>
+        </section>
+
+        <section class="logs-section" style="margin-bottom:30px;">
+            <div class="logs-header">
+                <h2>Zeitfenster</h2>
+            </div>
+            <ul id="windows-list" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;font-size:14px;">
+                <li style="color:#666;">Laden…</li>
+            </ul>
+        </section>
+
         <!-- Logs Section -->
         <section class="logs-section">
             <div class="logs-header">
                 <h2>Important Logs (WARNING+)</h2>
-                <span class="log-count" id="log-count">0 entries</span>
+                <div style="display:flex;gap:.5rem;align-items:center;">
+                    <span class="log-count" id="log-count">0 entries</span>
+                    <button id="clearLogsBtn" onclick="clearLogs()" style="font-size:.75rem;padding:.2rem .6rem;">🗑 Clear</button>
+                </div>
             </div>
             <div class="logs-container" id="logs-container">
                 <div class="loading">Loading logs...</div>
@@ -136,6 +174,29 @@
                     document.getElementById('network-recv').textContent =
                         '↓ ' + data.metrics.network_recv_mb.toFixed(1) + ' MB';
 
+                    // Update competition stats
+                    const c = data.competition;
+                    document.getElementById('p-total').textContent = c.participants_total;
+                    document.getElementById('p-detail').textContent =
+                        c.participants_with_results + ' mit Ergebnissen · ' + c.participants_locked + ' gesperrt';
+                    document.getElementById('r-total').textContent = c.results_total;
+                    document.getElementById('r-detail').textContent = c.results_topped + ' Tops';
+                    document.getElementById('b-total').textContent = c.boulders_total;
+                    document.getElementById('db-size').textContent = c.db_size_mb + ' MB';
+
+                    const wList = document.getElementById('windows-list');
+                    if (c.windows.length === 0) {
+                        wList.innerHTML = '<li style="color:#666;">Keine Zeitfenster konfiguriert.</li>';
+                    } else {
+                        const fmtTime = dt => new Date(dt).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+                        wList.innerHTML = c.windows.map(w => {
+                            const active = w.status === 'active';
+                            const text = active ? `offen bis ${fmtTime(w.end)}` : 'geschlossen';
+                            const color = active ? '#10b981' : '#ef4444';
+                            return `<li><span style="color:${color};font-weight:600;">${text}</span> — ${w.name}</li>`;
+                        }).join('');
+                    }
+
                     // Update logs
                     updateLogs(data.logs);
                     document.getElementById('log-count').textContent =
@@ -178,6 +239,25 @@
             if (wasScrolledToBottom) {
                 container.scrollTop = container.scrollHeight;
             }
+        }
+
+        function clearLogs() {
+            const btn = document.getElementById('clearLogsBtn');
+            btn.disabled = true;
+            btn.textContent = '…';
+            const csrf = document.cookie.split('; ').find(r => r.startsWith('csrftoken='))?.split('=')[1] || '';
+            fetch('/admin/status/clear-logs/', {
+                method: 'POST',
+                headers: {'X-CSRFToken': csrf},
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.ok) updateStatus();
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = '🗑 Clear';
+            });
         }
 
         function startAutoRefresh() {

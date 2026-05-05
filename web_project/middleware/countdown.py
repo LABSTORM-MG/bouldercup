@@ -33,7 +33,7 @@ class CountdownMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        self.excluded_paths = ['/admin/', '/static/', '/media/', '/favicon.ico']
+        self.excluded_paths = ['/admin/', '/myadmin/', '/static/', '/media/', '/favicon.ico']
 
     def __call__(self, request):
         # Exclude admin and static paths
