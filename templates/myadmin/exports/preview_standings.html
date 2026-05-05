@@ -1,0 +1,23 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Export <span class="sep">/</span> Rangliste{% endblock %}
+
+{% block topbar_actions %}
+  <a href="." class="btn btn-secondary btn-sm">🔄 Aktualisieren</a>
+  <a href="{% url download_url_name %}" class="btn btn-primary btn-sm">📄 PDF herunterladen</a>
+{% endblock %}
+
+{% block content %}
+<iframe
+  src="{% url inline_pdf_url %}"
+  style="
+    width: 100%;
+    height: calc(100vh - 180px);
+    border: none;
+    border-radius: var(--radius);
+    background: #525659;
+  "
+  title="Rangliste Vorschau">
+  <p>PDF-Vorschau nicht verfügbar. <a href="{% url download_url_name %}">PDF herunterladen</a>.</p>
+</iframe>
+{% endblock %}

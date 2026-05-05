@@ -1,0 +1,27 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Site-Einstellungen{% endblock %}
+
+{% block content %}
+<div class="ma-card" style="max-width: 900px;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">Site-Einstellungen</span>
+  </div>
+  <div class="ma-card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="ma-form-grid">
+        {% include 'myadmin/_form_fields.html' %}
+      </div>
+      <div class="ma-form-actions">
+        <button type="submit" class="btn btn-primary">💾 Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  {% load static %}
+  {{ form.media }}
+{% endblock %}

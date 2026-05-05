@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from .models import AgeGroup, Participant
+from .models import AgeGroup, Boulder, Participant, Result
 from .utils import hash_password
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,38 @@ def _shift_years(reference_date: date, years: int) -> date:
         return reference_date.replace(year=reference_date.year - years)
     except ValueError:
         return reference_date.replace(month=2, day=28, year=reference_date.year - years)
+
+
+@receiver(pre_save, sender=Boulder)
+def capture_boulder_zone_count(sender, instance, **kwargs):
+    """Capture old zone_count before Boulder save for comparison in post_save."""
+    if instance.pk:
+        try:
+            instance._old_zone_count = Boulder.objects.filter(pk=instance.pk).values_list('zone_count', flat=True).get()
+        except Boulder.DoesNotExist:
+            instance._old_zone_count = None
+    else:
+        instance._old_zone_count = None
+
+
+@receiver(post_save, sender=Boulder)
+def normalize_results_after_zone_change(sender, instance, **kwargs):
+    """
+    Normalize Result zone fields when a Boulder's zone_count changes.
+
+    Uses QuerySet.update() to bypass .save(), so updated_at, HistoricalRecords,
+    and version are not touched — this is a technical cleanup, not a participant action.
+    """
+    old_zone_count = getattr(instance, '_old_zone_count', None)
+    if old_zone_count is None or old_zone_count == instance.zone_count:
+        return
+
+    qs = Result.objects.filter(boulder=instance)
+
+    if instance.zone_count == 0:
+        qs.update(zone1=False, zone2=False, attempts_zone1=0, attempts_zone2=0)
+    elif instance.zone_count == 1:
+        qs.filter(zone2=True).update(zone2=False, attempts_zone2=0)
 
 
 @receiver(pre_save, sender=Participant)

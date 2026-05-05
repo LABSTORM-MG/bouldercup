@@ -1,0 +1,31 @@
+{% if form.non_field_errors %}
+<div class="form-errors-banner">
+  {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+</div>
+{% endif %}
+{% for field in form.visible_fields %}
+{% if field.field.widget.input_type == 'checkbox' %}
+<div class="ma-field ma-field--toggle">
+  <span class="ma-field-label-text">{{ field.label }}</span>
+  <div class="field-widget">
+    <label class="ma-toggle">
+      {{ field }}
+      <span class="ma-toggle-track"></span>
+    </label>
+    {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+    {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="ma-field">
+  <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">
+    {{ field.label }}
+  </label>
+  <div class="field-widget">
+    {{ field }}
+    {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+    {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endfor %}

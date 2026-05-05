@@ -1,0 +1,24 @@
+{% for p in page_obj %}
+<tr>
+  <td><input type="checkbox" name="selected_ids" value="{{ p.pk }}" class="row-cb"></td>
+  <td><strong>{{ p.name }}</strong></td>
+  <td style="color:var(--text-muted); font-family:monospace; font-size:.8rem;">{{ p.username }}</td>
+  <td>{{ p.get_gender_display }}</td>
+  <td>{{ p.age_group.name|default:"—" }}</td>
+  <td>
+    {% if p.is_locked %}
+      <span class="badge badge-danger">Gesperrt</span>
+    {% else %}
+      <span class="badge badge-success">Aktiv</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="row-actions">
+      <a href="{% url 'myadmin:participant_edit' p.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
+      <a href="{% url 'myadmin:participant_delete' p.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr><td colspan="7"><div class="ma-empty"><div class="empty-icon">👤</div><p>Keine Teilnehmer gefunden.</p></div></td></tr>
+{% endfor %}

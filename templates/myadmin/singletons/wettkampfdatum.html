@@ -1,0 +1,25 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Wettkampfdatum{% endblock %}
+
+{% block content %}
+<div class="ma-card" style="max-width: 480px;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">Wettkampfdatum</span>
+  </div>
+  <div class="ma-card-body">
+    <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:1.25rem;">
+      Wird zur Berechnung der Altersgruppen verwendet.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="ma-form-grid">
+        {% include 'myadmin/_form_fields.html' %}
+      </div>
+      <div class="ma-form-actions">
+        <button type="submit" class="btn btn-primary">💾 Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

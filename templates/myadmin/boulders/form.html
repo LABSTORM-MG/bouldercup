@@ -1,0 +1,62 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}
+  <span class="sep">/</span> <a href="{% url 'myadmin:boulders' %}">Boulder</a>
+  <span class="sep">/</span> {% if is_add %}Neu{% else %}Bearbeiten{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="ma-card" style="max-width: 760px;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">{{ page_title }}</span>
+  </div>
+  <div class="ma-card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="ma-form-grid">
+
+        {% if form.non_field_errors %}
+        <div class="form-errors-banner">
+          {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+        {% endif %}
+
+        {% for field in form.visible_fields %}
+          {% if field.html_name == 'age_groups' %}
+            {# rendered separately below #}
+          {% else %}
+            <div class="ma-field">
+              <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">
+                {{ field.label }}
+              </label>
+              <div class="field-widget">
+                {{ field }}
+                {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+                {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        <div class="ma-field ma-field--full">
+          <label>Altersgruppen</label>
+          <div class="field-widget">
+            {% if form.age_groups.errors %}
+              {% for error in form.age_groups.errors %}<span class="field-error" style="display:block;margin-bottom:.5rem;">{{ error }}</span>{% endfor %}
+            {% endif %}
+            {% with picker_id="agegroup-picker-boulder" %}
+              {% include 'myadmin/_agegroup_picker.html' %}
+            {% endwith %}
+            <span class="field-help">Altersgruppen, denen dieser Boulder zugewiesen ist.</span>
+          </div>
+        </div>
+
+      </div>
+      <div class="ma-form-actions">
+        <button type="submit" class="btn btn-primary">💾 Speichern</button>
+        <a href="{% url 'myadmin:boulders' %}" class="btn btn-secondary">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

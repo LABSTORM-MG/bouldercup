@@ -1,0 +1,138 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}
+  <span class="sep">/</span> <a href="{% url 'myadmin:agegroups' %}">Altersgruppen</a>
+  <span class="sep">/</span> {% if is_add %}Neu{% else %}Bearbeiten{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="ma-card" style="max-width: 720px;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">{{ page_title }}</span>
+  </div>
+  <div class="ma-card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="ma-form-grid">
+
+        {% if form.non_field_errors %}
+        <div class="form-errors-banner">
+          {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+        {% endif %}
+
+        {% for field in form.visible_fields %}
+          {% if field.html_name == 'boulders' %}
+            {# rendered separately below #}
+          {% else %}
+            <div class="ma-field">
+              <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">
+                {{ field.label }}
+              </label>
+              <div class="field-widget">
+                {{ field }}
+                {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+                {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+
+        {# Boulder picker #}
+        <div class="ma-field ma-field--full">
+          <label>Boulder</label>
+          <div class="field-widget">
+            {% if form.boulders.errors %}
+              {% for error in form.boulders.errors %}<span class="field-error" style="display:block;margin-bottom:.5rem;">{{ error }}</span>{% endfor %}
+            {% endif %}
+            <div class="boulder-picker">
+              <input type="text" class="ma-input boulder-picker-search" placeholder="Boulder suchen…" autocomplete="off">
+              <div class="boulder-picker-grid" id="boulder-picker-grid">
+                {% for boulder in boulders_all %}
+                <label class="boulder-chip{% if boulder.pk in selected_boulder_pks %} selected{% endif %}">
+                  <input type="checkbox" name="boulders" value="{{ boulder.pk }}"
+                    {% if boulder.pk in selected_boulder_pks %}checked{% endif %}>
+                  <span class="boulder-chip-swatch" style="background:{{ boulder.color }};"></span>
+                  <span class="boulder-chip-label">{{ boulder.label }}</span>
+                  <span class="boulder-chip-check">✓</span>
+                </label>
+                {% empty %}
+                <span style="color:var(--text-muted);font-size:.85rem;">Noch keine Boulder vorhanden.</span>
+                {% endfor %}
+              </div>
+              <div class="boulder-picker-footer">
+                <span class="boulder-picker-count" id="boulder-picker-count"></span>
+                <div class="boulder-picker-actions">
+                  <button type="button" class="boulder-picker-btn boulder-picker-btn--select" id="boulder-picker-select-all">Alle auswählen</button>
+                  <button type="button" class="boulder-picker-btn boulder-picker-btn--clear" id="boulder-picker-clear">Auswahl aufheben</button>
+                </div>
+              </div>
+            </div>
+            <span class="field-help">Boulder, die dieser Altersgruppe zugewiesen sind.</span>
+          </div>
+        </div>
+
+      </div>
+      <div class="ma-form-actions">
+        <button type="submit" class="btn btn-primary">💾 Speichern</button>
+        <a href="{% url 'myadmin:agegroups' %}" class="btn btn-secondary">Abbrechen</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var grid = document.getElementById('boulder-picker-grid');
+  var countEl = document.getElementById('boulder-picker-count');
+  var clearBtn = document.getElementById('boulder-picker-clear');
+  var search = document.querySelector('.boulder-picker-search');
+
+  function updateCount() {
+    var n = grid.querySelectorAll('input[type="checkbox"]:checked').length;
+    countEl.textContent = n === 0 ? 'Keine ausgewählt' : n + ' ausgewählt';
+  }
+
+  grid.querySelectorAll('.boulder-chip input[type="checkbox"]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      this.closest('.boulder-chip').classList.toggle('selected', this.checked);
+      updateCount();
+    });
+  });
+
+  search.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') e.preventDefault();
+  });
+
+  search.addEventListener('input', function () {
+    var q = this.value.toLowerCase();
+    grid.querySelectorAll('.boulder-chip').forEach(function (chip) {
+      var label = chip.querySelector('.boulder-chip-label').textContent.toLowerCase();
+      chip.style.display = label.includes(q) ? 'flex' : 'none';
+    });
+  });
+
+  var selectAllBtn = document.getElementById('boulder-picker-select-all');
+
+  selectAllBtn.addEventListener('click', function () {
+    grid.querySelectorAll('.boulder-chip').forEach(function (chip) {
+      if (chip.style.display === 'none') return;
+      var cb = chip.querySelector('input[type="checkbox"]');
+      cb.checked = true;
+      chip.classList.add('selected');
+    });
+    updateCount();
+  });
+
+  clearBtn.addEventListener('click', function () {
+    grid.querySelectorAll('.boulder-chip input[type="checkbox"]').forEach(function (cb) {
+      cb.checked = false;
+      cb.closest('.boulder-chip').classList.remove('selected');
+    });
+    updateCount();
+  });
+
+  updateCount();
+})();
+</script>
+{% endblock %}

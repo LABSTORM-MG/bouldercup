@@ -1,0 +1,82 @@
+{% extends 'myadmin/base.html' %}
+
+{% block content %}
+<div class="ma-stat-grid">
+  <div class="ma-stat">
+    <div class="ma-stat-value">{{ participant_count }}</div>
+    <div class="ma-stat-label">Teilnehmer</div>
+  </div>
+  <div class="ma-stat {% if locked_count %}ma-stat--warning{% else %}ma-stat--success{% endif %}">
+    <div class="ma-stat-value">{{ locked_count }}</div>
+    <div class="ma-stat-label">Gesperrt</div>
+  </div>
+  <div class="ma-stat">
+    <div class="ma-stat-value">{{ boulder_count }}</div>
+    <div class="ma-stat-label">Boulder</div>
+  </div>
+  <div class="ma-stat">
+    <div class="ma-stat-value">{{ agegroup_count }}</div>
+    <div class="ma-stat-label">Altersgruppen</div>
+  </div>
+  <div class="ma-stat">
+    <div class="ma-stat-value">{{ result_count }}</div>
+    <div class="ma-stat-label">Ergebnisse</div>
+  </div>
+  <div class="ma-stat {% if active_windows %}ma-stat--success{% else %}ma-stat--muted{% endif %}">
+    <div class="ma-stat-value">{{ active_windows.count }}</div>
+    <div class="ma-stat-label">Aktive Zeitfenster</div>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px,1fr)); gap: 1rem;">
+
+  <div class="ma-card">
+    <div class="ma-card-header">
+      <span class="ma-card-title">Schnellzugriff</span>
+    </div>
+    <div class="ma-card-body" style="display:flex; flex-direction:column; gap:.5rem;">
+      <a href="{% url 'myadmin:participant_add' %}" class="btn btn-primary">➕ Teilnehmer anlegen</a>
+      <a href="{% url 'myadmin:participant_import' %}" class="btn btn-secondary">📥 CSV importieren</a>
+      <a href="{% url 'myadmin:boulder_add' %}" class="btn btn-secondary">➕ Boulder anlegen</a>
+      <a href="{% url 'myadmin:agegroup_add' %}" class="btn btn-secondary">➕ Altersgruppe anlegen</a>
+    </div>
+  </div>
+
+  <div class="ma-card">
+    <div class="ma-card-header">
+      <span class="ma-card-title">Wettkampf</span>
+    </div>
+    <div class="ma-card-body">
+      <table style="width:100%; font-size:.875rem; border-collapse:collapse;">
+        <tr>
+          <td style="padding:.4rem 0; color:var(--text-muted); width:140px;">Datum</td>
+          <td style="padding:.4rem 0; font-weight:600;">
+            {% if competition_date %}
+              {{ competition_date|date:"d.m.Y" }}
+            {% else %}
+              <span style="color:var(--text-muted)">Nicht gesetzt</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:.4rem 0; color:var(--text-muted);">Zeitfenster</td>
+          <td style="padding:.4rem 0; font-weight:600;">
+            {% if active_windows %}
+              {% for w in active_windows %}
+                <span class="badge badge-success">{{ w.name }}</span>
+              {% endfor %}
+            {% else %}
+              <span style="color:var(--text-muted)">Kein aktives Fenster</span>
+            {% endif %}
+          </td>
+        </tr>
+      </table>
+      <div style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+        <a href="{% url 'myadmin:wettkampfdatum' %}" class="btn btn-secondary btn-sm">📅 Datum ändern</a>
+        <a href="{% url 'myadmin:windows' %}" class="btn btn-secondary btn-sm">🕐 Zeitfenster</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

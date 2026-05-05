@@ -1,0 +1,26 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}<span class="sep">/</span> Admin-Nachricht{% endblock %}
+
+{% block content %}
+<div class="ma-card" style="max-width: 760px;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">Admin-Nachricht</span>
+  </div>
+  <div class="ma-card-body">
+    <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:1.25rem;">
+      Diese Nachricht wird allen eingeloggten Teilnehmern als Pop-up angezeigt.
+      Leer lassen um keine Nachricht anzuzeigen.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="ma-form-grid">
+        {% include 'myadmin/_form_fields.html' %}
+      </div>
+      <div class="ma-form-actions">
+        <button type="submit" class="btn btn-primary">📤 Senden</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

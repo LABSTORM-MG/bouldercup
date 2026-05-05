@@ -1,0 +1,22 @@
+{% for b in page_obj %}
+<tr>
+  <td><strong>{{ b.label }}</strong></td>
+  <td>
+    <span class="color-swatch" style="background-color:{{ b.color }};"></span>
+    {{ b.color }}
+  </td>
+  <td>{{ b.get_zone_count_display }}</td>
+  <td style="font-size:.8rem; color:var(--text-secondary);">
+    {% for ag in b.age_groups.all %}{{ ag.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}
+  </td>
+  <td style="font-size:.8rem; color:var(--text-muted);">{{ b.location|default:"—" }}</td>
+  <td>
+    <div class="row-actions">
+      <a href="{% url 'myadmin:boulder_edit' b.pk %}" class="btn btn-ghost btn-sm" title="Bearbeiten">✏️</a>
+      <a href="{% url 'myadmin:boulder_delete' b.pk %}" class="btn btn-ghost btn-sm" title="Löschen" style="color:var(--danger);">🗑️</a>
+    </div>
+  </td>
+</tr>
+{% empty %}
+<tr><td colspan="6"><div class="ma-empty"><div class="empty-icon">🪨</div><p>Keine Boulder gefunden.</p></div></td></tr>
+{% endfor %}

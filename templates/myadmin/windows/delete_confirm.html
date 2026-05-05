@@ -1,0 +1,20 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}
+  <span class="sep">/</span> <a href="{% url 'myadmin:windows' %}">Zeitfenster</a>
+  <span class="sep">/</span> Löschen
+{% endblock %}
+
+{% block content %}
+<div class="ma-card ma-delete-confirm">
+  <div class="ma-card-body">
+    <div class="warning-icon">⚠️</div>
+    <p>Zeitfenster <strong>„{{ window.name }}"</strong> wirklich löschen?</p>
+    <form method="post" style="display:flex; gap:.75rem; margin-top:1.5rem;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">🗑️ Endgültig löschen</button>
+      <a href="{% url 'myadmin:windows' %}" class="btn btn-secondary">Abbrechen</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

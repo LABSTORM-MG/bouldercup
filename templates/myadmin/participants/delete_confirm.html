@@ -1,0 +1,21 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}
+  <span class="sep">/</span> <a href="{% url 'myadmin:participants' %}">Teilnehmer</a>
+  <span class="sep">/</span> Löschen
+{% endblock %}
+
+{% block content %}
+<div class="ma-card ma-delete-confirm">
+  <div class="ma-card-body">
+    <div class="warning-icon">⚠️</div>
+    <p><strong>„{{ participant.name }}"</strong> wirklich löschen?</p>
+    <p>Alle Ergebnisse dieses Teilnehmers werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+    <form method="post" style="display:flex; gap:.75rem; margin-top:1.5rem;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">🗑️ Endgültig löschen</button>
+      <a href="{% url 'myadmin:participants' %}" class="btn btn-secondary">Abbrechen</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

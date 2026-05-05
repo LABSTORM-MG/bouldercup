@@ -1,0 +1,67 @@
+{% extends 'myadmin/base.html' %}
+
+{% block breadcrumb %}
+  <span class="sep">/</span> <a href="{% url 'myadmin:participants' %}">Teilnehmer</a>
+  <span class="sep">/</span> Importieren
+{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 900px;">
+
+  <div class="ma-card">
+    <div class="ma-card-header"><span class="ma-card-title">CSV importieren</span></div>
+    <div class="ma-card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="ma-form-grid">
+          {% for field in form %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">
+              {{ field }}
+              {% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}
+              {% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="ma-form-actions">
+          <button type="submit" class="btn btn-primary">📥 Importieren</button>
+          <a href="{% url 'myadmin:participants' %}" class="btn btn-secondary">Abbrechen</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div>
+    <div class="ma-card" style="margin-bottom: 1rem;">
+      <div class="ma-card-header"><span class="ma-card-title">CSV-Format</span></div>
+      <div class="ma-card-body" style="font-size:.85rem; color:var(--text-secondary); line-height:1.6;">
+        <p style="margin-bottom:.5rem;">Erwartet Spalten:</p>
+        <code style="display:block; background:var(--page-bg); padding:.5rem .75rem; border-radius:var(--radius-sm); font-size:.8rem; margin-bottom:.75rem;">first_name, surname, date_of_birth, gender</code>
+        <p>Datum: <strong>DD-MM-YYYY</strong></p>
+        <p>Geschlecht: <strong>male / female / m / w / männlich / weiblich</strong></p>
+        <p style="margin-top:.5rem;">Passwort wird automatisch auf das Geburtsdatum gesetzt.</p>
+      </div>
+    </div>
+
+    {% if results.created or results.skipped %}
+    <div class="ma-card">
+      <div class="ma-card-header"><span class="ma-card-title">Ergebnis</span></div>
+      <div class="ma-card-body" style="font-size:.875rem;">
+        {% if results.created %}
+          <p style="color:var(--success); font-weight:600; margin-bottom:.5rem;">✅ {{ results.created }} Teilnehmer importiert</p>
+        {% endif %}
+        {% if results.skipped %}
+          <p style="color:var(--warning); font-weight:600; margin-bottom:.5rem;">⚠️ {{ results.skipped|length }} Zeilen übersprungen:</p>
+          <ul style="list-style:disc; padding-left:1.25rem; color:var(--text-secondary); font-size:.8rem;">
+            {% for msg in results.skipped %}<li>{{ msg }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

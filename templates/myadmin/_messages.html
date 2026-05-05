@@ -1,0 +1,9 @@
+{% if messages %}
+<div class="ma-messages">
+  {% for msg in messages %}
+  <div class="ma-msg ma-msg--{% if msg.tags == 'success' %}success{% elif msg.tags == 'warning' %}warning{% elif msg.tags == 'error' %}error{% else %}info{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
