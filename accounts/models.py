@@ -749,8 +749,23 @@ class SiteSettings(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @classmethod
+    def get_cached(cls):
+        from django.core.cache import cache
+        from web_project.settings.config import TIMING
+        obj = cache.get('site_settings')
+        if obj is None:
+            obj = cls.objects.filter(singleton_guard=True).first()
+            if obj:
+                cache.set('site_settings', obj, TIMING.SETTINGS_CACHE_TIMEOUT)
+        return obj
+
     def save(self, *args, **kwargs):
         """Auto-increment greeting version if greeting message changed."""
+        from accounts.utils import sanitize_html
+        self.greeting_message = sanitize_html(self.greeting_message)
+        self.help_text_content = sanitize_html(self.help_text_content)
+        self.rulebook_content = sanitize_html(self.rulebook_content)
         if self.pk:
             try:
                 old_instance = SiteSettings.objects.get(pk=self.pk)
@@ -759,6 +774,8 @@ class SiteSettings(models.Model):
             except SiteSettings.DoesNotExist:
                 pass
         super().save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete('site_settings')
 
 
 class GreetingAcknowledgment(models.Model):
@@ -1006,4 +1023,6 @@ class CountdownSettings(models.Model):
         return timezone.now() < self.countdown_end_time
 
     def save(self, *args, **kwargs):
+        from accounts.utils import sanitize_html
+        self.message = sanitize_html(self.message)
         super().save(*args, **kwargs)

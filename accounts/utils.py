@@ -1,8 +1,102 @@
+import re
 from datetime import datetime
+from html import escape
+from html.parser import HTMLParser
 
 from django.utils.text import slugify
 
 from .models import Participant
+
+
+_VOID_TAGS = frozenset({"br", "hr"})
+
+_ALLOWED_ATTRS: dict[str, frozenset] = {
+    "p":          frozenset({"style", "class"}),
+    "h1":         frozenset({"style", "class"}),
+    "h2":         frozenset({"style", "class"}),
+    "h3":         frozenset({"style", "class"}),
+    "h4":         frozenset({"style", "class"}),
+    "blockquote": frozenset({"style", "class"}),
+    "strong":     frozenset(),
+    "em":         frozenset(),
+    "u":          frozenset(),
+    "s":          frozenset(),
+    "sub":        frozenset(),
+    "sup":        frozenset(),
+    "br":         frozenset(),
+    "hr":         frozenset(),
+    "a":          frozenset({"href", "rel", "target"}),
+    "ul":         frozenset({"style", "class", "start", "reversed", "type"}),
+    "ol":         frozenset({"style", "class", "start", "reversed", "type"}),
+    "li":         frozenset({"style", "class"}),
+    "figure":     frozenset({"class"}),
+    "table":      frozenset({"class"}),
+    "tbody":      frozenset(),
+    "thead":      frozenset(),
+    "tr":         frozenset(),
+    "td":         frozenset({"colspan", "rowspan", "style"}),
+    "th":         frozenset({"colspan", "rowspan", "style"}),
+    "span":       frozenset({"class", "style"}),
+}
+
+_TEXT_ALIGN_RE = re.compile(
+    r"text-align\s*:\s*(left|center|right|justify)\s*;?", re.IGNORECASE
+)
+_SAFE_HREF_RE = re.compile(r"^(https?://|mailto:|/)", re.IGNORECASE)
+
+
+def _filter_style(value: str) -> str | None:
+    m = _TEXT_ALIGN_RE.search(value)
+    return f"text-align: {m.group(1).lower()};" if m else None
+
+
+def _filter_href(value: str) -> str | None:
+    v = value.strip()
+    return v if _SAFE_HREF_RE.match(v) else None
+
+
+class _HtmlSanitizer(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self._out: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in _ALLOWED_ATTRS:
+            return
+        allowed = _ALLOWED_ATTRS[tag]
+        parts = [tag]
+        for name, value in attrs:
+            if name not in allowed:
+                continue
+            if value is None:
+                parts.append(name)
+                continue
+            if name == "style":
+                value = _filter_style(value)
+                if value is None:
+                    continue
+            elif name == "href":
+                value = _filter_href(value)
+                if value is None:
+                    continue
+            parts.append(f'{name}="{escape(value, quote=True)}"')
+        self._out.append(f'<{" ".join(parts)}>')
+
+    def handle_endtag(self, tag):
+        if tag in _ALLOWED_ATTRS and tag not in _VOID_TAGS:
+            self._out.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        self._out.append(escape(data, quote=False))
+
+
+def sanitize_html(html: str) -> str:
+    """Strip disallowed tags/attributes from CKEditor5 HTML, preserving text content."""
+    if not html:
+        return html
+    parser = _HtmlSanitizer()
+    parser.feed(html)
+    return "".join(parser._out)
 
 
 def parse_date(value: str):

@@ -3,11 +3,10 @@ Countdown page middleware.
 
 Shows countdown page to all users until configured time.
 Bypass via "Preview Site" button sets session flag.
-
-NO CACHING - directly checks DB every request (max 300 users, no need for cache complexity).
 """
 
 import logging
+from django.core.cache import cache
 from django.shortcuts import render
 
 logger = logging.getLogger(__name__)
@@ -40,9 +39,11 @@ class CountdownMiddleware:
         if any(request.path.startswith(p) for p in self.excluded_paths):
             return self.get_response(request)
 
-        # Get settings directly from DB (no caching - 300 users max)
-        from accounts.models import CountdownSettings
-        settings = CountdownSettings.objects.filter(singleton_guard=True).first()
+        settings = cache.get('countdown_settings')
+        if settings is None:
+            from accounts.models import CountdownSettings
+            settings = CountdownSettings.objects.filter(singleton_guard=True).first()
+            cache.set('countdown_settings', settings, 5)
 
         # No settings or not active = normal site immediately
         if not settings or not settings.is_active():

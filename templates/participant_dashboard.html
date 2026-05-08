@@ -121,13 +121,18 @@
             padding-bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px));
         }
 
-        footer a {
+        footer a, footer button {
             color: #f1f7f9;
             text-decoration: none;
             margin-right: 1rem;
+            background: none;
+            border: none;
+            padding: 0;
+            font: inherit;
+            cursor: pointer;
         }
 
-        footer a:hover {
+        footer a:hover, footer button:hover {
             text-decoration: underline;
         }
 
@@ -180,7 +185,7 @@
         <div>
             <a href="{% url 'participant_support' %}">Hilfe</a>
             <a href="{% url 'participant_settings' %}">Einstellungen</a>
-            <a href="{% url 'login' %}">Abmelden</a>
+            <form method="post" action="{% url 'logout' %}" style="display:inline;">{% csrf_token %}<button type="submit">Abmelden</button></form>
         </div>
         <span style="font-size: 0.95rem; color: rgba(255,255,255,0.7);">entwickelt von Lennart</span>
     </footer>

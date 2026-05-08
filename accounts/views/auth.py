@@ -1,14 +1,29 @@
 import logging
 
+from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.text import slugify
+from django.views.decorators.http import require_POST
 
 from ..forms import LoginForm
 from ..models import Participant
 from ..utils import verify_password
 
 logger = logging.getLogger(__name__)
+
+_RATE_LIMIT_ATTEMPTS = 3
+_RATE_LIMIT_WINDOW = 60  # seconds
+
+
+def _login_rate_limited(request: HttpRequest) -> bool:
+    ip = request.META.get("REMOTE_ADDR", "unknown")
+    key = f"login_attempts_{ip}"
+    attempts = cache.get(key, 0)
+    if attempts >= _RATE_LIMIT_ATTEMPTS:
+        return True
+    cache.set(key, attempts + 1, timeout=_RATE_LIMIT_WINDOW)
+    return False
 
 
 def login_view(request: HttpRequest) -> HttpResponse:
@@ -38,6 +53,10 @@ def login_view(request: HttpRequest) -> HttpResponse:
         return seen
 
     if request.method == "POST" and form.is_valid():
+        if _login_rate_limited(request):
+            message = "Zu viele Anmeldeversuche. Bitte warte 1 Minute."
+            return render(request, "login.html", {"form": form, "message": message, "message_type": message_type})
+
         username = form.cleaned_data["username"]
         password = form.cleaned_data["password"]
 
@@ -50,7 +69,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
                 continue
 
         if not participant:
-            message = "Unbekannte*r Teilnehmer*in."
+            message = "Ungültige Anmeldedaten."
             logger.warning(f"Login failed: unknown user '{username}'")
         elif participant.is_locked:
             message = "Dein Zugang wurde gesperrt. Bitte wende dich an das Personal oder die Organisatoren."
@@ -61,7 +80,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
             logger.info(f"Login successful: {participant.username} (ID: {participant.id})")
             return redirect("participant_dashboard")
         else:
-            message = "Falsches Passwort."
+            message = "Ungültige Anmeldedaten."
             logger.warning(f"Login failed: incorrect password for user '{participant.username}' (ID: {participant.id})")
 
     return render(
@@ -73,3 +92,9 @@ def login_view(request: HttpRequest) -> HttpResponse:
             "message_type": message_type,
         },
     )
+
+
+@require_POST
+def logout_view(request: HttpRequest) -> HttpResponse:
+    request.session.flush()
+    return redirect("login")

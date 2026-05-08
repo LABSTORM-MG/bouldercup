@@ -8,7 +8,7 @@ from django.core.cache import cache
 from django.db import transaction
 from web_project.settings.config import TIMING
 
-from ..models import Boulder, Participant, Result
+from ..models import Boulder, CompetitionSettings, Participant, Result
 
 logger = logging.getLogger(__name__)
 
@@ -261,8 +261,10 @@ class ResultService:
         
         # Invalidate scoreboard cache for this participant's age group
         if participant.age_group_id:
-            for grading in ["ifsc", "point_based"]:
-                cache.delete(f"scoreboard_{participant.age_group_id}_{grading}")
-                cache.delete(f"scoreboard_all_{grading}")
+            all_grading = [c[0] for c in CompetitionSettings.GRADING_CHOICES]
+            keys = [f"scoreboard_{participant.age_group_id}_{g}" for g in all_grading] + [
+                f"scoreboard_all_{g}" for g in all_grading
+            ]
+            cache.delete_many(keys)
         
         return payload

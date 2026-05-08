@@ -4,6 +4,7 @@ Used by both accounts/admin.py (Django admin) and accounts/views/myadmin.py (cus
 """
 
 from django import forms
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from .models import AdminMessage, Boulder, CountdownSettings, SiteSettings, SubmissionWindow
@@ -24,31 +25,29 @@ class ColorPickerWidget(forms.TextInput):
         final_attrs = self.build_attrs(attrs, {'name': name})
         widget_id = final_attrs.get('id', f'id_{name}')
 
-        color_picker_html = f'''
-        <input type="color" id="{widget_id}_picker" style="margin-left: 5px; width: 50px; height: 30px; vertical-align: middle; cursor: pointer;" title="Farbe visuell auswählen">
-        <script>
-        (function() {{
-            var textInput = document.getElementById('{widget_id}');
-            var colorPicker = document.getElementById('{widget_id}_picker');
-
-            function updateColorPicker() {{
-                var value = textInput.value.trim();
-                if (/^#[0-9A-Fa-f]{{6}}$/.test(value)) {{
-                    colorPicker.value = value;
-                }}
-            }}
-
-            colorPicker.addEventListener('input', function() {{
-                textInput.value = colorPicker.value;
-                textInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-            }});
-
-            updateColorPicker();
-            textInput.addEventListener('input', updateColorPicker);
-            textInput.addEventListener('change', updateColorPicker);
-        }})();
-        </script>
-        '''
+        color_picker_html = format_html(
+            '<input type="color" id="{0}_picker"'
+            ' style="margin-left: 5px; width: 50px; height: 30px; vertical-align: middle; cursor: pointer;"'
+            ' title="Farbe visuell auswählen">'
+            '<script>'
+            '(function(){{'
+            'var textInput=document.getElementById("{0}");'
+            'var colorPicker=document.getElementById("{0}_picker");'
+            'function updateColorPicker(){{'
+            'var value=textInput.value.trim();'
+            'if(/^#[0-9A-Fa-f]{{6}}$/.test(value)){{colorPicker.value=value;}}'
+            '}}'
+            'colorPicker.addEventListener("input",function(){{'
+            'textInput.value=colorPicker.value;'
+            'textInput.dispatchEvent(new Event("input",{{bubbles:true}}));'
+            '}});'
+            'updateColorPicker();'
+            'textInput.addEventListener("input",updateColorPicker);'
+            'textInput.addEventListener("change",updateColorPicker);'
+            '}})();'
+            '</script>',
+            widget_id,
+        )
         return mark_safe(text_input + color_picker_html)
 
 

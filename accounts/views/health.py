@@ -17,6 +17,8 @@ from django.db import connection
 from django.core.cache import cache
 from django.utils import timezone
 
+from django.db.models import Count, Q
+
 from accounts.models import Boulder, Participant, Result, SubmissionWindow
 from web_project.settings.config import HEALTH
 
@@ -125,11 +127,20 @@ def status_api(request):
 
     # Competition stats
     now = timezone.now()
-    total_p  = Participant.objects.count()
-    locked_p = Participant.objects.filter(is_locked=True).count()
-    with_results_p = Result.objects.values('participant_id').distinct().count()
-    total_r  = Result.objects.count()
-    topped_r = Result.objects.filter(top=True).count()
+    p_stats = Participant.objects.aggregate(
+        total=Count('id'),
+        locked=Count('id', filter=Q(is_locked=True)),
+    )
+    total_p  = p_stats['total']
+    locked_p = p_stats['locked']
+    r_stats = Result.objects.aggregate(
+        total=Count('id'),
+        topped=Count('id', filter=Q(top=True)),
+        with_participants=Count('participant_id', distinct=True),
+    )
+    total_r        = r_stats['total']
+    topped_r       = r_stats['topped']
+    with_results_p = r_stats['with_participants']
 
     windows = []
     for w in SubmissionWindow.objects.prefetch_related('age_groups').order_by('submission_start'):

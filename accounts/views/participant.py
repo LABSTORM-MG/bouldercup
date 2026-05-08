@@ -72,7 +72,7 @@ def _render_section(
 def participant_dashboard(request: HttpRequest, participant: Participant) -> HttpResponse:
     """Main dashboard for participants."""
     # Get dashboard heading from site settings
-    site_settings = SiteSettings.objects.first()
+    site_settings = SiteSettings.get_cached()
     dashboard_heading = site_settings.dashboard_heading if site_settings else "Willkommen beim BoulderCup"
 
     # Check if user needs to acknowledge greeting message
@@ -110,7 +110,7 @@ def participant_dashboard(request: HttpRequest, participant: Participant) -> Htt
 @participant_required
 def participant_support(request: HttpRequest, participant: Participant) -> HttpResponse:
     """Support and help section."""
-    site_settings = SiteSettings.objects.first()
+    site_settings = SiteSettings.get_cached()
     help_text_content = site_settings.help_text_content if site_settings else ""
 
     return _render_section(
@@ -399,7 +399,7 @@ def participant_rulebook(request: HttpRequest, participant: Participant) -> Http
     settings_obj = ScoringService.get_active_settings()
     grading_system = settings_obj.grading_system if settings_obj else "ifsc"
 
-    site_settings = SiteSettings.objects.first()
+    site_settings = SiteSettings.get_cached()
     rules_text = site_settings.rulebook_content if site_settings else ""
 
     return render(
@@ -422,7 +422,7 @@ def acknowledge_greeting(request: HttpRequest, participant: Participant) -> Json
 
     try:
         from ..models import GreetingAcknowledgment
-        site_settings = SiteSettings.objects.first()
+        site_settings = SiteSettings.get_cached()
 
         if not site_settings:
             return JsonResponse({"error": "No site settings found"}, status=404)

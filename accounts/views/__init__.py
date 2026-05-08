@@ -1,5 +1,5 @@
 from .admin import upload_participants
-from .auth import login_view
+from .auth import login_view, logout_view
 from .participant import (
     acknowledge_greeting,
     api_boulder_stats,
@@ -16,6 +16,7 @@ from .participant import (
 
 __all__ = [
     "login_view",
+    "logout_view",
     "upload_participants",
     "acknowledge_greeting",
     "api_boulder_stats",

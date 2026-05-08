@@ -11,15 +11,246 @@
     <p style="font-size:.85rem; color:var(--text-muted); margin-bottom:1.25rem;">
       Konfiguriert die Bewertungslogik für die Rangliste.
     </p>
+
+    <div id="grading-explanation" style="background:var(--bg-secondary,#f8f9fa); border:1px solid var(--border-color,#dee2e6); border-radius:6px; padding:1rem 1.25rem; margin-bottom:1.5rem; font-size:.85rem; line-height:1.7;">
+
+      <div data-explain="point_based">
+        <strong style="font-size:.9rem;">Punktebasiert</strong>
+        <p style="margin:.35rem 0 .65rem;">Jeder Boulder hat einen festen Punktwert. Pro zusätzlichem Versuch wird ein Abzug berechnet, nach unten begrenzt durch einen Mindestwert.</p>
+        <ul style="margin:0 0 .65rem; padding-left:1.2rem;">
+          <li><strong>Flash</strong> (Top im 1. Versuch) → <em>Flash-Punkte</em></li>
+          <li><strong>Top</strong> (ab 2. Versuch) → <em>Top-Punkte − Abzug pro Versuch</em>, mindestens <em>Min. Top-Punkte</em></li>
+          <li><strong>Zone</strong> → <em>Zonen-Punkte − Abzug pro Versuch</em>, mindestens <em>Min. Zonen-Punkte</em></li>
+        </ul>
+        <p style="margin:0; color:var(--text-muted);">Rangliste: meiste Punkte → meiste Tops → meiste Zonen → wenigste Versuche</p>
+      </div>
+
+      <div data-explain="point_based_dynamic">
+        <strong style="font-size:.9rem;">Punktebasiert (dynamisch)</strong>
+        <p style="margin:.35rem 0 .65rem;">Die Top-Punkte sind nicht fest, sondern hängen davon ab, wie viele Teilnehmer den Boulder geschafft haben — schwere Boulder bringen mehr. Kein Versuchsabzug.</p>
+        <ul style="margin:0 0 .65rem; padding-left:1.2rem;">
+          <li><strong>Flash</strong> (Top im 1. Versuch) → <em>Flash-Punkte</em></li>
+          <li><strong>Top</strong> (ab 2. Versuch) → Punktwert aus der Schwierigkeitsstufe je nach Topper-Anteil, kein Abzug</li>
+          <li><strong>Zone</strong> → fester Zonen-Punktwert, kein Abzug, kein Minimum</li>
+        </ul>
+        <p style="margin:0 0 .35rem; color:var(--text-muted);">Schwierigkeitsstufen nach Topper-Anteil: &gt;90 % → Stufe 100 · &gt;80 % → Stufe 90 · … · ≤10 % → Stufe 10</p>
+        <p style="margin:0; color:var(--text-muted);">Rangliste: meiste Punkte → meiste Tops → meiste Zonen → wenigste Versuche</p>
+      </div>
+
+      <div data-explain="point_based_dynamic_attempts">
+        <strong style="font-size:.9rem;">Punktebasiert (dynamisch + Versuche)</strong>
+        <p style="margin:.35rem 0 .65rem;">Kombination aus dynamischen Schwierigkeitsstufen und Versuchsabzug — der Punktwert richtet sich nach dem Topper-Anteil, wird aber wie beim klassischen Modus durch Mehrversuche reduziert.</p>
+        <ul style="margin:0 0 .65rem; padding-left:1.2rem;">
+          <li><strong>Flash</strong> (Top im 1. Versuch) → <em>Flash-Punkte</em></li>
+          <li><strong>Top</strong> (ab 2. Versuch) → Schwierigkeitsstufe − <em>Abzug × (Versuche − 1)</em>, mindestens <em>Min. Top-Punkte</em></li>
+          <li><strong>Zone</strong> → <em>Zonen-Punkte − Abzug pro Versuch</em>, mindestens <em>Min. Zonen-Punkte</em></li>
+        </ul>
+        <p style="margin:0; color:var(--text-muted);">Rangliste: meiste Punkte → meiste Tops → meiste Zonen → wenigste Versuche</p>
+      </div>
+
+      <div data-explain="ifsc">
+        <strong style="font-size:.9rem;">IFSC</strong>
+        <p style="margin:.35rem 0 .65rem;">Keine Punkte. Gewertet wird nach Anzahl der Tops und Zonen sowie den benötigten Versuchen — wie im internationalen Wettkampfsport.</p>
+        <ul style="margin:0 0 .65rem; padding-left:1.2rem;">
+          <li><strong>Top</strong> zählt als Top, unabhängig von der Versuchszahl</li>
+          <li><strong>Zone</strong> zählt als Zone, unabhängig von der Versuchszahl</li>
+          <li>Versuche werden nur als Tiebreaker genutzt</li>
+        </ul>
+        <p style="margin:0; color:var(--text-muted);">Rangliste: meiste Tops → meiste Zonen → wenigste Top-Versuche → wenigste Zonen-Versuche</p>
+      </div>
+
+    </div>
+
     <form method="post">
       {% csrf_token %}
-      <div class="ma-form-grid">
-        {% include 'myadmin/_form_fields.html' %}
+      {% if form.non_field_errors %}
+      <div class="form-errors-banner">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
       </div>
+      {% endif %}
+
+      <div class="ma-form-grid">
+
+        {# ── Always visible ──────────────────────────────────────────── #}
+        {% with field=form.grading_system %}
+        <div class="ma-field">
+          <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+          <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+        </div>
+        {% endwith %}
+
+        {% with field=form.flash_points %}
+        <div class="ma-field">
+          <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+          <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+        </div>
+        {% endwith %}
+
+        {# ── Fixed top points — point_based only ─────────────────────── #}
+        <div data-grading-group="fixed" style="display:contents">
+          {% with field=form.top_points %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+        </div>
+
+        {# ── Percentage tiers — dynamic modes only ───────────────────── #}
+        <div data-grading-group="dynamic" style="display:contents">
+          {% with field=form.top_points_100 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_90 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_80 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_70 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_60 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_50 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_40 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_30 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_20 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.top_points_10 %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+        </div>
+
+        {# ── Zone points — always ─────────────────────────────────────── #}
+        {% with field=form.zone_points %}
+        <div class="ma-field">
+          <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+          <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+        </div>
+        {% endwith %}
+        {% with field=form.zone1_points %}
+        <div class="ma-field">
+          <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+          <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+        </div>
+        {% endwith %}
+        {% with field=form.zone2_points %}
+        <div class="ma-field">
+          <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+          <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+        </div>
+        {% endwith %}
+
+        {# ── Penalty + minimums — point_based + dynamic_attempts only ── #}
+        <div data-grading-group="penalty" style="display:contents">
+          {% with field=form.attempt_penalty %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.min_top_points %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.min_zone_points %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.min_zone1_points %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+          {% with field=form.min_zone2_points %}
+          <div class="ma-field">
+            <label for="{{ field.id_for_label }}" class="{% if field.field.required %}required{% endif %}">{{ field.label }}</label>
+            <div class="field-widget">{{ field }}{% if field.help_text %}<span class="field-help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="field-error">{{ error }}</span>{% endfor %}</div>
+          </div>
+          {% endwith %}
+        </div>
+
+      </div>{# end ma-form-grid #}
+
       <div class="ma-form-actions">
         <button type="submit" class="btn btn-primary">💾 Speichern</button>
       </div>
     </form>
   </div>
 </div>
+
+<script>
+(function () {
+  var select = document.getElementById('id_grading_system');
+  if (!select) return;
+
+  function update() {
+    var val = select.value;
+    var isFixed    = val === 'point_based';
+    var isDynamic  = val === 'point_based_dynamic' || val === 'point_based_dynamic_attempts';
+    var hasPenalty = val === 'point_based' || val === 'point_based_dynamic_attempts';
+
+    document.querySelectorAll('[data-grading-group="fixed"]').forEach(function(el) {
+      el.style.display = isFixed ? 'contents' : 'none';
+    });
+    document.querySelectorAll('[data-grading-group="dynamic"]').forEach(function(el) {
+      el.style.display = isDynamic ? 'contents' : 'none';
+    });
+    document.querySelectorAll('[data-grading-group="penalty"]').forEach(function(el) {
+      el.style.display = hasPenalty ? 'contents' : 'none';
+    });
+
+    document.querySelectorAll('[data-explain]').forEach(function(el) {
+      el.style.display = el.dataset.explain === val ? 'block' : 'none';
+    });
+  }
+
+  select.addEventListener('change', update);
+  update();
+})();
+</script>
 {% endblock %}
