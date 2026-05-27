@@ -83,6 +83,9 @@ PYEOF
 
 # ── 4 / Database, static files, and admin account ─────────────────
 step 4 "Setting up database and admin account"
+# Log directory must exist before Django loads (prod settings configure a file handler)
+sudo mkdir -p /var/log/bouldercup
+sudo chown "$APP_USER:$APP_USER" /var/log/bouldercup
 export DJANGO_SETTINGS_MODULE=web_project.settings.prod
 python3 manage.py migrate --noinput
 python3 manage.py collectstatic --noinput -v 0
@@ -96,9 +99,6 @@ info "Admin account '$ADMIN_USER' created."
 
 # ── 5 / systemd service ───────────────────────────────────────────
 step 5 "Installing systemd service"
-sudo mkdir -p /var/log/bouldercup
-sudo chown "$APP_USER:$APP_USER" /var/log/bouldercup
-
 sed "s/YOUR_USER/$APP_USER/g" deploy/bouldercup.service \
     | sudo tee /etc/systemd/system/bouldercup.service > /dev/null
 
