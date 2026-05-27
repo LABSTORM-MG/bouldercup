@@ -13,6 +13,11 @@ error() { echo -e "\n${RED}Error:${NC} $1\n"; exit 1; }
 # ── Sanity check ─────────────────────────────────────────────────
 [ -f "manage.py" ] || error "Run this script from the BoulderCup project root (where manage.py lives)."
 
+# Check write permission on the project directory (common issue when cloned into /opt/)
+if [ ! -w "." ]; then
+    error "No write permission in $(pwd).\n  Fix with:  sudo chown -R $(whoami):$(whoami) $(pwd)"
+fi
+
 APP_DIR=$(pwd)
 APP_USER=$(whoami)
 
