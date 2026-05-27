@@ -1,0 +1,22 @@
+[Unit]
+Description=BoulderCup Django Application
+After=network.target
+
+[Service]
+Type=notify
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/opt/bouldercup
+Environment="DJANGO_SETTINGS_MODULE=web_project.settings.prod"
+ExecStart=/opt/bouldercup/.venv/bin/gunicorn \
+    --workers 3 \
+    --bind unix:/opt/bouldercup/bouldercup.sock \
+    --timeout 60 \
+    --access-logfile /var/log/bouldercup/access.log \
+    --error-logfile /var/log/bouldercup/error.log \
+    web_project.wsgi:application
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

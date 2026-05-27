@@ -88,7 +88,7 @@ SQLite in development (`db.sqlite3`). The `dev_start.sh` script deletes and recr
 
 ## Production Deployment
 
-See `DEPLOYMENT.md` for complete deployment guide.
+See `DEPLOYMENT.md` for one-time manual deployment and `DEV_DEPLOYMENT.md` for the full GitHub Actions pipeline.
 
 **Architecture:**
 - External reverse proxy (HTTPS) → VM nginx (port 80) → Gunicorn (Unix socket) → Django
@@ -120,7 +120,8 @@ UI text and model labels are in German. Code comments and variable names are in 
 - `web_project/` - Django project configuration
 - `static/` - Frontend assets (CSS, JS)
 - `templates/` - Django templates
-- `DEPLOYMENT.md` - Production deployment guide
+- `DEPLOYMENT.md` - One-time manual deployment guide (no GitHub Actions)
+- `DEV_DEPLOYMENT.md` - Full CI/CD deployment guide (GitHub Actions pipeline)
 - `CLAUDE.md` - This file (project documentation for AI assistants, local-only)
 - `TODO.md` - Project todo list
 
