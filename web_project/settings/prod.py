@@ -57,6 +57,31 @@ MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
 
 # Logging
+# Build handler list dynamically so management commands (migrate, collectstatic)
+# don't crash if /var/log/bouldercup/ doesn't exist yet during initial setup.
+# Once the directory is present (created by setup.sh / systemd pre-exec) the
+# file handler is enabled automatically on the next Django start.
+_LOG_DIR = Path('/var/log/bouldercup')
+_handlers: dict = {
+    'console': {
+        'level': 'INFO',
+        'class': 'logging.StreamHandler',
+        'formatter': 'verbose',
+    },
+}
+_handler_names: list = ['console']
+
+if _LOG_DIR.exists():
+    _handlers['file'] = {
+        'level': 'INFO',
+        'class': 'logging.handlers.RotatingFileHandler',
+        'filename': str(_LOG_DIR / 'django.log'),
+        'maxBytes': 1024 * 1024 * 15,  # 15MB
+        'backupCount': 10,
+        'formatter': 'verbose',
+    }
+    _handler_names = ['file', 'console']
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -66,34 +91,19 @@ LOGGING = {
             'style': '{',
         },
     },
-    'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': '/var/log/bouldercup/django.log',
-            'maxBytes': 1024 * 1024 * 15,  # 15MB
-            'backupCount': 10,
-            'formatter': 'verbose',
-            'delay': True,  # don't open the file until the first log write
-        },
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-    },
+    'handlers': _handlers,
     'root': {
-        'handlers': ['file', 'console'],
+        'handlers': _handler_names,
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],
+            'handlers': _handler_names,
             'level': 'INFO',
             'propagate': False,
         },
         'accounts': {
-            'handlers': ['file', 'console'],
+            'handlers': _handler_names,
             'level': 'INFO',
             'propagate': False,
         },
