@@ -50,7 +50,7 @@
                             <tr>
                                 <td class="rank">{{ entry.rank }}</td>
                                 <td class="name">
-                                    <a href="{% url 'participant_detail_results' entry.participant.id %}" class="participant-link">
+                                    <a href="{% url 'participant_detail_results' entry.participant.id %}?from_group={% if selected_group %}{{ selected_group.id }}{% else %}all{% endif %}" class="participant-link">
                                         {% if entry.participant.id == participant.id %}
                                             <strong>{{ entry.participant.name }}</strong>
                                         {% else %}

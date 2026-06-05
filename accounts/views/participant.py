@@ -479,6 +479,7 @@ def participant_detail_results(request: HttpRequest, participant: Participant, p
                 "total_zones": 0,
                 "boulders_without_results": [],
                 "no_age_group": True,
+                "from_group": request.GET.get("from_group", ""),
             },
         )
 
@@ -575,6 +576,8 @@ def participant_detail_results(request: HttpRequest, participant: Participant, p
                 has_two_zone_boulders = True
             boulders_without_results.append(boulder)
 
+    from_group = request.GET.get("from_group", "")
+
     return render(
         request,
         "participant_detail_results.html",
@@ -590,6 +593,7 @@ def participant_detail_results(request: HttpRequest, participant: Participant, p
             "total_zones": total_zones,
             "boulders_without_results": boulders_without_results,
             "no_age_group": False,
+            "from_group": from_group,
         },
     )
 

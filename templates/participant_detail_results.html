@@ -235,7 +235,7 @@
       data-admin-message-poll-jitter-max="{{ frontend_config.ADMIN_MESSAGE_POLL_JITTER_MAX_MS }}">
     {% include 'includes/header_back.html' with section_title="Detaillierte Ergebnisse" %}
     <main>
-        <a href="{% url 'participant_live_scoreboard' %}" class="back-link">← Zurück zur Rangliste</a>
+        <a href="{% url 'participant_live_scoreboard' %}{% if from_group %}?age_group={{ from_group }}{% endif %}" class="back-link">← Zurück zur Rangliste</a>
 
         <div class="participant-info">
             <h2>
