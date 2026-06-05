@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sitzung abgelaufen – BoulderCup</title>
+    <link rel="icon" href="{% static 'favicon.ico' %}">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body>
+    <div class="login-card">
+        <h1>Sitzung abgelaufen</h1>
+        <p>Deine Sitzung ist abgelaufen. Bitte versuche es erneut.</p>
+        <button onclick="window.location='{% url 'login' %}'">Zurück zur Anmeldung</button>
+    </div>
+</body>
+</html>
