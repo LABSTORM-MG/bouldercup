@@ -985,24 +985,31 @@ def _build_standings_pdf_elements(groups, current_time):
     # --- Gesamtübersicht ---
     grading_system = groups[0]["grading_system"] if groups else "ifsc"
     elements.append(Paragraph("Gesamtübersicht", group_style))
+    from ..services.scoring_service import ScoringService as _SC
+    flat = []
+    for g in groups:
+        for e in g["entries"]:
+            copy = dict(e)
+            copy["_age_group_name"] = g["age_group"].name
+            flat.append(copy)
+    _SC.rank_entries(flat, grading_system)
+
     if grading_system == "ifsc":
         overview_data = [["Altersgruppe", "Rang", "Name", "Tops", "Zonen", "Versuche Top", "Versuche Zone"]]
-        for g in groups:
-            for e in g["entries"]:
-                overview_data.append([
-                    g["age_group"].name, str(e["rank"]), e["participant"].name,
-                    str(e.get("tops", 0)), str(e.get("zones", 0)),
-                    str(e.get("top_attempts", 0)), str(e.get("zone_attempts", 0)),
-                ])
+        for e in flat:
+            overview_data.append([
+                e["_age_group_name"], str(e["rank"]), e["participant"].name,
+                str(e.get("tops", 0)), str(e.get("zones", 0)),
+                str(e.get("top_attempts", 0)), str(e.get("zone_attempts", 0)),
+            ])
     else:
         overview_data = [["Altersgruppe", "Rang", "Name", "Punkte", "Tops", "Zonen"]]
-        for g in groups:
-            for e in g["entries"]:
-                overview_data.append([
-                    g["age_group"].name, str(e["rank"]), e["participant"].name,
-                    str(round(e.get("points", 0), 1)),
-                    str(e.get("tops", 0)), str(e.get("zones", 0)),
-                ])
+        for e in flat:
+            overview_data.append([
+                e["_age_group_name"], str(e["rank"]), e["participant"].name,
+                str(round(e.get("points", 0), 1)),
+                str(e.get("tops", 0)), str(e.get("zones", 0)),
+            ])
     if len(overview_data) > 1:
         overview_table = Table(overview_data, hAlign="LEFT")
         overview_table.setStyle(TABLE_STYLE)

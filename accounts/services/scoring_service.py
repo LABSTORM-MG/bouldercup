@@ -424,13 +424,30 @@ class ScoringService:
                 zone_att,
                 entry["participant"].name.lower(),
             )
-        
+
+        def rank_key(entry: dict):
+            if grading_system in ScoringService.POINT_BASED_SYSTEMS:
+                return (
+                    -entry.get("points", 0),
+                    -entry.get("tops", 0),
+                    -entry.get("zones", 0),
+                    entry.get("attempts", 0),
+                )
+            top_att = entry.get("top_attempts", 0) if entry.get("tops", 0) > 0 else float("inf")
+            zone_att = entry.get("zone_attempts", 0) if entry.get("zones", 0) > 0 else float("inf")
+            return (
+                -entry.get("tops", 0),
+                -entry.get("zones", 0),
+                top_att,
+                zone_att,
+            )
+
         entries.sort(key=sort_key)
         last_key = None
         current_rank = 0
-        
+
         for idx, entry in enumerate(entries, start=1):
-            key = sort_key(entry)
+            key = rank_key(entry)
             if key != last_key:
                 current_rank = idx
                 last_key = key

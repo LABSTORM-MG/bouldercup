@@ -121,10 +121,14 @@ class ResultService:
             attempts_z1 = 1
         if top and attempts_top < 1:
             attempts_top = 1
-        if top and attempts_top and attempts_z1 == 0:
-            attempts_z1 = attempts_top
-        if top and attempts_top and attempts_top < attempts_z1:
+
+        # Achieved zone floors top_att: zone_att is authoritative, raise total if needed
+        if zone1 and attempts_z1 > attempts_top:
             attempts_top = attempts_z1
+
+        # Unachieved zone mirrors total attempts
+        if not zone1:
+            attempts_z1 = attempts_top
 
         return SubmittedResult(
             zone1=zone1,
@@ -163,19 +167,21 @@ class ResultService:
         if top and attempts_top < 1:
             attempts_top = 1
 
-        if top and attempts_top and attempts_z2 == 0:
-            attempts_z2 = attempts_top
-        if top and attempts_top and attempts_z1 == 0:
-            attempts_z1 = attempts_top
-        if zone2 and attempts_z2 and attempts_z1 == 0:
-            attempts_z1 = attempts_z2
-
-        if zone2 and attempts_z2 and attempts_z2 < attempts_z1:
+        # Ensure z1_att <= z2_att for achieved zones
+        if zone1 and zone2 and attempts_z2 < attempts_z1:
             attempts_z2 = attempts_z1
-        if top and attempts_top:
-            baseline = attempts_z2 if zone2 else attempts_z1
-            if attempts_top < baseline:
-                attempts_top = baseline
+
+        # Achieved zones floor top_att: zone_att is authoritative, raise total if needed
+        if zone2 and attempts_z2 > attempts_top:
+            attempts_top = attempts_z2
+        if zone1 and attempts_z1 > attempts_top:
+            attempts_top = attempts_z1
+
+        # Unachieved zones mirror total attempts
+        if not zone2:
+            attempts_z2 = attempts_top
+        if not zone1:
+            attempts_z1 = attempts_top
 
         return SubmittedResult(
             zone1=zone1,
