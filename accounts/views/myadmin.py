@@ -79,7 +79,18 @@ def _add_ma_classes(form):
 # Forms (no ReadOnlyPasswordHashField)
 # ---------------------------------------------------------------------------
 
-class ParticipantAddForm(forms.ModelForm):
+class _LowercaseUsernameMixin:
+    def clean_username(self):
+        username = self.cleaned_data.get("username", "")
+        if username != username.lower():
+            raise forms.ValidationError(
+                "Der Benutzername darf keine Großbuchstaben enthalten, "
+                "da die Anmeldung Benutzernamen automatisch in Kleinbuchstaben umwandelt."
+            )
+        return username
+
+
+class ParticipantAddForm(_LowercaseUsernameMixin, forms.ModelForm):
     date_of_birth = forms.DateField(
         label="Geburtsdatum",
         input_formats=["%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d"],
@@ -109,7 +120,7 @@ class ParticipantAddForm(forms.ModelForm):
         return obj
 
 
-class ParticipantEditForm(forms.ModelForm):
+class ParticipantEditForm(_LowercaseUsernameMixin, forms.ModelForm):
     date_of_birth = forms.DateField(
         label="Geburtsdatum",
         input_formats=["%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d"],
