@@ -71,6 +71,8 @@ class CountdownMiddleware:
             'primary_color': settings.primary_color,
             'secondary_color': settings.secondary_color,
             'text_color': text_color,
+            'primary_text_color': _contrast_color(settings.primary_color),
+            'secondary_text_color': _contrast_color(settings.secondary_color),
             'countdown_end_time': settings.countdown_end_time,
             'countdown_end_timestamp': None,
             'show_preview_button': settings.show_preview_button,

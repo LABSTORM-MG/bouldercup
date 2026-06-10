@@ -108,14 +108,15 @@ body {
 .countdown-value {
     font-size: 3rem;
     font-weight: 700;
-    color: white;
+    color: inherit;
     line-height: 1;
 }
 
 .countdown-label {
     font-size: 0.9rem;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
+    color: inherit;
+    opacity: 0.9;
     margin-top: 0.5rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
