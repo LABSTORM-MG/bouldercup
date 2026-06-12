@@ -227,6 +227,11 @@ def myadmin_dashboard(request):
         submission_start__lte=timezone.now(),
         submission_end__gte=timezone.now(),
     )
+    boulder_stats = Boulder.objects.annotate(
+        top_count=Count("results", filter=Q(results__top=True)),
+        zone1_count=Count("results", filter=Q(results__zone1=True)),
+        zone2_count=Count("results", filter=Q(results__zone2=True)),
+    ).order_by("label")
     return render(request, "myadmin/dashboard.html", {
         "page_title": "Dashboard",
         "participant_count": Participant.objects.count(),
@@ -236,6 +241,7 @@ def myadmin_dashboard(request):
         "active_windows": active_windows,
         "competition_date": competition_settings.competition_date if competition_settings else None,
         "locked_count": Participant.objects.filter(is_locked=True).count(),
+        "boulder_stats": boulder_stats,
     })
 
 
@@ -484,12 +490,18 @@ def myadmin_boulders(request):
     if zone_count in ("0", "1", "2"):
         qs = qs.filter(zone_count=int(zone_count))
 
+    location = request.GET.get("location", "")
+    if location in dict(Boulder.LOCATION_CHOICES):
+        qs = qs.filter(location=location)
+
     page_obj = _paginate(qs, request)
     ctx = {
         "page_title": "Boulder",
         "page_obj": page_obj,
         "q": q,
         "filter_zone_count": zone_count,
+        "filter_location": location,
+        "location_choices": Boulder.LOCATION_CHOICES,
     }
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":

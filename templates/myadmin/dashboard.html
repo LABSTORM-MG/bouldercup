@@ -79,4 +79,45 @@
   </div>
 
 </div>
+
+<div class="ma-card" style="margin-top:1rem;">
+  <div class="ma-card-header">
+    <span class="ma-card-title">Boulder-Übersicht</span>
+  </div>
+  <div class="ma-table-wrap">
+    <table class="ma-table">
+      <thead>
+        <tr>
+          <th>Boulder</th>
+          <th>Farbe</th>
+          <th>Zonen</th>
+          <th style="text-align:center;">Top</th>
+          <th style="text-align:center;">Zone 1</th>
+          <th style="text-align:center;">Zone 2</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in boulder_stats %}
+        <tr>
+          <td><strong>{{ b.label }}</strong></td>
+          <td>
+            <span class="color-swatch" style="background-color:{{ b.color }};"></span>
+            {{ b.color }}
+          </td>
+          <td>{{ b.get_zone_count_display }}</td>
+          <td style="text-align:center; font-weight:600;">{{ b.top_count }}</td>
+          <td style="text-align:center;">
+            {% if b.zone_count >= 1 %}{{ b.zone1_count }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+          </td>
+          <td style="text-align:center;">
+            {% if b.zone_count >= 2 %}{{ b.zone2_count }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6"><div class="ma-empty"><div class="empty-icon">🪨</div><p>Keine Boulder vorhanden.</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

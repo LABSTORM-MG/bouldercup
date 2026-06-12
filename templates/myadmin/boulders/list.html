@@ -20,8 +20,14 @@
       <option value="1" {% if filter_zone_count == '1' %}selected{% endif %}>1 Zone</option>
       <option value="2" {% if filter_zone_count == '2' %}selected{% endif %}>2 Zonen</option>
     </select>
+    <select name="location" class="ma-select">
+      <option value="">Alle Orte</option>
+      {% for value, label in location_choices %}
+        <option value="{{ value }}" {% if filter_location == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
     <button type="submit" class="btn btn-secondary btn-sm">Filtern</button>
-    {% if q or filter_zone_count %}
+    {% if q or filter_zone_count or filter_location %}
       <a href="{% url 'myadmin:boulders' %}" class="btn btn-ghost btn-sm" id="reset-link">✕ Zurücksetzen</a>
     {% endif %}
   </div>
